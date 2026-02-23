@@ -1,34 +1,45 @@
 import { defineStore } from 'pinia';
-import { router } from '@/router';
+import { getToken, setToken, removeToken } from '@/utils/auth';
+import { login as loginApi, register as registerApi } from '@/api/user';
+import router from '@/router';
+import { message } from 'ant-design-vue';
 
+// 定义用户信息类型
 interface UserInfo {
-  id: string;
+  id: number;
   username: string;
-  role: 'admin' | 'analyst' | 'viewer';
+  role: string;
+  name: string;
 }
 
 export const useUserStore = defineStore('user', {
   state: () => ({
-    token: localStorage.getItem('fin_token') || '',
+    token: getToken() || '',
     userInfo: null as UserInfo | null,
   }),
   actions: {
-    // 登录模拟
+    // 登录
     async login(username: string, password: string) {
-      if (username === 'admin' && password === '123456') {
-        this.token = 'fin_mock_token_2024';
-        this.userInfo = { id: '1', username: 'Administrator', role: 'admin' };
-        localStorage.setItem('fin_token', this.token);
-        return true;
-      }
-      throw new Error('账号密码错误');
+      const res = await loginApi({ username, password });
+      this.token = res.token;
+      this.userInfo = res.userInfo;
+      setToken(res.token);
+      message.success('登录成功');
+      router.push('/');
+    },
+    // 注册
+    async register(userInfo: any) {
+      await registerApi(userInfo);
+      message.success('注册成功，请登录');
+      router.push('/login');
     },
     // 登出
     logout() {
       this.token = '';
       this.userInfo = null;
-      localStorage.removeItem('fin_token');
+      removeToken();
       router.push('/login');
-    },
-  },
+      message.info('已退出登录');
+    }
+  }
 });
