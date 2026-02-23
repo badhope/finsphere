@@ -11,18 +11,17 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8080', // 模拟后端地址
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
-    },
+    open: true,
   },
   css: {
     preprocessorOptions: {
       less: {
         javascriptEnabled: true,
+        modifyVars: {
+          'primary-color': '#1890ff',
+          'link-color': '#1890ff',
+          'border-radius-base': '6px',
+        },
       },
     },
   },
