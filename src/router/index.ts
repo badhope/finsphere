@@ -1,72 +1,30 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
-import { useUserStore } from '@/store/user';
-
-// 常规路由
-export const constantRoutes: RouteRecordRaw[] = [
-  {
-    path: '/login',
-    name: 'Login',
-    component: () => import('@/views/login/index.vue'),
-    meta: { title: '登录' },
-  },
-  {
-    path: '/404',
-    component: () => import('@/views/error/404.vue'),
-  },
-];
-
-// 需要权限的路由
-export const asyncRoutes: RouteRecordRaw[] = [
-  {
-    path: '/',
-    component: () => import('@/layouts/BasicLayout.vue'),
-    redirect: '/dashboard',
-    children: [
-      {
-        path: 'dashboard',
-        name: 'Dashboard',
-        component: () => import('@/views/dashboard/index.vue'),
-        meta: { title: '金融驾驶舱', icon: 'dashboard' },
-      },
-      {
-        path: 'system',
-        name: 'System',
-        meta: { title: '系统管理', icon: 'setting' },
-        children: [
-          {
-            path: 'user',
-            name: 'UserManage',
-            component: () => import('@/views/system/user.vue'),
-            meta: { title: '用户管理' },
-          }
-        ]
-      },
-    ],
-  },
-  { path: '/:pathMatch(.*)*', redirect: '/404' },
-];
+import { createRouter, createWebHistory } from 'vue-router';
+import { constantRoutes, asyncRoutes } from './routes';
+import { getToken } from '@/utils/auth';
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [...constantRoutes, ...asyncRoutes],
 });
 
-// 路由守卫
-router.beforeEach((to, from, next) => {
-  const userStore = useUserStore();
-  const token = userStore.token;
+// 简单的白名单逻辑
+const whiteList = ['/login', '/register'];
 
-  if (token) {
+router.beforeEach((to, from, next) => {
+  document.title = `${to.meta.title || '首页'} | FinSphere Pro`;
+  const hasToken = getToken();
+  
+  if (hasToken) {
     if (to.path === '/login') {
-      next({ path: '/' });
+      next({ path: '/' }); // 已登录去登录页，重定向到首页
     } else {
-      next();
+      next(); // 放行
     }
   } else {
-    if (to.path === '/login') {
-      next();
+    if (whiteList.includes(to.path)) {
+      next(); // 未登录但在白名单，放行
     } else {
-      next(`/login?redirect=${to.path}`);
+      next(`/login?redirect=${to.path}`); // 其他拦截到登录页
     }
   }
 });
