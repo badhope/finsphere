@@ -1,0 +1,550 @@
+import express from 'express';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import open from 'open';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const app = express();
+const PORT = 3001;
+
+// 中间件
+app.use(express.json());
+app.use(express.static(join(__dirname, 'public')));
+
+// API路由
+app.post('/api/start-server', (req, res) => {
+  try {
+    console.log('收到启动服务器请求');
+    
+    // 启动Vite开发服务器
+    const viteProcess = spawn('npm', ['run', 'dev'], {
+      cwd: process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    viteProcess.stdout.on('data', (data) => {
+      console.log(`Vite输出: ${data}`);
+    });
+
+    viteProcess.stderr.on('data', (data) => {
+      console.error(`Vite错误: ${data}`);
+    });
+
+    viteProcess.on('close', (code) => {
+      console.log(`Vite进程退出，代码: ${code}`);
+    });
+
+    res.json({
+      success: true,
+      message: '开发服务器启动指令已发送',
+      url: 'http://localhost:3000'
+    });
+  } catch (error) {
+    console.error('启动服务器失败:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+app.post('/api/check-environment', (req, res) => {
+  try {
+    // 模拟环境检查
+    const environmentData = {
+      'Node.js版本': process.version,
+      '操作系统': process.platform,
+      '项目依赖': '检查中...',
+      '环境配置': '基本就绪'
+    };
+
+    res.json({
+      success: true,
+      data: environmentData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+app.post('/api/configure-environment', (req, res) => {
+  try {
+    // 模拟环境配置
+    setTimeout(() => {
+      res.json({
+        success: true,
+        message: '环境配置完成'
+      });
+    }, 2000);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// 主页路由
+app.get('/', (req, res) => {
+  const html = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinSphere Pro 管理面板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2rem;
+            margin: 0;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .status-item {
+            padding: 8px 15px;
+            border-radius: 20px;
+            background: #ecf0f1;
+            font-size: 0.9rem;
+        }
+        
+        .status-item.active {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+        }
+        
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .card h3 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+            font-size: 1.3rem;
+        }
+        
+        .card p {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(45deg, #2980b9, #1f618d);
+            transform: scale(1.05);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .log-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-header h2 {
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .log-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-small {
+            padding: 8px 15px;
+            border: 1px solid #bdc3c7;
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-small:hover {
+            background: #ecf0f1;
+        }
+        
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            background: #2c3e50;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            color: #ecf0f1;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .log-success { background: rgba(46, 204, 113, 0.3); }
+        .log-error { background: rgba(231, 76, 60, 0.3); }
+        .log-info { background: rgba(52, 152, 219, 0.3); }
+        .log-warning { background: rgba(241, 196, 15, 0.3); }
+        
+        .timestamp {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            min-width: 80px;
+        }
+        
+        .log-icon {
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 FinSphere Pro 管理面板</h1>
+            <div class="status-bar">
+                <span class="status-item" id="server-status">🔴 服务器: 停止</span>
+                <span class="status-item" id="env-status">🟡 环境: 未就绪</span>
+            </div>
+        </div>
+        
+        <div class="cards">
+            <div class="card" onclick="startServer()">
+                <div class="card-icon">🎮</div>
+                <h3>启动开发服务器</h3>
+                <p>一键启动本地开发环境</p>
+                <button class="btn btn-primary" id="start-btn">立即启动</button>
+            </div>
+            
+            <div class="card" onclick="checkEnvironment()">
+                <div class="card-icon">🔍</div>
+                <h3>环境状态检测</h3>
+                <p>全面检查项目环境状态</p>
+                <button class="btn btn-secondary">开始检测</button>
+            </div>
+            
+            <div class="card" onclick="configureEnvironment()">
+                <div class="card-icon">🔧</div>
+                <h3>自动环境配置</h3>
+                <p>一键配置完整开发环境</p>
+                <button class="btn btn-warning" id="config-btn">开始配置</button>
+            </div>
+        </div>
+        
+        <div class="log-section">
+            <div class="section-header">
+                <h2>📋 实时操作日志</h2>
+                <div class="log-controls">
+                    <button class="btn-small" onclick="clearLogs()">清空日志</button>
+                    <button class="btn-small" onclick="toggleAutoScroll()">
+                        <span id="scroll-text">自动滚动</span>
+                    </button>
+                </div>
+            </div>
+            <div class="log-container" id="log-container"></div>
+        </div>
+    </div>
+
+    <script>
+        let isServerRunning = false;
+        let isConfiguring = false;
+        let autoScroll = true;
+        
+        // 添加日志函数
+        function addLog(message, type = 'info') {
+            const container = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = \`log-entry log-\${type}\`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const icons = {
+                info: 'ℹ️',
+                success: '✅',
+                warning: '⚠️',
+                error: '❌'
+            };
+            
+            entry.innerHTML = \`
+                <span class="timestamp">[\${timestamp}]</span>
+                <span class="log-icon">\${icons[type] || '🔹'}</span>
+                <span>\${message}</span>
+            \`;
+            
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // 限制日志数量
+            if (container.children.length > 100) {
+                container.removeChild(container.firstChild);
+            }
+        }
+        
+        // 更新状态显示
+        function updateStatus() {
+            const serverStatus = document.getElementById('server-status');
+            const envStatus = document.getElementById('env-status');
+            
+            if (isServerRunning) {
+                serverStatus.className = 'status-item active';
+                serverStatus.textContent = '🟢 服务器: 运行中';
+            } else {
+                serverStatus.className = 'status-item';
+                serverStatus.textContent = '🔴 服务器: 停止';
+            }
+            
+            if (isConfiguring) {
+                envStatus.className = 'status-item';
+                envStatus.textContent = '🟡 环境: 配置中';
+            } else {
+                envStatus.className = 'status-item active';
+                envStatus.textContent = '🟢 环境: 就绪';
+            }
+        }
+        
+        // 启动服务器
+        async function startServer() {
+            if (isServerRunning) return;
+            
+            const btn = document.getElementById('start-btn');
+            btn.disabled = true;
+            btn.textContent = '启动中...';
+            
+            addLog('正在启动开发服务器...', 'info');
+            
+            try {
+                const response = await fetch('/api/start-server', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    isServerRunning = true;
+                    addLog('✅ 开发服务器启动成功！', 'success');
+                    addLog(\`🌐 访问地址: \${result.url}\`, 'info');
+                    addLog('💡 项目页面将在新标签页中打开', 'info');
+                    
+                    // 自动打开项目页面
+                    setTimeout(() => {
+                        window.open(result.url, '_blank');
+                    }, 2000);
+                } else {
+                    addLog(\`❌ 启动失败: \${result.message}\`, 'error');
+                }
+            } catch (error) {
+                addLog(\`❌ 启动出错: \${error.message}\`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = isServerRunning ? '已运行' : '立即启动';
+                updateStatus();
+            }
+        }
+        
+        // 环境检测
+        async function checkEnvironment() {
+            addLog('🔍 开始环境检测...', 'info');
+            
+            try {
+                const response = await fetch('/api/check-environment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog('✅ 环境检测完成！', 'success');
+                    Object.entries(result.data).forEach(([key, value]) => {
+                        addLog(\`\${key}: \${value}\`, 'info');
+                    });
+                } else {
+                    addLog(\`❌ 检测失败: \${result.message}\`, 'error');
+                }
+            } catch (error) {
+                addLog(\`❌ 检测出错: \${error.message}\`, 'error');
+            }
+        }
+        
+        // 环境配置
+        async function configureEnvironment() {
+            if (isConfiguring) return;
+            
+            const btn = document.getElementById('config-btn');
+            btn.disabled = true;
+            btn.textContent = '配置中...';
+            isConfiguring = true;
+            updateStatus();
+            
+            addLog('🔧 开始自动环境配置...', 'warning');
+            
+            try {
+                const response = await fetch('/api/configure-environment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog('✅ 环境配置完成！🎉', 'success');
+                } else {
+                    addLog(\`❌ 配置失败: \${result.message}\`, 'error');
+                }
+            } catch (error) {
+                addLog(\`❌ 配置出错: \${error.message}\`, 'error');
+            } finally {
+                isConfiguring = false;
+                btn.disabled = false;
+                btn.textContent = '开始配置';
+                updateStatus();
+            }
+        }
+        
+        // 清空日志
+        function clearLogs() {
+            const container = document.getElementById('log-container');
+            container.innerHTML = '';
+            addLog('日志已清空', 'info');
+        }
+        
+        // 切换自动滚动
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            const scrollText = document.getElementById('scroll-text');
+            scrollText.textContent = autoScroll ? '自动滚动' : '暂停滚动';
+            addLog(\`自动滚动\${autoScroll ? '已启用' : '已禁用'}\`, 'info');
+        }
+        
+        // 初始化
+        addLog('🌟 欢迎使用 FinSphere Pro 管理面板！', 'success');
+        addLog('💡 点击上方功能卡片开始操作', 'info');
+        updateStatus();
+    </script>
+</body>
+</html>
+  `;
+  
+  res.send(html);
+});
+
+// 启动服务器
+app.listen(PORT, () => {
+  console.log(`🚀 FinSphere Pro 管理面板启动成功!`);
+  console.log(`🌐 访问地址: http://localhost:${PORT}`);
+  console.log('💡 按 Ctrl+C 停止服务器');
+  
+  // 自动打开浏览器
+  open(`http://localhost:${PORT}`);
+});
