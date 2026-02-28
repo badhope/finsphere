@@ -1,0 +1,125 @@
+// 清除浮动
+@mixin clearfix {
+  &::before,
+  &::after {
+    content: '';
+    display: table;
+  }
+  
+  &::after {
+    clear: both;
+  }
+}
+
+// 文本省略
+@mixin text-ellipsis($lines: 1) {
+  @if $lines == 1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  } @else {
+    display: -webkit-box;
+    -webkit-line-clamp: $lines;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+// 居中对齐
+@mixin center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+// 垂直居中
+@mixin vertical-center {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+// 水平居中
+@mixin horizontal-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+// 三角形
+@mixin triangle($direction: down, $size: 5px, $color: #000) {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  
+  @if $direction == up {
+    border-width: 0 $size $size $size;
+    border-color: transparent transparent $color transparent;
+  } @else if $direction == down {
+    border-width: $size $size 0 $size;
+    border-color: $color transparent transparent transparent;
+  } @else if $direction == left {
+    border-width: $size $size $size 0;
+    border-color: transparent $color transparent transparent;
+  } @else if $direction == right {
+    border-width: $size 0 $size $size;
+    border-color: transparent transparent transparent $color;
+  }
+}
+
+// 占位符样式
+@mixin placeholder {
+  &::-webkit-input-placeholder {
+    @content;
+  }
+  &::-moz-placeholder {
+    @content;
+  }
+  &:-ms-input-placeholder {
+    @content;
+  }
+  &::placeholder {
+    @content;
+  }
+}
+
+// 滚动条样式
+@mixin scrollbar($size: 6px, $thumb-color: #c0c4cc, $track-color: transparent) {
+  &::-webkit-scrollbar {
+    width: $size;
+    height: $size;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: $thumb-color;
+    border-radius: $size;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: $track-color;
+  }
+}
+
+// 卡片阴影效果
+@mixin card-shadow($level: 1) {
+  @if $level == 1 {
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  } @else if $level == 2 {
+    box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+  } @else if $level == 3 {
+    box-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.2);
+  }
+}
+
+// 渐变背景
+@mixin gradient-bg($start-color, $end-color, $direction: to bottom) {
+  background: linear-gradient($direction, $start-color, $end-color);
+}
+
+// 毛玻璃效果
+@mixin frosted-glass($blur: 10px, $bg-color: rgba(255, 255, 255, 0.8)) {
+  background: $bg-color;
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+}

@@ -1,0 +1,198 @@
+// 导入所有变量
+@import './colors';
+
+// 导入所有混合器
+@import '../mixins/breakpoints';
+@import '../mixins/utilities';
+
+// 全局重置样式
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: $text-primary;
+  background-color: $background-color-base;
+}
+
+// 链接样式
+a {
+  color: $primary-color;
+  text-decoration: none;
+  transition: color 0.3s ease;
+  
+  &:hover {
+    color: darken($primary-color, 10%);
+  }
+}
+
+// 输入框样式重置
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+// 按钮样式重置
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+// 列表样式重置
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// 表格样式重置
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+// 图片样式
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+// 金融数据特殊样式类
+.finance-positive {
+  color: $finance-green !important;
+}
+
+.finance-negative {
+  color: $finance-red !important;
+}
+
+.finance-neutral {
+  color: $text-secondary !important;
+}
+
+// 卡片组件基础样式
+.card {
+  background: $background-color-card;
+  border-radius: $border-radius-large;
+  @include card-shadow(1);
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+  
+  &--hover:hover {
+    @include card-shadow(2);
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+  }
+}
+
+// 加载动画容器
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+// 响应式工具类
+.hidden-xs {
+  @include respond-to(xs) {
+    display: none !important;
+  }
+}
+
+.hidden-sm {
+  @include respond-to(sm) {
+    display: none !important;
+  }
+}
+
+.hidden-md {
+  @include respond-to(md) {
+    display: none !important;
+  }
+}
+
+.hidden-lg {
+  @include respond-to(lg) {
+    display: none !important;
+  }
+}
+
+.hidden-xl {
+  @include respond-to(xl) {
+    display: none !important;
+  }
+}
+
+// 文本对齐工具类
+.text-left {
+  text-align: left !important;
+}
+
+.text-center {
+  text-align: center !important;
+}
+
+.text-right {
+  text-align: right !important;
+}
+
+// 浮动工具类
+.float-left {
+  float: left !important;
+}
+
+.float-right {
+  float: right !important;
+}
+
+.clearfix {
+  @include clearfix;
+}
+
+// 显示隐藏工具类
+.show {
+  display: block !important;
+}
+
+.hide {
+  display: none !important;
+}
+
+.invisible {
+  visibility: hidden !important;
+}
+
+// 滚动条美化
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $gray-400;
+  border-radius: 3px;
+  
+  &:hover {
+    background: $gray-500;
+  }
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

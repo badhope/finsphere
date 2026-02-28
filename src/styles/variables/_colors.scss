@@ -1,0 +1,102 @@
+// 主题颜色变量
+$primary-color: #409eff;
+$success-color: #67c23a;
+$warning-color: #e6a23c;
+$danger-color: #f56c6c;
+$info-color: #909399;
+
+// 中性色
+$white: #ffffff;
+$black: #000000;
+$gray-50: #fafafa;
+$gray-100: #f5f7fa;
+$gray-200: #e4e7ed;
+$gray-300: #d4d7de;
+$gray-400: #c0c4cc;
+$gray-500: #909399;
+$gray-600: #606266;
+$gray-700: #303133;
+
+// 文字颜色
+$text-primary: $gray-700;
+$text-regular: $gray-600;
+$text-secondary: $gray-500;
+$text-placeholder: $gray-400;
+
+// 边框颜色
+$border-color: $gray-200;
+$border-color-light: $gray-100;
+$border-color-dark: $gray-300;
+
+// 背景色
+$background-color-base: $gray-100;
+$background-color-card: $white;
+
+// 字体大小
+$font-size-extra-large: 20px;
+$font-size-large: 18px;
+$font-size-medium: 16px;
+$font-size-base: 14px;
+$font-size-small: 13px;
+$font-size-extra-small: 12px;
+
+// 字体粗细
+$font-weight-primary: 500;
+$font-weight-bold: 700;
+
+// 行高
+$line-height-primary: 24px;
+$line-height-base: 1.5;
+
+// 边距间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 20px;
+$spacing-xxl: 24px;
+
+// 圆角
+$border-radius-small: 2px;
+$border-radius-base: 4px;
+$border-radius-medium: 6px;
+$border-radius-large: 8px;
+$border-radius-circle: 50%;
+
+// 阴影
+$box-shadow-base: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+$box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.12);
+$box-shadow-light: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+
+// 断点
+$breakpoint-xs: 480px;
+$breakpoint-sm: 768px;
+$breakpoint-md: 992px;
+$breakpoint-lg: 1200px;
+$breakpoint-xl: 1920px;
+
+// z-index 层级
+$z-index-normal: 1;
+$z-index-top: 1000;
+$z-index-popper: 2000;
+
+// 金融专用颜色
+$finance-green: #00c853;
+$finance-red: #ff5252;
+$finance-blue: #2979ff;
+$finance-purple: #7e57c2;
+$finance-orange: #ffab00;
+
+// 图表颜色系列
+$chart-color-series: (
+  #409eff,
+  #67c23a,
+  #e6a23c,
+  #f56c6c,
+  #909399,
+  #00c853,
+  #2979ff,
+  #7e57c2,
+  #ffab00,
+  #ff5252
+);

@@ -1,0 +1,39 @@
+{
+  "extends": [
+    "stylelint-config-standard",
+    "stylelint-config-html/vue",
+    "stylelint-config-recommended-vue"
+  ],
+  "rules": {
+    "at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": [
+          "tailwind",
+          "apply",
+          "variants",
+          "responsive",
+          "screen"
+        ]
+      }
+    ],
+    "selector-class-pattern": null,
+    "selector-pseudo-class-no-unknown": [
+      true,
+      {
+        "ignorePseudoClasses": ["deep", "global"]
+      }
+    ],
+    "font-family-no-missing-generic-family-keyword": null,
+    "no-descending-specificity": null,
+    "color-function-notation": null
+  },
+  "ignoreFiles": [
+    "**/*.js",
+    "**/*.ts",
+    "**/*.jsx",
+    "**/*.tsx",
+    "dist/**/*",
+    "node_modules/**/*"
+  ]
+}

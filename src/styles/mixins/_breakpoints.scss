@@ -1,0 +1,76 @@
+// 响应式断点
+$screen-xs: 480px !default;
+$screen-sm: 576px !default;
+$screen-md: 768px !default;
+$screen-lg: 992px !default;
+$screen-xl: 1200px !default;
+$screen-xxl: 1600px !default;
+
+// 媒体查询混合器
+@mixin respond-to($media) {
+  @if $media == xs {
+    @media (max-width: $screen-xs) {
+      @content;
+    }
+  } @else if $media == sm {
+    @media (max-width: $screen-sm) {
+      @content;
+    }
+  } @else if $media == md {
+    @media (max-width: $screen-md) {
+      @content;
+    }
+  } @else if $media == lg {
+    @media (max-width: $screen-lg) {
+      @content;
+    }
+  } @else if $media == xl {
+    @media (max-width: $screen-xl) {
+      @content;
+    }
+  } @else if $media == xxl {
+    @media (max-width: $screen-xxl) {
+      @content;
+    }
+  } @else {
+    @media (max-width: $media) {
+      @content;
+    }
+  }
+}
+
+// 移动端优先的媒体查询
+@mixin mobile-first($min-width) {
+  @media (min-width: $min-width) {
+    @content;
+  }
+}
+
+// 桌面端优先的媒体查询
+@mixin desktop-first($max-width) {
+  @media (max-width: $max-width) {
+    @content;
+  }
+}
+
+// 高分辨率屏幕支持
+@mixin high-dpi($ratio: 1.5) {
+  @media (-webkit-min-device-pixel-ratio: $ratio),
+         (min-resolution: #{$ratio}dppx) {
+    @content;
+  }
+}
+
+// 横屏设备
+@mixin landscape {
+  @media (orientation: landscape) {
+    @content;
+  }
+}
+
+// 竖屏设备
+@mixin portrait {
+  @media (orientation: portrait) {
+    @content;
+  }
+}
