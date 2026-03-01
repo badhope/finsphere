@@ -248,7 +248,7 @@ VITE_SENTRY_DSN=your_sentry_dsn
 
 - 项目主页: [https://github.com/badhope/finsphere](https://github.com/badhope/finsphere)
 - 问题反馈: [Issues](https://github.com/badhope/finsphere/issues)
-- 邮箱: contact@finsphere.com
+- 邮箱: x18825407105@outlook.com
 
 ---
 
