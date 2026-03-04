@@ -54,6 +54,11 @@ const handleKeyPress = (event: KeyboardEvent) => {
     handleLogin()
   }
 }
+
+// 为输入框添加回车键处理
+const handleInputKeyPress = (event: KeyboardEvent) => {
+  handleKeyPress(event)
+}
 </script>
 
 <template>
@@ -70,7 +75,6 @@ const handleKeyPress = (event: KeyboardEvent) => {
           :model="loginForm"
           :rules="loginRules"
           class="login-form"
-          @keyup.enter="handleKeyPress"
         >
           <ElFormItem prop="username">
             <ElInput
@@ -78,6 +82,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
               placeholder="用户名"
               size="large"
               clearable
+              @keyup.enter="handleInputKeyPress"
             >
               <template #prefix>
                 <User class="input-icon" />
@@ -92,6 +97,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
               placeholder="密码"
               size="large"
               show-password
+              @keyup.enter="handleInputKeyPress"
             >
               <template #prefix>
                 <Lock class="input-icon" />
@@ -144,6 +150,33 @@ const handleKeyPress = (event: KeyboardEvent) => {
   justify-content: center;
   padding: 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(255, 255, 255, 0.1) 100%
+    );
+    animation: gradient-shift 15s ease infinite;
+    z-index: 0;
+  }
+  
+  @keyframes gradient-shift {
+    0% {
+      transform: translateX(-50%) translateY(-50%) rotate(0deg);
+    }
+    100% {
+      transform: translateX(-50%) translateY(-50%) rotate(360deg);
+    }
+  }
 }
 
 .login-form-wrapper {
@@ -151,11 +184,32 @@ const handleKeyPress = (event: KeyboardEvent) => {
   z-index: 2;
   width: 100%;
   max-width: 400px;
+  animation: fade-in 0.8s ease-out;
+  
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 .login-card {
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+    transform: translateY(-5px);
+  }
   
   :deep(.el-card__body) {
     padding: 40px 30px;
@@ -167,10 +221,24 @@ const handleKeyPress = (event: KeyboardEvent) => {
   margin-bottom: 30px;
   
   .login-title {
-    font-size: 28px;
-    font-weight: 600;
+    font-size: 32px;
+    font-weight: 700;
     color: var(--el-text-color-primary);
     margin: 0 0 10px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: title-glow 2s ease-in-out infinite alternate;
+    
+    @keyframes title-glow {
+      from {
+        filter: drop-shadow(0 0 5px rgba(102, 126, 234, 0.5));
+      }
+      to {
+        filter: drop-shadow(0 0 15px rgba(102, 126, 234, 0.8));
+      }
+    }
   }
   
   .login-subtitle {
@@ -186,25 +254,61 @@ const handleKeyPress = (event: KeyboardEvent) => {
   }
   
   :deep(.el-input__wrapper) {
-    border-radius: 8px;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      border-color: var(--el-color-primary);
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+    }
+    
+    &.is-focus {
+      border-color: var(--el-color-primary);
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+    }
+  }
+  
+  :deep(.el-button) {
+    transition: all 0.3s ease;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
   }
 }
 
 .input-icon {
   color: var(--el-text-color-secondary);
+  transition: color 0.3s ease;
+  
+  :deep(.el-input__wrapper:hover) & {
+    color: var(--el-color-primary);
+  }
 }
 
 .login-button {
   width: 100%;
   height: 48px;
   font-size: 16px;
-  border-radius: 8px;
+  font-weight: 600;
+  border-radius: 12px;
   margin-top: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  
+  &:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6b4391 100%);
+  }
 }
 
 .login-footer {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 24px;
   
   p {
     margin: 0;
@@ -217,9 +321,26 @@ const handleKeyPress = (event: KeyboardEvent) => {
   color: var(--el-color-primary);
   text-decoration: none;
   font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
   
   &:hover {
-    text-decoration: underline;
+    color: var(--el-color-primary-light-3);
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--el-color-primary);
+    transition: width 0.3s ease;
+  }
+  
+  &:hover::after {
+    width: 100%;
   }
 }
 
@@ -237,7 +358,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -255,7 +376,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
   
   .login-header {
     .login-title {
-      font-size: 24px;
+      font-size: 28px;
     }
   }
 }

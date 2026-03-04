@@ -105,7 +105,7 @@ export function useLoading() {
 }
 
 // 防抖相关
-export function useDebounce(fn: Function, delay: number = 300) {
+export function useCustomDebounce(fn: Function, delay: number = 300) {
   let timeoutId: number | null = null
   
   const debouncedFn = (...args: any[]) => {
@@ -131,7 +131,7 @@ export function useDebounce(fn: Function, delay: number = 300) {
 }
 
 // 节流相关
-export function useThrottle(fn: Function, delay: number = 300) {
+export function useCustomThrottle(fn: Function, delay: number = 300) {
   let lastExecTime = 0
   
   const throttledFn = (...args: any[]) => {
@@ -146,7 +146,7 @@ export function useThrottle(fn: Function, delay: number = 300) {
 }
 
 // 本地存储相关
-export function useLocalStorage<T>(key: string, initialValue: T) {
+export function useCustomLocalStorage<T>(key: string, initialValue: T) {
   const storedValue = localStorage.getItem(key)
   const data = ref<T>(
     storedValue ? JSON.parse(storedValue) : initialValue

@@ -10,7 +10,7 @@ export function setupMock() {
   }
 
   // 用户登录
-  Mock.mock('/api/auth/login', 'post', (options: any) => {
+  Mock.mock('http://localhost:8000/auth/login', 'post', (options: any) => {
     const { username, password } = JSON.parse(options.body)
     
     if (username === 'admin' && password === '123456') {
@@ -52,7 +52,7 @@ export function setupMock() {
   })
 
   // 获取用户信息
-  Mock.mock('/api/user/info', 'get', {
+  Mock.mock('http://localhost:8000/user/info', 'get', {
     code: 200,
     data: {
       id: '1',
@@ -76,7 +76,7 @@ export function setupMock() {
   })
 
   // 获取资产列表
-  Mock.mock('/api/assets', 'get', {
+  Mock.mock('http://localhost:8000/assets', 'get', {
     code: 200,
     data: {
       items: [
@@ -128,7 +128,7 @@ export function setupMock() {
   })
 
   // 获取投资组合
-  Mock.mock('/api/portfolios', 'get', {
+  Mock.mock('http://localhost:8000/portfolios', 'get', {
     code: 200,
     data: {
       items: [
@@ -175,7 +175,7 @@ export function setupMock() {
   })
 
   // 获取实时行情
-  Mock.mock('/api/market/realtime', 'post', {
+  Mock.mock('http://localhost:8000/market/realtime', 'post', {
     code: 200,
     data: [
       {
@@ -192,6 +192,24 @@ export function setupMock() {
       }
     ],
     message: '获取成功',
+    timestamp: Date.now()
+  })
+
+  // 登出
+  Mock.mock('http://localhost:8000/auth/logout', 'post', {
+    code: 200,
+    data: null,
+    message: '登出成功',
+    timestamp: Date.now()
+  })
+
+  // 刷新令牌
+  Mock.mock('http://localhost:8000/auth/refresh', 'post', {
+    code: 200,
+    data: {
+      accessToken: Mock.Random.string(32)
+    },
+    message: '刷新成功',
     timestamp: Date.now()
   })
 

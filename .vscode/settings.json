@@ -21,5 +21,8 @@
   "vetur.validation.script": false,
   "vetur.validation.style": false,
   "vue.suggest.missingImports": true,
-  "vue.autoInsert.dotValue": true
+  "vue.autoInsert.dotValue": true,
+  "i18n-ally.localesPaths": [
+    "src/locales"
+  ]
 }

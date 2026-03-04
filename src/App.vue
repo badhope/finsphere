@@ -4,6 +4,7 @@ import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
 import { ElConfigProvider } from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import Dashboard from './views/dashboard/Index.vue'
 
 const appStore = useAppStore()
 const userStore = useUserStore()
@@ -33,7 +34,7 @@ onMounted(() => {
 
 <template>
   <ElConfigProvider :locale="zhCn" :size="appStore.elementSize">
-    <RouterView />
+    <Dashboard />
   </ElConfigProvider>
 </template>
 
