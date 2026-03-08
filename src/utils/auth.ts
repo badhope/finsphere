@@ -3,6 +3,12 @@
  */
 
 import { localStore, sessionStore } from '@/utils/storage'
+import {
+  verifyJWTFormat,
+  isTokenExpired,
+  isTokenExpiringSoon as isExpiringSoon,
+  parseJWT,
+} from '@/utils/security/jwt'
 
 const TOKEN_KEY = 'access_token'
 const REFRESH_TOKEN_KEY = 'refresh_token'
@@ -12,7 +18,6 @@ const USER_INFO_KEY = 'user_info'
  * 获取访问令牌
  */
 export function getToken(): string | null {
-  // 优先从sessionStorage获取（更安全）
   return sessionStore.get<string>(TOKEN_KEY) || localStore.get<string>(TOKEN_KEY)
 }
 
@@ -20,11 +25,16 @@ export function getToken(): string | null {
  * 设置访问令牌
  */
 export function setToken(token: string, rememberMe: boolean = false): void {
+  const expiresIn = rememberMe ? 7 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000
+
+  const validationResult = verifyJWTFormat(token)
+  if (!validationResult.valid) {
+    console.warn('Invalid JWT token:', validationResult.error)
+  }
+
   if (rememberMe) {
-    // 记住我时存储到localStorage
-    localStore.set(TOKEN_KEY, token, { encrypt: true, expire: 7 * 24 * 60 * 60 * 1000 }) // 7天过期
+    localStore.set(TOKEN_KEY, token, { encrypt: true, expire: expiresIn })
   } else {
-    // 否则存储到sessionStorage
     sessionStore.set(TOKEN_KEY, token, { encrypt: true })
   }
 }
@@ -48,7 +58,7 @@ export function getRefreshToken(): string | null {
  * 设置刷新令牌
  */
 export function setRefreshToken(token: string): void {
-  localStore.set(REFRESH_TOKEN_KEY, token, { encrypt: true, expire: 30 * 24 * 60 * 60 * 1000 }) // 30天过期
+  localStore.set(REFRESH_TOKEN_KEY, token, { encrypt: true, expire: 30 * 24 * 60 * 60 * 1000 })
 }
 
 /**
@@ -69,7 +79,7 @@ export function getUserInfo<T = any>(): T | null {
  * 设置用户信息
  */
 export function setUserInfo(userInfo: any): void {
-  localStore.set(USER_INFO_KEY, userInfo, { encrypt: true, expire: 24 * 60 * 60 * 1000 }) // 1天过期
+  localStore.set(USER_INFO_KEY, userInfo, { encrypt: true, expire: 24 * 60 * 60 * 1000 })
 }
 
 /**
@@ -92,26 +102,50 @@ export function clearAuth(): void {
  * 检查是否已认证
  */
 export function isAuthenticated(): boolean {
-  return !!getToken()
+  const token = getToken()
+  if (!token) return false
+
+  return !isTokenExpired(token)
 }
 
 /**
  * 检查令牌是否即将过期
  */
 export function isTokenExpiringSoon(expiresIn: number = 300): boolean {
-  // 这里可以根据实际的token结构来判断
-  // 简单实现：假设token是JWT格式
   const token = getToken()
   if (!token) return true
 
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    const exp = payload.exp
-    if (!exp) return false
-    
-    const now = Math.floor(Date.now() / 1000)
-    return exp - now < expiresIn
-  } catch {
-    return false
+  return isExpiringSoon(token, expiresIn)
+}
+
+/**
+ * 验证令牌有效性
+ */
+export function validateToken(): { valid: boolean; error?: string } {
+  const token = getToken()
+  if (!token) {
+    return { valid: false, error: '未找到访问令牌' }
   }
+
+  const validationResult = verifyJWTFormat(token)
+  if (!validationResult.valid) {
+    return { valid: false, error: validationResult.error }
+  }
+
+  if (isTokenExpired(token)) {
+    return { valid: false, error: '令牌已过期' }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * 从令牌中获取用户角色
+ */
+export function getUserRolesFromToken(): string[] {
+  const token = getToken()
+  if (!token) return []
+
+  const payload = parseJWT(token)
+  return payload?.roles || []
 }

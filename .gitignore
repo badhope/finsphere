@@ -19,8 +19,12 @@ node_modules
 *~
 
 # local env files
+.env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.example
 
 # types
 *.d.ts

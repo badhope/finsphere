@@ -15,8 +15,8 @@ export const constantRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/Login.vue'),
     meta: {
       title: '登录',
-      hidden: true
-    }
+      hidden: true,
+    },
   },
   {
     path: '/register',
@@ -24,8 +24,8 @@ export const constantRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/Register.vue'),
     meta: {
       title: '注册',
-      hidden: true
-    }
+      hidden: true,
+    },
   },
   {
     path: '/404',
@@ -33,9 +33,9 @@ export const constantRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/error/404.vue'),
     meta: {
       title: '页面未找到',
-      hidden: true
-    }
-  }
+      hidden: true,
+    },
+  },
 ]
 
 // 动态路由
@@ -53,10 +53,10 @@ export const asyncRoutes: RouteRecordRaw[] = [
         meta: {
           title: '工作台',
           icon: 'Odometer',
-          affix: true
-        }
-      }
-    ]
+          affix: true,
+        },
+      },
+    ],
   },
   {
     path: '/portfolio',
@@ -65,7 +65,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
     redirect: '/portfolio/list',
     meta: {
       title: '投资组合',
-      icon: 'Collection'
+      icon: 'Collection',
     },
     children: [
       {
@@ -74,8 +74,8 @@ export const asyncRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/portfolio/List.vue'),
         meta: {
           title: '组合列表',
-          icon: 'List'
-        }
+          icon: 'List',
+        },
       },
       {
         path: 'detail/:id',
@@ -83,10 +83,10 @@ export const asyncRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/portfolio/Detail.vue'),
         meta: {
           title: '组合详情',
-          hidden: true
-        }
-      }
-    ]
+          hidden: true,
+        },
+      },
+    ],
   },
   {
     path: '/market',
@@ -95,7 +95,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
     redirect: '/market/watchlist',
     meta: {
       title: '市场行情',
-      icon: 'TrendCharts'
+      icon: 'TrendCharts',
     },
     children: [
       {
@@ -104,8 +104,8 @@ export const asyncRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/market/Watchlist.vue'),
         meta: {
           title: '自选股',
-          icon: 'Star'
-        }
+          icon: 'Star',
+        },
       },
       {
         path: 'analysis/:symbol',
@@ -113,10 +113,10 @@ export const asyncRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/market/Analysis.vue'),
         meta: {
           title: '行情分析',
-          hidden: true
-        }
-      }
-    ]
+          hidden: true,
+        },
+      },
+    ],
   },
   {
     path: '/trade',
@@ -125,7 +125,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
     redirect: '/trade/history',
     meta: {
       title: '交易记录',
-      icon: 'Document'
+      icon: 'Document',
     },
     children: [
       {
@@ -134,10 +134,10 @@ export const asyncRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/trade/History.vue'),
         meta: {
           title: '交易历史',
-          icon: 'Clock'
-        }
-      }
-    ]
+          icon: 'Clock',
+        },
+      },
+    ],
   },
   {
     path: '/system',
@@ -147,7 +147,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
     meta: {
       title: '系统设置',
       icon: 'Setting',
-      roles: ['admin']
+      roles: ['admin'],
     },
     children: [
       {
@@ -156,8 +156,8 @@ export const asyncRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/system/Profile.vue'),
         meta: {
           title: '个人资料',
-          icon: 'User'
-        }
+          icon: 'User',
+        },
       },
       {
         path: 'settings',
@@ -166,65 +166,56 @@ export const asyncRoutes: RouteRecordRaw[] = [
         meta: {
           title: '系统配置',
           icon: 'Tools',
-          roles: ['admin']
-        }
-      }
-    ]
-  }
+          roles: ['admin'],
+        },
+      },
+    ],
+  },
 ]
 
 // 创建路由器实例
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: constantRoutes,
+  routes: [...constantRoutes, ...asyncRoutes],
   scrollBehavior: (to, from, savedPosition) => {
     if (savedPosition) {
       return savedPosition
     } else {
       return { top: 0 }
     }
-  }
+  },
 })
 
 // 路由守卫
 router.beforeEach(async (to, from, next) => {
   NProgress.start()
-  
+
   const userStore = useUserStore()
   const appStore = useAppStore()
-  
-  // 设置页面标题
-  document.title = to.meta.title 
-    ? `${to.meta.title} - ${import.meta.env.VITE_APP_TITLE}` 
+
+  document.title = to.meta.title
+    ? `${to.meta.title} - ${import.meta.env.VITE_APP_TITLE}`
     : import.meta.env.VITE_APP_TITLE
 
-  // 白名单路径
   const whiteList = ['/login', '/register', '/404']
 
   if (whiteList.includes(to.path)) {
+    NProgress.done()
     next()
     return
   }
 
-  // 检查认证状态
   if (!userStore.token) {
+    NProgress.done()
     next(`/login?redirect=${to.fullPath}`)
     return
   }
 
-  // 如果已经登录且访问登录页，重定向到首页
-  if (to.path === '/login' && userStore.isLoggedIn) {
-    next('/')
-    return
-  }
-
-  // 检查权限
   if (to.meta.roles && to.meta.roles.length > 0) {
-    const hasPermission = to.meta.roles.some((role: string) => 
-      userStore.userRoles.includes(role)
-    )
-    
+    const hasPermission = to.meta.roles.some((role: string) => userStore.userRoles.includes(role))
+
     if (!hasPermission) {
+      NProgress.done()
       next('/404')
       return
     }
@@ -238,13 +229,13 @@ router.afterEach(() => {
   appStore.setLoading(false)
 })
 
-// 重置路由器
 export function resetRouter() {
-  const newRouter = createRouter({
-    history: createWebHistory(import.meta.env.BASE_URL),
-    routes: constantRoutes
+  const routes = router.getRoutes()
+  const extraRoutes = routes.filter(route => !constantRoutes.some(r => r.path === route.path))
+
+  extraRoutes.forEach(route => {
+    router.removeRoute(route.name)
   })
-  router.matcher = newRouter.matcher
 }
 
 export default router

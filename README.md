@@ -1,108 +1,156 @@
 # FinSphere Pro
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Vue-3.4+-brightgreen" alt="Vue Version">
-  <img src="https://img.shields.io/badge/TypeScript-5.0+-blue" alt="TypeScript Version">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
-  <img src="https://img.shields.io/github/stars/badhope/finsphere" alt="Stars">
-</p>
+<div align="center">
 
-> 🚀 **企业级金融数据管理平台** - 开箱即用的现代化金融后台管理系统
+![Vue Version](https://img.shields.io/badge/Vue-3.5+-brightgreen)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)
+![Vite](https://img.shields.io/badge/Vite-5.2+-purple)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## 📋 项目简介
+**企业级金融数据管理平台**
 
-FinSphere Pro 是一个基于 Vue 3 + TypeScript 的企业级金融数据管理平台，专为金融机构和投资者设计。通过现代化的技术栈和精心设计的用户体验，为用户提供专业的资产管理、行情分析和交易记录功能。
+[English](README_EN.md) | 简体中文
 
-### 🎯 核心特性
+</div>
 
-- 💼 **资产管理** - 智能化的投资组合管理
-- 📈 **行情分析** - 实时金融数据可视化
-- 📊 **数据统计** - 多维度业绩分析报表
-- 🔐 **权限控制** - 完善的角色权限管理体系
-- 🌐 **国际化** - 多语言支持（中英文）
-- 🎨 **主题切换** - 深色/浅色模式自由切换
-- 📱 **响应式** - 完美适配各种设备屏幕
+---
+
+## � 项目简介
+
+FinSphere Pro 是一个基于 **Vue 3 + TypeScript + Vite** 构建的现代化企业级金融数据管理平台。项目采用最新的前端技术栈，提供完整的资产管理、投资组合、行情分析和交易记录功能。
+
+### ✨ 核心特性
+
+- 🏗️ **现代化架构** - Vue 3 Composition API + TypeScript + Pinia
+- � **金融数据可视化** - ECharts 5 专业图表库
+- 🔐 **安全认证** - JWT Token + AES 加密 + RBAC 权限控制
+- 🎨 **UI 组件库** - Element Plus 企业级组件
+- 🌐 **国际化支持** - 中英文多语言切换
+- � **主题切换** - 深色/浅色模式 + 自定义主题色
+- 📱 **响应式设计** - 完美适配 PC、平板、移动端
+- ⚡ **性能优化** - 代码分割、懒加载、Gzip 压缩
+- 🦴 **骨架屏** - 加载状态优化，提升用户体验
+- 🔒 **JWT 验证** - 完整的 Token 验证和过期处理
+
+---
 
 ## 🛠️ 技术栈
 
-### 前端技术
-- **Vue 3.4+** - 渐进式JavaScript框架
-- **TypeScript 5.0+** - 静态类型检查
-- **Vite 5.2+** - 现代化构建工具
-- **Pinia 2.1+** - 状态管理
-- **Vue Router 4.3+** - 路由管理
-- **Element Plus 2.6+** - UI组件库
-- **ECharts 5.5+** - 数据可视化
-- **Axios 1.6+** - HTTP客户端
+### 核心框架
+| 技术 | 版本 | 说明 |
+|------|------|------|
+| [Vue](https://vuejs.org/) | 3.5+ | 渐进式 JavaScript 框架 |
+| [TypeScript](https://www.typescriptlang.org/) | 5.0+ | 静态类型检查 |
+| [Vite](https://vitejs.dev/) | 5.2+ | 下一代构建工具 |
+| [Pinia](https://pinia.vuejs.org/) | 2.1+ | Vue 官方状态管理 |
+| [Vue Router](https://router.vuejs.org/) | 4.3+ | 路由管理 |
+
+### UI 与可视化
+| 技术 | 版本 | 说明 |
+|------|------|------|
+| [Element Plus](https://element-plus.org/) | 2.6+ | Vue 3 UI 组件库 |
+| [ECharts](https://echarts.apache.org/) | 5.5+ | 数据可视化图表 |
+| [SCSS](https://sass-lang.com/) | 1.71+ | CSS 预处理器 |
+
+### 工具库
+| 技术 | 版本 | 说明 |
+|------|------|------|
+| [Axios](https://axios-http.com/) | 1.6+ | HTTP 客户端 |
+| [VueUse](https://vueuse.org/) | 10.9+ | Composition API 工具集 |
+| [Day.js](https://day.js.org/) | 1.11+ | 日期处理库 |
+| [CryptoJS](https://cryptojs.com/) | 4.2+ | 加密解密库 |
+| [Lodash ES](https://lodash.com/) | 4.17+ | JavaScript 工具库 |
 
 ### 开发工具
-- **ESLint** - 代码质量检查
-- **Prettier** - 代码格式化
-- **Stylelint** - CSS规范检查
-- **Husky** - Git钩子管理
-- **Commitizen** - 规范化提交
+- **ESLint** + **Prettier** + **Stylelint** - 代码质量检查
+- **Husky** + **lint-staged** - Git 钩子管理
 - **Vitest** - 单元测试框架
+
+---
 
 ## 🚀 快速开始
 
 ### 环境要求
-- Node.js >= 18.0.0
-- npm >= 8.0.0 或 yarn >= 1.22.0
+- **Node.js** >= 18.0.0
+- **npm** >= 8.0.0 或 **pnpm** >= 8.0.0
 
-### 安装依赖
+### 安装步骤
+
 ```bash
-# 使用 npm
+# 1. 克隆项目
+git clone https://github.com/YOUR_USERNAME/finsphere-pro.git
+cd finsphere-pro
+
+# 2. 安装依赖
 npm install
-
-# 或使用 yarn
-yarn install
-
-# 或使用 pnpm
+# 或
 pnpm install
-```
 
-### 开发运行
-```bash
-# 启动开发服务器
+# 3. 复制环境变量文件
+cp .env.example .env.development
+
+# 4. 配置环境变量（重要！）
+# 编辑 .env.development，设置 VITE_ENCRYPTION_KEY
+# 生成密钥：openssl rand -hex 32
+
+# 5. 启动开发服务器
 npm run dev
 
-# 构建生产版本
-npm run build
-
-# 预览生产构建
-npm run preview
-
-# 代码检查
-npm run lint
-
-# 运行测试
-npm run test
+# 6. 访问应用
+# http://localhost:5173
 ```
 
-### 项目结构
+### 默认账户
 ```
-src/
-├── api/           # API接口定义
-├── assets/        # 静态资源
-├── components/    # 全局组件
-├── composables/   # Composition API函数
-├── layouts/       # 页面布局
-├── locales/       # 国际化配置
-├── pages/         # 页面组件
-├── router/        # 路由配置
-├── stores/        # 状态管理
-├── styles/        # 样式文件
-├── types/         # TypeScript类型定义
-├── utils/         # 工具函数
-└── views/         # 视图组件
+用户名：admin
+密码：123456
 ```
 
-## 📖 功能模块
+---
+
+## 📁 项目结构
+
+```
+finsphere-pro/
+├── .vscode/              # VS Code 配置
+├── public/               # 静态资源
+├── src/
+│   ├── api/              # API 接口定义
+│   ├── components/       # 全局组件
+│   ├── composables/      # Composition API 工具
+│   ├── directives/       # 自定义指令
+│   ├── layouts/          # 页面布局
+│   ├── locales/          # 国际化配置
+│   ├── mock/             # Mock 数据
+│   ├── router/           # 路由配置
+│   ├── services/         # 业务服务层
+│   ├── stores/           # Pinia 状态管理
+│   ├── styles/           # 样式文件
+│   ├── types/            # TypeScript 类型定义
+│   ├── utils/            # 工具函数
+│   │   ├── http/         # HTTP 客户端封装
+│   │   ├── security/     # 安全相关（加密、JWT）
+│   │   └── storage/      # 存储封装
+│   ├── views/            # 页面视图
+│   ├── App.vue           # 根组件
+│   └── main.ts           # 入口文件
+├── .env.development      # 开发环境配置
+├── .env.production       # 生产环境配置
+├── .env.example          # 环境变量示例
+├── package.json          # 项目依赖
+├── tsconfig.json         # TypeScript 配置
+├── vite.config.ts        # Vite 配置
+└── README.md             # 项目文档
+```
+
+---
+
+## 🎯 功能模块
 
 ### 🏠 工作台 (Dashboard)
-- 资产概览统计
-- 收益趋势图表
-- 资产配置分析
+- 资产概览统计（总资产、今日收益、持仓数量、收益率）
+- 资产趋势折线图
+- 资产配置饼图
 - 快捷操作入口
 
 ### 💼 投资组合 (Portfolio)
@@ -129,127 +177,195 @@ src/
 - 安全认证配置
 - 通知消息管理
 
+---
+
 ## 🔧 配置说明
 
 ### 环境变量
-项目支持多种环境配置：
 
 ```bash
-# 开发环境
-.env.development
-
-# 生产环境
-.env.production
-
-# 本地环境
-.env.local
-```
-
-### 主要配置项
-```env
 # 应用配置
 VITE_APP_TITLE=FinSphere Pro
 VITE_BASE_URL=/
 
-# API配置
+# API 配置
 VITE_API_BASE_URL=http://localhost:8000
 VITE_MOCK_ENABLED=true
 
-# 安全配置
-VITE_ENCRYPTION_KEY=your_secret_key_here
+# 安全配置（⚠️ 生产环境必须修改！）
+VITE_ENCRYPTION_KEY=your_secure_encryption_key_here
 VITE_TOKEN_EXPIRES_IN=7200
 
+# 功能开关
+VITE_ENABLE_PWA=true
+VITE_ENABLE_ANALYTICS=false
+
 # 第三方服务
-VITE_AMAP_KEY=your_amap_api_key
-VITE_SENTRY_DSN=your_sentry_dsn
+VITE_AMAP_KEY=your_amap_api_key_here
+VITE_SENTRY_DSN=your_sentry_dsn_here
 ```
 
-## 🎨 设计规范
+### 生成安全密钥
 
-### 色彩体系
-- 主色调：`#409eff` (Element Blue)
-- 成功色：`#67c23a` (Green)
-- 警告色：`#e6a23c` (Orange)
-- 危险色：`#f56c6c` (Red)
-- 信息色：`#909399` (Gray)
+```bash
+# 使用 OpenSSL 生成 32 字节随机密钥
+openssl rand -hex 32
 
-### 金融专用色
-- 涨幅色：`#00c853` (Financial Green)
-- 跌幅色：`#ff5252` (Financial Red)
-- 蓝色系：`#2979ff` (Financial Blue)
+# 或使用 Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-### 响应式断点
-- XS: < 480px (移动端)
-- SM: ≥ 576px (小屏)
-- MD: ≥ 768px (平板)
-- LG: ≥ 992px (桌面)
-- XL: ≥ 1200px (大屏)
-- XXL: ≥ 1600px (超大屏)
+---
 
 ## 🔒 安全特性
 
 ### 认证安全
-- JWT Token 认证机制
-- Refresh Token 自动续期
-- SessionStorage 优先存储
-- 敏感数据 AES 加密
+- ✅ JWT Token 认证机制
+- ✅ Refresh Token 自动续期
+- ✅ SessionStorage 优先存储（更安全）
+- ✅ 敏感数据 AES-256 加密
+- ✅ Token 过期自动检测和处理
 
 ### 权限控制
-- RBAC 角色权限模型
-- 路由级别权限验证
-- 组件级别权限控制
-- API 请求权限拦截
+- ✅ RBAC 角色权限模型
+- ✅ 路由级别权限验证
+- ✅ 组件级别权限控制
+- ✅ API 请求权限拦截
 
 ### 数据保护
-- XSS 攻击防护
-- CSRF 攻击防护
-- SQL 注入防护
-- 敏感信息脱敏
+- ✅ XSS 攻击防护
+- ✅ CSRF 攻击防护
+- ✅ SQL 注入防护
+- ✅ 敏感信息脱敏显示
+
+### JWT 验证
+- ✅ Token 格式验证
+- ✅ 过期时间检查
+- ✅ 签名基本验证
+- ✅ 自动刷新令牌
+
+---
 
 ## 📱 浏览器支持
 
-- Chrome ≥ 80
-- Firefox ≥ 74
-- Safari ≥ 13
-- Edge ≥ 80
-- iOS Safari ≥ 13
-- Android Chrome ≥ 80
+| 浏览器 | 最低版本 |
+|--------|---------|
+| Chrome | >= 90 |
+| Firefox | >= 88 |
+| Safari | >= 14 |
+| Edge | >= 90 |
+| iOS Safari | >= 14 |
+| Android Chrome | >= 90 |
+
+---
+
+## 🏗️ 架构设计
+
+### 分层架构
+
+```
+┌─────────────────────────────────────┐
+│         Components (视图层)          │
+├─────────────────────────────────────┤
+│         Stores (状态管理层)          │
+├─────────────────────────────────────┤
+│       Services (业务逻辑层)          │
+├─────────────────────────────────────┤
+│      HTTP Client (网络请求层)        │
+├─────────────────────────────────────┤
+│       Utils (工具函数层)             │
+└─────────────────────────────────────┘
+```
+
+### 状态管理
+
+- **App Store** - 应用设置、主题配置、加载状态
+- **User Store** - 用户认证、信息管理、权限控制
+- ~~Theme Store~~ (已合并到 App Store，避免重复)
+
+---
+
+## 📊 性能优化
+
+### 构建优化
+- ✅ ES2020 目标，减少 polyfill
+- ✅ 代码分割和按需加载
+- ✅ Gzip 压缩
+- ✅ Tree Shaking
+- ✅ 第三方库分块打包
+
+### 运行时优化
+- ✅ 组件懒加载
+- ✅ ECharts 按需导入
+- ✅ 图片懒加载
+- ✅ 防抖节流
+- ✅ 骨架屏加载状态
+
+### 缓存策略
+- ✅ 静态资源缓存
+- ✅ API 响应缓存
+- ✅ 本地数据持久化
+
+---
 
 ## 🤝 贡献指南
 
 我们欢迎任何形式的贡献！
 
 ### 开发流程
+
 1. Fork 项目
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+3. 提交更改 (`git commit -m 'feat: Add some AmazingFeature'`)
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-### 代码规范
-- 遵循 ESLint 和 Stylelint 规则
-- 使用 Conventional Commits 提交格式
-- 编写单元测试覆盖核心功能
-- 更新相关文档
+### 提交规范
+
+遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范：
+
+- `feat:` 新功能
+- `fix:` 修复 bug
+- `docs:` 文档更新
+- `style:` 代码格式调整
+- `refactor:` 代码重构
+- `perf:` 性能优化
+- `test:` 测试相关
+- `chore:` 构建/工具链相关
+
+---
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+---
 
 ## 🙏 致谢
 
 感谢以下开源项目的支持：
+
 - [Vue.js](https://vuejs.org/)
 - [Element Plus](https://element-plus.org/)
 - [ECharts](https://echarts.apache.org/)
 - [Vite](https://vitejs.dev/)
-
-## 📞 联系我们
-
-- 项目主页: [https://github.com/badhope/finsphere](https://github.com/badhope/finsphere)
-- 问题反馈: [Issues](https://github.com/badhope/finsphere/issues)
-- 邮箱: x18825407105@outlook.com
+- [Pinia](https://pinia.vuejs.org/)
+- [VueUse](https://vueuse.org/)
 
 ---
 
-<p align="center">Made with ❤️ by FinSphere Team</p>
+## 📞 联系我们
+
+- **项目主页**: [https://github.com/YOUR_USERNAME/finsphere-pro](https://github.com/YOUR_USERNAME/finsphere-pro)
+- **问题反馈**: [Issues](https://github.com/YOUR_USERNAME/finsphere-pro/issues)
+- **邮箱**: your.email@example.com
+
+---
+
+<div align="center">
+
+**Made with ❤️ by FinSphere Team**
+
+⭐ 如果这个项目对你有帮助，请给一个 Star 支持！
+
+</div>

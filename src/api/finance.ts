@@ -2,24 +2,40 @@
  * 金融数据相关API
  */
 import { http } from '@/utils/http/client'
-import type { 
-  FinancialAsset, 
-  Portfolio, 
-  PortfolioAsset, 
+import type {
+  FinancialAsset,
+  Portfolio,
+  PortfolioAsset,
   Transaction,
   MarketData,
-  CandlestickData
+  CandlestickData,
 } from '@/types/finance'
 import type { PaginationRequest, PaginationResponse } from '@/types/system'
 
 export class FinanceAPI {
   /**
+   * 获取仪表盘统计数据
+   */
+  static getDashboardStatistics(): Promise<{
+    totalAssets: number
+    todayProfit: number
+    positions: number
+    totalReturn: number
+    assetTrend: { date: string; value: number }[]
+    assetAllocation: { name: string; value: number }[]
+  }> {
+    return http.get('/dashboard/statistics')
+  }
+
+  /**
    * 获取资产列表
    */
-  static getAssets(params?: PaginationRequest & { 
-    search?: string; 
-    type?: string 
-  }): Promise<PaginationResponse<FinancialAsset>> {
+  static getAssets(
+    params?: PaginationRequest & {
+      search?: string
+      type?: string
+    }
+  ): Promise<PaginationResponse<FinancialAsset>> {
     return http.get('/assets', params)
   }
 
@@ -41,7 +57,7 @@ export class FinanceAPI {
    * 获取K线数据
    */
   static getCandlestickData(
-    symbol: string, 
+    symbol: string,
     period: string = '1d',
     limit: number = 100
   ): Promise<CandlestickData[]> {
@@ -86,13 +102,15 @@ export class FinanceAPI {
   /**
    * 获取交易记录
    */
-  static getTransactions(params?: PaginationRequest & { 
-    portfolioId?: string; 
-    assetId?: string;
-    type?: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<PaginationResponse<Transaction>> {
+  static getTransactions(
+    params?: PaginationRequest & {
+      portfolioId?: string
+      assetId?: string
+      type?: string
+      startDate?: string
+      endDate?: string
+    }
+  ): Promise<PaginationResponse<Transaction>> {
     return http.get('/transactions', params)
   }
 
@@ -100,14 +118,14 @@ export class FinanceAPI {
    * 创建交易记录
    */
   static createTransaction(data: {
-    portfolioId: string;
-    assetId: string;
-    type: string;
-    quantity: number;
-    price: number;
-    fee?: number;
-    date: string;
-    notes?: string;
+    portfolioId: string
+    assetId: string
+    type: string
+    quantity: number
+    price: number
+    fee?: number
+    date: string
+    notes?: string
   }): Promise<Transaction> {
     return http.post('/transactions', data)
   }

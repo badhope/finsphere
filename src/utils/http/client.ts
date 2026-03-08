@@ -1,13 +1,11 @@
 /**
- * HTTP请求工具类
- * 基于Axios封装，支持拦截器、错误处理、请求取消等功能
+ * HTTP 请求工具类
+ * 基于 Axios 封装，支持拦截器、错误处理、请求取消等功能
  */
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useUserStore } from '@/stores/user'
-import { useAppStore } from '@/stores/app'
-import { getToken, removeToken } from '@/utils/auth'
+import { authService } from '@/services/auth.service'
 import { encrypt, decrypt } from '@/utils/security/crypto'
 import NProgress from 'nprogress'
 
@@ -36,9 +34,9 @@ class HttpClient {
       baseURL: import.meta.env.VITE_API_BASE_URL,
       timeout: 30000,
       headers: {
-        'Content-Type': 'application/json;charset=UTF-8'
+        'Content-Type': 'application/json;charset=UTF-8',
       },
-      ...config
+      ...config,
     })
 
     this.setupInterceptors()
@@ -66,7 +64,7 @@ class HttpClient {
         if (config.method === 'get') {
           config.params = {
             ...config.params,
-            _t: Date.now()
+            _t: Date.now(),
           }
         }
 
@@ -83,7 +81,7 @@ class HttpClient {
 
         return config
       },
-      (error) => {
+      error => {
         NProgress.done()
         return Promise.reject(error)
       }
@@ -93,13 +91,13 @@ class HttpClient {
     this.instance.interceptors.response.use(
       (response: AxiosResponse<ResponseData>) => {
         NProgress.done()
-        
+
         // 移除已完成的请求
         const requestKey = this.generateRequestKey(response.config)
         this.pendingRequests.delete(requestKey)
 
         const { data } = response
-        
+
         // 统一处理业务状态码
         if (data.code === 200) {
           return data.data
@@ -119,9 +117,9 @@ class HttpClient {
           return Promise.reject(new Error(data.message))
         }
       },
-      async (error) => {
+      async error => {
         NProgress.done()
-        
+
         const { config } = error
         const requestKey = this.generateRequestKey(config)
         this.pendingRequests.delete(requestKey)
@@ -167,20 +165,14 @@ class HttpClient {
    * 处理未授权错误
    */
   private handleUnauthorized(): void {
-    const userStore = useUserStore()
-    const appStore = useAppStore()
-    
-    ElMessageBox.confirm(
-      '登录状态已过期，请重新登录',
-      '提示',
-      {
-        confirmButtonText: '重新登录',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    ).then(() => {
-      userStore.logout()
-      appStore.resetState()
+    authService.clearToken()
+    authService.clearUserInfo()
+
+    ElMessageBox.confirm('登录状态已过期，请重新登录', '提示', {
+      confirmButtonText: '重新登录',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }).then(() => {
       window.location.reload()
     })
   }
@@ -190,7 +182,7 @@ class HttpClient {
    */
   private handleError(error: any): void {
     let message = '网络错误'
-    
+
     if (error.response) {
       const { status } = error.response
       switch (status) {
@@ -271,9 +263,9 @@ class HttpClient {
   upload<T = any>(url: string, formData: FormData, config?: RequestConfig): Promise<T> {
     return this.instance.post(url, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
       },
-      ...config
+      ...config,
     })
   }
 
@@ -281,17 +273,19 @@ class HttpClient {
    * 下载文件
    */
   download(url: string, filename?: string, config?: RequestConfig): Promise<void> {
-    return this.instance.get(url, {
-      responseType: 'blob',
-      ...config
-    }).then((response: any) => {
-      const blob = new Blob([response])
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = filename || 'download'
-      link.click()
-      URL.revokeObjectURL(link.href)
-    })
+    return this.instance
+      .get(url, {
+        responseType: 'blob',
+        ...config,
+      })
+      .then((response: any) => {
+        const blob = new Blob([response])
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = filename || 'download'
+        link.click()
+        URL.revokeObjectURL(link.href)
+      })
   }
 
   /**

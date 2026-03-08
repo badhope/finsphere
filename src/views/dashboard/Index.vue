@@ -1,19 +1,140 @@
 <script setup lang="ts">
-import { ElCard, ElRow, ElCol, ElStatistic, ElDatePicker, ElMessage } from 'element-plus'
+import { ElCard, ElRow, ElCol, ElStatistic, ElMessage, ElSkeleton } from 'element-plus'
 import { ArrowUp, ArrowDown, User, Coin, TrendCharts, DataAnalysis } from '@element-plus/icons-vue'
+import { FinanceAPI } from '@/api/finance'
 
 const { t } = useI18n()
 
-// 检查配置状态
-const checkConfig = (feature: string) => {
-  // 模拟配置检查逻辑
-  const configStatus = {
-    buy: false, // 买入资产功能未配置
-    analysis: true, // 市场分析功能已配置
-    profile: true, // 个人中心功能已配置
-    report: false // 投资报告功能未配置
+const loading = ref(false)
+const statistics = ref<
+  Array<{
+    title: string
+    value: number
+    prefix?: string
+    suffix?: string
+    precision: number
+    trend: 'up' | 'down'
+    trendValue: number
+  }>
+>([])
+
+const chartData = ref({
+  dates: [] as string[],
+  values: [] as number[],
+})
+
+const allocationData = ref([
+  { value: 0, name: '股票' },
+  { value: 0, name: '基金' },
+  { value: 0, name: '债券' },
+  { value: 0, name: '现金' },
+  { value: 0, name: '其他' },
+])
+
+const loadDashboardData = async () => {
+  loading.value = true
+  try {
+    const data = await FinanceAPI.getDashboardStatistics()
+
+    statistics.value = [
+      {
+        title: '总资产',
+        value: data.totalAssets,
+        prefix: '¥',
+        precision: 2,
+        trend: data.todayProfit >= 0 ? 'up' : 'down',
+        trendValue: Math.abs((data.todayProfit / data.totalAssets) * 100),
+      },
+      {
+        title: '今日收益',
+        value: data.todayProfit,
+        prefix: '¥',
+        precision: 2,
+        trend: data.todayProfit >= 0 ? 'up' : 'down',
+        trendValue: Math.abs(data.todayProfit),
+      },
+      {
+        title: '持仓数量',
+        value: data.positions,
+        suffix: '只',
+        precision: 0,
+        trend: 'up',
+        trendValue: 0,
+      },
+      {
+        title: '收益率',
+        value: data.totalReturn,
+        suffix: '%',
+        precision: 2,
+        trend: data.totalReturn >= 0 ? 'up' : 'down',
+        trendValue: Math.abs(data.totalReturn),
+      },
+    ]
+
+    chartData.value = {
+      dates: data.assetTrend.map(item => item.date),
+      values: data.assetTrend.map(item => item.value),
+    }
+
+    allocationData.value = data.assetAllocation
+  } catch (error: any) {
+    console.error('Failed to load dashboard data:', error)
+    ElMessage.error(error.message || '加载数据失败，使用模拟数据')
+
+    statistics.value = [
+      {
+        title: '总资产',
+        value: 1286450.5,
+        prefix: '¥',
+        precision: 2,
+        trend: 'up',
+        trendValue: 2.34,
+      },
+      {
+        title: '今日收益',
+        value: 15680.25,
+        prefix: '¥',
+        precision: 2,
+        trend: 'up',
+        trendValue: 1.87,
+      },
+      { title: '持仓数量', value: 24, suffix: '只', precision: 0, trend: 'down', trendValue: 0.5 },
+      { title: '收益率', value: 12.68, suffix: '%', precision: 2, trend: 'up', trendValue: 3.21 },
+    ]
+
+    chartData.value = {
+      dates: [
+        '1 月',
+        '2 月',
+        '3 月',
+        '4 月',
+        '5 月',
+        '6 月',
+        '7 月',
+        '8 月',
+        '9 月',
+        '10 月',
+        '11 月',
+        '12 月',
+      ],
+      values: [
+        1200000, 1250000, 1280000, 1320000, 1350000, 1380000, 1420000, 1450000, 1480000, 1520000,
+        1560000, 1586450,
+      ],
+    }
+  } finally {
+    loading.value = false
   }
-  
+}
+
+const checkConfig = (feature: string) => {
+  const configStatus = {
+    buy: false,
+    analysis: true,
+    profile: true,
+    report: false,
+  }
+
   if (!configStatus[feature as keyof typeof configStatus]) {
     let message = ''
     switch (feature) {
@@ -32,143 +153,77 @@ const checkConfig = (feature: string) => {
   return true
 }
 
-// 快捷操作处理函数
 const handleQuickAction = (action: string) => {
   if (!checkConfig(action)) {
     return
   }
-  
-  // 这里可以添加实际的功能逻辑
   ElMessage.success(`执行${action}操作`)
 }
 
-// 统计数据
-const statistics = ref([
-  {
-    title: '总资产',
-    value: 1286450.50,
-    prefix: '¥',
-    precision: 2,
-    trend: 'up',
-    trendValue: 2.34
-  },
-  {
-    title: '今日收益',
-    value: 15680.25,
-    prefix: '¥',
-    precision: 2,
-    trend: 'up',
-    trendValue: 1.87
-  },
-  {
-    title: '持仓数量',
-    value: 24,
-    suffix: '只',
-    precision: 0,
-    trend: 'down',
-    trendValue: 0.5
-  },
-  {
-    title: '收益率',
-    value: 12.68,
-    suffix: '%',
-    precision: 2,
-    trend: 'up',
-    trendValue: 3.21
-  }
-])
-
-// 图表实例引用
 const assetChartRef = ref<HTMLDivElement>()
 const performanceChartRef = ref<HTMLDivElement>()
 
-// 图表实例
 let assetChart: any = null
 let performanceChart: any = null
+let resizeHandler: (() => void) | null = null
 
-// 图表数据
-const chartData = {
-  dates: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
-  values: [1200000, 1250000, 1280000, 1320000, 1350000, 1380000, 1420000, 1450000, 1480000, 1520000, 1560000, 1586450]
-}
-
-// 懒加载echarts
 const loadECharts = async () => {
   const echarts = await import('echarts')
   return echarts.default
 }
 
-// 初始化图表
 const initCharts = async () => {
   try {
     const echarts = await loadECharts()
-    
-    // 资产趋势图
+
     if (assetChartRef.value) {
       assetChart = echarts.init(assetChartRef.value)
-      const option = {
+      assetChart.setOption({
         tooltip: {
           trigger: 'axis',
           formatter: (params: any) => {
             const param = params[0]
-            return `${param.name}<br/>资产总额: ¥${param.value.toLocaleString()}`
-          }
+            return `${param.name}<br/>资产总额：¥${param.value.toLocaleString()}`
+          },
         },
         xAxis: {
           type: 'category',
-          data: chartData.dates
+          data: chartData.value.dates,
         },
         yAxis: {
           type: 'value',
           axisLabel: {
-            formatter: (value: number) => `¥${(value / 10000).toFixed(0)}万`
-          }
-        },
-        series: [{
-          data: chartData.values,
-          type: 'line',
-          smooth: true,
-          areaStyle: {
-            opacity: 0.3
+            formatter: (value: number) => `¥${(value / 10000).toFixed(0)}万`,
           },
-          lineStyle: {
-            width: 3
-          }
-        }],
+        },
+        series: [
+          {
+            data: chartData.value.values,
+            type: 'line',
+            smooth: true,
+            areaStyle: { opacity: 0.3 },
+            lineStyle: { width: 3 },
+          },
+        ],
         grid: {
           left: '3%',
           right: '4%',
           bottom: '3%',
-          containLabel: true
-        }
-      }
-      assetChart.setOption(option)
-      
-      // 响应式调整
-      const handleResize = () => {
-        assetChart?.resize()
-        performanceChart?.resize()
-      }
-      
-      window.addEventListener('resize', handleResize)
-      
-      // 在组件卸载时移除事件监听器
-      onUnmounted(() => {
-        window.removeEventListener('resize', handleResize)
+          containLabel: true,
+        },
       })
     }
 
-    // 收益表现图
     if (performanceChartRef.value) {
       performanceChart = echarts.init(performanceChartRef.value)
-      const option = {
+      performanceChart.setOption({
         tooltip: {
           trigger: 'item',
-          formatter: '{a} <br/>{b}: {c} ({d}%)'
+          formatter: '{a} <br/>{b}: {c} ({d}%)',
         },
         legend: {
           bottom: '5%',
-          left: 'center'
+          left: 'center',
         },
         series: [
           {
@@ -179,88 +234,94 @@ const initCharts = async () => {
             itemStyle: {
               borderRadius: 10,
               borderColor: '#fff',
-              borderWidth: 2
+              borderWidth: 2,
             },
             label: {
               show: false,
-              position: 'center'
+              position: 'center',
             },
             emphasis: {
               label: {
                 show: true,
                 fontSize: '18',
-                fontWeight: 'bold'
-              }
+                fontWeight: 'bold',
+              },
             },
             labelLine: {
-              show: false
+              show: false,
             },
-            data: [
-              { value: 45, name: '股票' },
-              { value: 25, name: '基金' },
-              { value: 15, name: '债券' },
-              { value: 10, name: '现金' },
-              { value: 5, name: '其他' }
-            ]
-          }
-        ]
-      }
-      performanceChart.setOption(option)
+            data: allocationData.value,
+          },
+        ],
+      })
     }
+
+    resizeHandler = () => {
+      assetChart?.resize()
+      performanceChart?.resize()
+    }
+
+    window.addEventListener('resize', resizeHandler)
   } catch (error) {
     console.error('Failed to load echarts:', error)
   }
 }
 
 onMounted(() => {
-  // 延迟初始化图表，优先加载页面内容
-  setTimeout(initCharts, 100)
+  loadDashboardData()
+  initCharts()
 })
 
 onUnmounted(() => {
-  // 清理图表实例和事件监听器
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler)
+  }
   if (assetChart) {
     assetChart.dispose()
   }
   if (performanceChart) {
     performanceChart.dispose()
   }
-});</script>
+})
+</script>
 
 <template>
   <div class="dashboard">
-    <!-- 统计卡片 -->
     <ElRow :gutter="20" class="mb-20">
-      <ElCol 
-        v-for="(stat, index) in statistics" 
-        :key="index" 
-        :xs="24" 
-        :sm="12" 
-        :md="6"
-      >
-        <ElCard class="stat-card" shadow="hover">
-          <ElStatistic 
-            :title="stat.title"
-            :value="stat.value"
-            :precision="stat.precision"
-            :prefix="stat.prefix"
-            :suffix="stat.suffix"
-          >
-            <template #suffix>
-              <div class="stat-trend" :class="`trend-${stat.trend}`">
-                <ArrowUp v-if="stat.trend === 'up'" class="trend-icon" />
-                <ArrowDown v-else class="trend-icon" />
-                {{ stat.trendValue }}%
+      <ElCol v-for="(stat, index) in statistics" :key="index" :xs="24" :sm="12" :md="6">
+        <ElSkeleton :loading="loading" animated>
+          <template #template>
+            <ElCard class="stat-card" shadow="hover">
+              <div class="skeleton-stat">
+                <div class="skeleton-title"></div>
+                <div class="skeleton-value"></div>
               </div>
-            </template>
-          </ElStatistic>
-        </ElCard>
+            </ElCard>
+          </template>
+          <template #default>
+            <ElCard class="stat-card" shadow="hover">
+              <ElStatistic
+                :title="stat.title"
+                :value="stat.value"
+                :precision="stat.precision"
+                :prefix="stat.prefix"
+                :suffix="stat.suffix"
+              >
+                <template #suffix>
+                  <div class="stat-trend" :class="`trend-${stat.trend}`">
+                    <ArrowUp v-if="stat.trend === 'up'" class="trend-icon" />
+                    <ArrowDown v-else class="trend-icon" />
+                    {{ stat.trendValue }}%
+                  </div>
+                </template>
+              </ElStatistic>
+            </ElCard>
+          </template>
+        </ElSkeleton>
       </ElCol>
     </ElRow>
 
-    <!-- 图表区域 -->
     <ElRow :gutter="20">
-      <!-- 资产趋势图 -->
       <ElCol :xs="24" :lg="16">
         <ElCard class="chart-card" shadow="never">
           <template #header>
@@ -273,7 +334,6 @@ onUnmounted(() => {
         </ElCard>
       </ElCol>
 
-      <!-- 资产配置图 -->
       <ElCol :xs="24" :lg="8">
         <ElCard class="chart-card" shadow="never">
           <template #header>
@@ -287,7 +347,6 @@ onUnmounted(() => {
       </ElCol>
     </ElRow>
 
-    <!-- 快捷操作 -->
     <ElRow :gutter="20" class="mt-20">
       <ElCol :xs="24" :sm="12" :md="6">
         <ElCard class="quick-action-card" shadow="hover" @click="handleQuickAction('buy')">
@@ -340,7 +399,7 @@ onUnmounted(() => {
 <style scoped lang="scss">
 .dashboard {
   animation: page-fade-in 0.8s ease-out;
-  
+
   @keyframes page-fade-in {
     from {
       opacity: 0;
@@ -360,7 +419,7 @@ onUnmounted(() => {
     border-radius: 12px;
     overflow: hidden;
     position: relative;
-    
+
     &::before {
       content: '';
       position: absolute;
@@ -372,14 +431,33 @@ onUnmounted(() => {
       opacity: 0;
       transition: opacity 0.3s ease;
     }
-    
+
     &:hover {
       transform: translateY(-5px);
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-      
+
       &::before {
         opacity: 1;
       }
+    }
+  }
+
+  .skeleton-stat {
+    padding: 8px 0;
+
+    .skeleton-title {
+      height: 16px;
+      background: var(--el-skeleton-color);
+      border-radius: 4px;
+      width: 60%;
+      margin-bottom: 16px;
+    }
+
+    .skeleton-value {
+      height: 32px;
+      background: var(--el-skeleton-color);
+      border-radius: 4px;
+      width: 80%;
     }
   }
 
@@ -389,47 +467,13 @@ onUnmounted(() => {
     gap: 6px;
     font-size: 12px;
     font-weight: 500;
-    transition: all 0.3s ease;
-    
+
     &.trend-up {
       color: $finance-green;
-      animation: trend-up 0.5s ease;
-      
-      @keyframes trend-up {
-        from {
-          transform: translateY(5px);
-          opacity: 0;
-        }
-        to {
-          transform: translateY(0);
-          opacity: 1;
-        }
-      }
     }
-    
+
     &.trend-down {
       color: $finance-red;
-      animation: trend-down 0.5s ease;
-      
-      @keyframes trend-down {
-        from {
-          transform: translateY(-5px);
-          opacity: 0;
-        }
-        to {
-          transform: translateY(0);
-          opacity: 1;
-        }
-      }
-    }
-  }
-
-  .trend-icon {
-    font-size: 14px;
-    transition: transform 0.3s ease;
-    
-    .stat-card:hover & {
-      transform: scale(1.2);
     }
   }
 
@@ -439,8 +483,7 @@ onUnmounted(() => {
     }
     border-radius: 12px;
     overflow: hidden;
-    transition: all 0.3s ease;
-    
+
     &:hover {
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     }
@@ -454,33 +497,14 @@ onUnmounted(() => {
     padding: 20px;
     background: rgba(245, 247, 250, 0.8);
     border-bottom: 1px solid var(--el-border-color-light);
-    
-    .header-icon {
-      color: var(--el-color-primary);
-      font-size: 18px;
-      transition: transform 0.3s ease;
-      
-      .chart-card:hover & {
-        transform: rotate(10deg);
-      }
-    }
   }
 
   .chart-container {
     height: 300px;
     width: 100%;
-    transition: height 0.3s ease;
-    
+
     &.pie-chart {
       height: 350px;
-    }
-    
-    .chart-card:hover & {
-      height: 320px;
-      
-      &.pie-chart {
-        height: 370px;
-      }
     }
   }
 
@@ -489,29 +513,12 @@ onUnmounted(() => {
     transition: all 0.3s ease;
     border-radius: 12px;
     overflow: hidden;
-    position: relative;
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    
+
     &:hover {
       transform: translateY(-8px);
       box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-      
-      &::before {
-        opacity: 1;
-      }
     }
-    
+
     :deep(.el-card__body) {
       padding: 30px;
     }
@@ -521,41 +528,24 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: 20px;
-    
+
     .action-icon {
       font-size: 40px;
       color: var(--el-color-primary);
       flex-shrink: 0;
-      transition: all 0.3s ease;
-      
-      .quick-action-card:hover & {
-        transform: scale(1.2) rotate(10deg);
-        color: #667eea;
-      }
     }
-    
+
     .action-content {
       h3 {
         margin: 0 0 10px 0;
         font-size: 18px;
         font-weight: 600;
-        color: var(--el-text-color-primary);
-        transition: color 0.3s ease;
-        
-        .quick-action-card:hover & {
-          color: #667eea;
-        }
       }
-      
+
       p {
         margin: 0;
         font-size: 14px;
         color: var(--el-text-color-secondary);
-        transition: color 0.3s ease;
-        
-        .quick-action-card:hover & {
-          color: var(--el-text-color-primary);
-        }
       }
     }
   }

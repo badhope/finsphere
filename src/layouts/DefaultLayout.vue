@@ -1,67 +1,67 @@
 <script setup lang="ts">
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
-import { useThemeStore } from '@/stores/theme'
-import { ElContainer, ElHeader, ElMain, ElFooter, ElMenu, ElMenuItem, ElSubMenu, ElBreadcrumb, ElBreadcrumbItem } from 'element-plus'
-import { 
-  Odometer, 
-  Collection, 
-  TrendCharts, 
-  Document, 
-  Setting, 
-  User, 
-  Star, 
-  List, 
-  Clock, 
-  Tools 
+import {
+  ElContainer,
+  ElHeader,
+  ElMain,
+  ElFooter,
+  ElMenu,
+  ElMenuItem,
+  ElSubMenu,
+  ElBreadcrumb,
+  ElBreadcrumbItem,
+} from 'element-plus'
+import {
+  Odometer,
+  Collection,
+  TrendCharts,
+  Document,
+  Setting,
+  User,
+  Star,
+  List,
+  Clock,
+  Tools,
 } from '@element-plus/icons-vue'
 
 const appStore = useAppStore()
 const userStore = useUserStore()
-const themeStore = useThemeStore()
 
 const route = useRoute()
 const router = useRouter()
 
-// 面包屑数据
 const breadcrumbs = computed(() => {
   const matched = route.matched.filter(item => item.meta && item.meta.title)
   return matched.map(item => ({
     title: item.meta.title as string,
-    path: item.redirect || item.path
+    path: item.redirect || item.path,
   }))
 })
 
-// 菜单项
 const menuItems = [
   {
     index: '/dashboard',
     title: '工作台',
-    icon: Odometer
+    icon: Odometer,
   },
   {
     index: '/portfolio',
     title: '投资组合',
     icon: Collection,
-    children: [
-      { index: '/portfolio/list', title: '组合列表' }
-    ]
+    children: [{ index: '/portfolio/list', title: '组合列表' }],
   },
   {
     index: '/market',
     title: '市场行情',
     icon: TrendCharts,
-    children: [
-      { index: '/market/watchlist', title: '自选股' }
-    ]
+    children: [{ index: '/market/watchlist', title: '自选股' }],
   },
   {
     index: '/trade',
     title: '交易记录',
     icon: Document,
-    children: [
-      { index: '/trade/history', title: '交易历史' }
-    ]
+    children: [{ index: '/trade/history', title: '交易历史' }],
   },
   {
     index: '/system',
@@ -69,17 +69,15 @@ const menuItems = [
     icon: Setting,
     children: [
       { index: '/system/profile', title: '个人资料' },
-      { index: '/system/settings', title: '系统配置' }
-    ]
-  }
+      { index: '/system/settings', title: '系统配置' },
+    ],
+  },
 ]
 
-// 处理菜单点击
 const handleMenuSelect = (indexPath: string) => {
   router.push(indexPath)
 }
 
-// 用户菜单处理
 const handleUserCommand = (command: string) => {
   switch (command) {
     case 'profile':
@@ -93,54 +91,42 @@ const handleUserCommand = (command: string) => {
   }
 }
 
-// 切换侧边栏
 const toggleSidebar = () => {
-  themeStore.toggleSidebar()
+  appStore.toggleSidebar()
 }
 </script>
 
 <template>
   <ElContainer class="layout-container">
-    <!-- 侧边栏 -->
-    <aside 
-      class="sidebar" 
-      :class="{ 'sidebar--collapsed': themeStore.theme.sidebarCollapsed }"
+    <aside
+      class="sidebar"
+      :class="{ 'sidebar--collapsed': appStore.settings.theme.sidebarCollapsed }"
     >
       <div class="sidebar-header">
-        <h1 class="logo" v-if="!themeStore.theme.sidebarCollapsed">
+        <h1 class="logo" v-if="!appStore.settings.theme.sidebarCollapsed">
           {{ $t('app.title') }}
         </h1>
         <h1 class="logo-mini" v-else>F</h1>
       </div>
-      
+
       <ElMenu
         :default-active="route.path"
-        :collapse="themeStore.theme.sidebarCollapsed"
+        :collapse="appStore.settings.theme.sidebarCollapsed"
         @select="handleMenuSelect"
         class="sidebar-menu"
       >
         <template v-for="item in menuItems" :key="item.index">
-          <ElMenuItem 
-            v-if="!item.children" 
-            :index="item.index"
-          >
+          <ElMenuItem v-if="!item.children" :index="item.index">
             <component :is="item.icon" />
             <template #title>{{ item.title }}</template>
           </ElMenuItem>
-          
-          <ElSubMenu 
-            v-else 
-            :index="item.index"
-          >
+
+          <ElSubMenu v-else :index="item.index">
             <template #title>
               <component :is="item.icon" />
               <span>{{ item.title }}</span>
             </template>
-            <ElMenuItem 
-              v-for="child in item.children" 
-              :key="child.index"
-              :index="child.index"
-            >
+            <ElMenuItem v-for="child in item.children" :key="child.index" :index="child.index">
               {{ child.title }}
             </ElMenuItem>
           </ElSubMenu>
@@ -148,9 +134,7 @@ const toggleSidebar = () => {
       </ElMenu>
     </aside>
 
-    <!-- 主体区域 -->
     <ElContainer class="main-container">
-      <!-- 头部 -->
       <ElHeader class="header">
         <div class="header-left">
           <button class="sidebar-toggle" @click="toggleSidebar">
@@ -158,11 +142,10 @@ const toggleSidebar = () => {
               <path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
             </svg>
           </button>
-          
-          <!-- 面包屑 -->
+
           <ElBreadcrumb v-if="breadcrumbs.length > 0" separator="/">
-            <ElBreadcrumbItem 
-              v-for="(item, index) in breadcrumbs" 
+            <ElBreadcrumbItem
+              v-for="(item, index) in breadcrumbs"
               :key="index"
               :to="index === breadcrumbs.length - 1 ? undefined : item.path"
             >
@@ -170,13 +153,12 @@ const toggleSidebar = () => {
             </ElBreadcrumbItem>
           </ElBreadcrumb>
         </div>
-        
+
         <div class="header-right">
-          <!-- 用户菜单 -->
           <ElDropdown @command="handleUserCommand">
             <div class="user-info">
-              <img 
-                :src="userStore.user?.avatar || '/default-avatar.png'" 
+              <img
+                :src="userStore.user?.avatar || '/default-avatar.png'"
                 :alt="userStore.user?.username"
                 class="user-avatar"
               />
@@ -190,7 +172,10 @@ const toggleSidebar = () => {
                 </ElDropdownItem>
                 <ElDropdownItem command="logout" divided>
                   <svg class="dropdown-icon" width="16" height="16" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z" />
+                    <path
+                      fill="currentColor"
+                      d="M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z"
+                    />
                   </svg>
                   退出登录
                 </ElDropdownItem>
@@ -200,16 +185,12 @@ const toggleSidebar = () => {
         </div>
       </ElHeader>
 
-      <!-- 主要内容 -->
       <ElMain class="main-content">
         <RouterView />
       </ElMain>
 
-      <!-- 底部 -->
       <ElFooter class="footer">
-        <div class="copyright">
-          © 2024 FinSphere Pro. All rights reserved.
-        </div>
+        <div class="copyright">© 2024 FinSphere Pro. All rights reserved.</div>
       </ElFooter>
     </ElContainer>
   </ElContainer>
@@ -225,7 +206,7 @@ const toggleSidebar = () => {
   background: var(--el-bg-color-page);
   border-right: 1px solid var(--el-border-color-light);
   transition: width 0.3s ease;
-  
+
   &--collapsed {
     width: 64px;
   }
@@ -237,14 +218,14 @@ const toggleSidebar = () => {
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid var(--el-border-color-light);
-  
+
   .logo {
     font-size: 20px;
     font-weight: bold;
     color: var(--el-color-primary);
     margin: 0;
   }
-  
+
   .logo-mini {
     font-size: 24px;
     font-weight: bold;
@@ -280,7 +261,7 @@ const toggleSidebar = () => {
   padding: 8px;
   border-radius: 4px;
   transition: background-color 0.3s;
-  
+
   &:hover {
     background-color: var(--el-fill-color-light);
   }
@@ -299,7 +280,7 @@ const toggleSidebar = () => {
   padding: 8px 12px;
   border-radius: 6px;
   transition: background-color 0.3s;
-  
+
   &:hover {
     background-color: var(--el-fill-color-light);
   }

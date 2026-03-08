@@ -1,27 +1,18 @@
 <script setup lang="ts">
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
-import { useThemeStore } from '@/stores/theme'
 import { ElConfigProvider } from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
-import Dashboard from './views/dashboard/Index.vue'
+import { RouterView } from 'vue-router'
 
 const appStore = useAppStore()
 const userStore = useUserStore()
-const themeStore = useThemeStore()
 
-// 初始化应用
 onMounted(() => {
-  // 初始化主题
-  themeStore.initTheme()
-  
-  // 检查用户认证状态
   userStore.checkAuthStatus()
-  
-  // 设置页面标题
+
   document.title = import.meta.env.VITE_APP_TITLE
-  
-  // 移除加载动画
+
   const loadingEl = document.querySelector('.loading-container')
   if (loadingEl) {
     loadingEl.style.opacity = '0'
@@ -34,7 +25,7 @@ onMounted(() => {
 
 <template>
   <ElConfigProvider :locale="zhCn" :size="appStore.elementSize">
-    <Dashboard />
+    <RouterView />
   </ElConfigProvider>
 </template>
 
@@ -71,7 +62,11 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
