@@ -1,64 +1,116 @@
 <script setup lang="ts">
-import { ElForm, ElFormItem, ElInput, ElButton, ElCheckbox, ElCard } from 'element-plus'
-import { User, Lock } from '@element-plus/icons-vue'
+import {
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElButton,
+  ElCheckbox,
+  ElCard,
+  ElMessage,
+  ElProgress,
+} from 'element-plus'
+import { User, Lock, WarningFilled } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import type { LoginRequest } from '@/types/user'
+import {
+  isAccountLocked,
+  recordLoginAttempt,
+  getRemainingAttempts,
+  getLoginDelay,
+} from '@/utils/security/login-security'
 
 const userStore = useUserStore()
 const router = useRouter()
 const route = useRoute()
 
-// 表单数据
 const loginForm = ref<LoginRequest>({
   username: '',
   password: '',
-  rememberMe: false
+  rememberMe: false,
 })
 
-// 表单规则
+const formRef = ref()
+const loading = ref(false)
+const lockInfo = ref<{ locked: boolean; remainingTime?: number }>({ locked: false })
+const remainingAttempts = ref(5)
+
 const loginRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度应在3-20个字符之间', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度应在3-20个字符之间', trigger: 'blur' },
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度应在6-20个字符之间', trigger: 'blur' }
-  ]
+    { min: 8, max: 128, message: '密码长度应在8-128个字符之间', trigger: 'blur' },
+  ],
 }
 
-const formRef = ref()
+const checkLockStatus = () => {
+  if (loginForm.value.username) {
+    lockInfo.value = isAccountLocked(loginForm.value.username)
+    remainingAttempts.value = getRemainingAttempts(loginForm.value.username)
+  }
+}
 
-// 处理登录
+watch(
+  () => loginForm.value.username,
+  () => {
+    checkLockStatus()
+  }
+)
+
 const handleLogin = async () => {
   if (!formRef.value) return
-  
+
+  checkLockStatus()
+
+  if (lockInfo.value.locked) {
+    ElMessage.error(`账户已锁定，请 ${lockInfo.value.remainingTime} 秒后重试`)
+    return
+  }
+
   await formRef.value.validate(async (valid: boolean) => {
     if (valid) {
+      loading.value = true
+
+      const delay = getLoginDelay(loginForm.value.username)
+      if (delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+
       try {
         await userStore.login(loginForm.value)
-        
-        // 登录成功后跳转
-        const redirect = route.query.redirect as string || '/'
+        recordLoginAttempt(loginForm.value.username, true)
+
+        const redirect = (route.query.redirect as string) || '/'
         router.push(redirect)
-      } catch (error) {
-        console.error('Login failed:', error)
+      } catch (error: unknown) {
+        recordLoginAttempt(loginForm.value.username, false)
+        checkLockStatus()
+
+        const errorMessage = error instanceof Error ? error.message : '登录失败'
+
+        if (remainingAttempts.value <= 1) {
+          ElMessage.error('登录失败次数过多，账户已被锁定15分钟')
+        } else {
+          ElMessage.error(`${errorMessage}，剩余尝试次数：${remainingAttempts.value - 1}`)
+        }
+      } finally {
+        loading.value = false
       }
     }
   })
 }
 
-// 处理回车键
 const handleKeyPress = (event: KeyboardEvent) => {
-  if (event.key === 'Enter') {
+  if (event.key === 'Enter' && !loading.value && !lockInfo.value.locked) {
     handleLogin()
   }
 }
 
-// 为输入框添加回车键处理
-const handleInputKeyPress = (event: KeyboardEvent) => {
-  handleKeyPress(event)
-}
+onMounted(() => {
+  checkLockStatus()
+})
 </script>
 
 <template>
@@ -69,27 +121,37 @@ const handleInputKeyPress = (event: KeyboardEvent) => {
           <h1 class="login-title">FinSphere Pro</h1>
           <p class="login-subtitle">企业级金融数据管理平台</p>
         </div>
-        
-        <ElForm
-          ref="formRef"
-          :model="loginForm"
-          :rules="loginRules"
-          class="login-form"
-        >
+
+        <div v-if="lockInfo.locked" class="lock-warning">
+          <ElProgress
+            type="circle"
+            :percentage="100"
+            :format="() => `${lockInfo.remainingTime}s`"
+            status="exception"
+            :width="80"
+          />
+          <p class="lock-message">
+            <WarningFilled class="warning-icon" />
+            账户已锁定，请稍后重试
+          </p>
+        </div>
+
+        <ElForm v-else ref="formRef" :model="loginForm" :rules="loginRules" class="login-form">
           <ElFormItem prop="username">
             <ElInput
               v-model="loginForm.username"
               placeholder="用户名"
               size="large"
               clearable
-              @keyup.enter="handleInputKeyPress"
+              :disabled="loading"
+              @keyup.enter="handleKeyPress"
             >
               <template #prefix>
                 <User class="input-icon" />
               </template>
             </ElInput>
           </ElFormItem>
-          
+
           <ElFormItem prop="password">
             <ElInput
               v-model="loginForm.password"
@@ -97,44 +159,48 @@ const handleInputKeyPress = (event: KeyboardEvent) => {
               placeholder="密码"
               size="large"
               show-password
-              @keyup.enter="handleInputKeyPress"
+              :disabled="loading"
+              @keyup.enter="handleKeyPress"
             >
               <template #prefix>
                 <Lock class="input-icon" />
               </template>
             </ElInput>
           </ElFormItem>
-          
-          <ElFormItem>
-            <ElCheckbox v-model="loginForm.rememberMe">
-              记住我
-            </ElCheckbox>
+
+          <ElFormItem v-if="remainingAttempts < 5" class="attempt-warning">
+            <span class="warning-text">
+              <WarningFilled /> 剩余尝试次数：{{ remainingAttempts }}
+            </span>
           </ElFormItem>
-          
+
+          <ElFormItem>
+            <ElCheckbox v-model="loginForm.rememberMe" :disabled="loading"> 记住我 </ElCheckbox>
+          </ElFormItem>
+
           <ElFormItem>
             <ElButton
               type="primary"
               size="large"
               class="login-button"
-              :loading="userStore.isLoggingIn"
+              :loading="loading"
+              :disabled="lockInfo.locked"
               @click="handleLogin"
             >
-              {{ userStore.isLoggingIn ? '登录中...' : '登录' }}
+              {{ loading ? '登录中...' : '登录' }}
             </ElButton>
           </ElFormItem>
         </ElForm>
-        
+
         <div class="login-footer">
           <p>
             还没有账号？
-            <router-link to="/register" class="register-link">
-              立即注册
-            </router-link>
+            <router-link to="/register" class="register-link"> 立即注册 </router-link>
           </p>
         </div>
       </ElCard>
     </div>
-    
+
     <div class="login-background">
       <div class="background-overlay"></div>
     </div>
@@ -151,7 +217,7 @@ const handleInputKeyPress = (event: KeyboardEvent) => {
   padding: 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   overflow: hidden;
-  
+
   &::before {
     content: '';
     position: absolute;
@@ -168,7 +234,7 @@ const handleInputKeyPress = (event: KeyboardEvent) => {
     animation: gradient-shift 15s ease infinite;
     z-index: 0;
   }
-  
+
   @keyframes gradient-shift {
     0% {
       transform: translateX(-50%) translateY(-50%) rotate(0deg);
@@ -185,7 +251,7 @@ const handleInputKeyPress = (event: KeyboardEvent) => {
   width: 100%;
   max-width: 400px;
   animation: fade-in 0.8s ease-out;
-  
+
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -199,184 +265,84 @@ const handleInputKeyPress = (event: KeyboardEvent) => {
 }
 
 .login-card {
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.95);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
-    transform: translateY(-5px);
-  }
-  
-  :deep(.el-card__body) {
-    padding: 40px 30px;
-  }
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 30px;
-  
-  .login-title {
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--el-text-color-primary);
-    margin: 0 0 10px 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: title-glow 2s ease-in-out infinite alternate;
-    
-    @keyframes title-glow {
-      from {
-        filter: drop-shadow(0 0 5px rgba(102, 126, 234, 0.5));
-      }
-      to {
-        filter: drop-shadow(0 0 15px rgba(102, 126, 234, 0.8));
-      }
-    }
-  }
-  
-  .login-subtitle {
-    font-size: 14px;
-    color: var(--el-text-color-secondary);
-    margin: 0;
-  }
-}
-
-.login-form {
-  :deep(.el-form-item) {
-    margin-bottom: 24px;
-  }
-  
-  :deep(.el-input__wrapper) {
-    border-radius: 12px;
-    transition: all 0.3s ease;
-    
-    &:hover {
-      border-color: var(--el-color-primary);
-      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
-    }
-    
-    &.is-focus {
-      border-color: var(--el-color-primary);
-      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
-    }
-  }
-  
-  :deep(.el-button) {
-    transition: all 0.3s ease;
-    
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-    }
-    
-    &:active {
-      transform: translateY(0);
-    }
-  }
-}
-
-.input-icon {
-  color: var(--el-text-color-secondary);
-  transition: color 0.3s ease;
-  
-  :deep(.el-input__wrapper:hover) & {
-    color: var(--el-color-primary);
-  }
-}
-
-.login-button {
-  width: 100%;
-  height: 48px;
-  font-size: 16px;
-  font-weight: 600;
-  border-radius: 12px;
-  margin-top: 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  
-  &:hover {
-    background: linear-gradient(135deg, #5a6fd8 0%, #6b4391 100%);
-  }
-}
-
-.login-footer {
-  text-align: center;
-  margin-top: 24px;
-  
-  p {
-    margin: 0;
-    font-size: 14px;
-    color: var(--el-text-color-secondary);
-  }
-}
-
-.register-link {
-  color: var(--el-color-primary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  position: relative;
-  
-  &:hover {
-    color: var(--el-color-primary-light-3);
-  }
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background: var(--el-color-primary);
-    transition: width 0.3s ease;
-  }
-  
-  &:hover::after {
-    width: 100%;
-  }
-}
-
-.login-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  
-  .background-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.1);
-  }
-}
-
-// 响应式设计
-@media (max-width: 768px) {
-  .login-container {
-    padding: 10px;
-  }
-  
-  .login-card {
-    :deep(.el-card__body) {
-      padding: 30px 20px;
-    }
-  }
-  
   .login-header {
+    text-align: center;
+    margin-bottom: 30px;
+
     .login-title {
       font-size: 28px;
+      font-weight: 700;
+      color: #303133;
+      margin: 0 0 10px 0;
+    }
+
+    .login-subtitle {
+      font-size: 14px;
+      color: #909399;
+      margin: 0;
+    }
+  }
+
+  .lock-warning {
+    text-align: center;
+    padding: 40px 0;
+
+    .lock-message {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+      color: #f56c6c;
+      font-size: 14px;
+
+      .warning-icon {
+        font-size: 18px;
+      }
+    }
+  }
+
+  .login-form {
+    .input-icon {
+      color: #909399;
+    }
+
+    .attempt-warning {
+      margin-bottom: 10px;
+
+      .warning-text {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #e6a23c;
+        font-size: 12px;
+      }
+    }
+
+    .login-button {
+      width: 100%;
+    }
+  }
+
+  .login-footer {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #ebeef5;
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      color: #909399;
+    }
+
+    .register-link {
+      color: #409eff;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
   }
 }

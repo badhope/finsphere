@@ -8,6 +8,7 @@ node_modules
 /.vite
 /.nuxt
 /.next
+/dev-dist
 
 # editor files
 .vscode/*
@@ -18,13 +19,12 @@ node_modules
 *.swo
 *~
 
-# local env files
+# local env files (敏感信息，不提交)
 .env
 .env.local
 .env.*.local
 .env.development
 .env.production
-.env.example
 
 # types
 *.d.ts
@@ -32,10 +32,12 @@ node_modules
 # test coverage
 coverage
 *.lcov
+.nyc_output
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
@@ -48,12 +50,13 @@ pnpm-lock.yaml
 # typescript
 *.tsbuildinfo
 
-# lint cache
-.eslintcache
-.stylelintcache
+# IDE
+*.iml
+.project
+.classpath
+.settings/
 
-# vite
-.vite-inspect
-
-# husky
-.husky/_/
+# OS
+.Spotlight-V100
+.Trashes
+ehthumbs.db
