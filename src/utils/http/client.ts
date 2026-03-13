@@ -10,8 +10,9 @@ import axios, {
   InternalAxiosRequestConfig,
 } from 'axios'
 import { ElMessage } from 'element-plus'
-import { getToken, clearAuth } from '@/utils/auth'
 import NProgress from 'nprogress'
+
+import { getToken, clearAuth } from '@/utils/auth'
 import 'nprogress/nprogress.css'
 
 NProgress.configure({ showSpinner: false })

@@ -12,9 +12,9 @@ export function formatCurrency(value: number, currency: string = 'CNY'): string 
     style: 'currency',
     currency: currency,
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   })
-  
+
   return formatter.format(value)
 }
 

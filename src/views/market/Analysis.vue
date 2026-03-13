@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ArrowUp, ArrowDown, Back } from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
 import {
   ElCard,
   ElRow,
@@ -9,12 +11,11 @@ import {
   ElTabs,
   ElTabPane,
 } from 'element-plus'
-import { ArrowUp, ArrowDown, Back } from '@element-plus/icons-vue'
+import { onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
 import { FinanceAPI } from '@/api/finance'
 import type { MarketData, CandlestickData } from '@/types/finance'
-import { useRoute, useRouter } from 'vue-router'
-import * as echarts from 'echarts'
-import { onUnmounted } from 'vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -132,7 +133,7 @@ onUnmounted(() => {
 
 <template>
   <div class="market-analysis">
-    <ElCard class="header-card" v-loading="loading">
+    <ElCard v-loading="loading" class="header-card">
       <template #header>
         <div class="card-header">
           <div class="header-left">
@@ -142,7 +143,7 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <ElRow :gutter="20" v-if="marketData">
+      <ElRow v-if="marketData" :gutter="20">
         <ElCol :span="4">
           <ElStatistic title="最新价" :value="marketData.price" prefix="¥" :precision="2" />
         </ElCol>

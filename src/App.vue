@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { useAppStore } from '@/stores/app'
-import { useUserStore } from '@/stores/user'
 import { ElConfigProvider } from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import { RouterView } from 'vue-router'
+
+import { useAppStore } from '@/stores/app'
+import { useUserStore } from '@/stores/user'
 
 const appStore = useAppStore()
 const userStore = useUserStore()

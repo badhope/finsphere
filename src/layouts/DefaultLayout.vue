@@ -1,17 +1,4 @@
 <script setup lang="ts">
-import { useAppStore } from '@/stores/app'
-import { useUserStore } from '@/stores/user'
-import {
-  ElContainer,
-  ElHeader,
-  ElMain,
-  ElFooter,
-  ElMenu,
-  ElMenuItem,
-  ElSubMenu,
-  ElBreadcrumb,
-  ElBreadcrumbItem,
-} from 'element-plus'
 import {
   Odometer,
   Collection,
@@ -24,6 +11,20 @@ import {
   Clock,
   Tools,
 } from '@element-plus/icons-vue'
+import {
+  ElContainer,
+  ElHeader,
+  ElMain,
+  ElFooter,
+  ElMenu,
+  ElMenuItem,
+  ElSubMenu,
+  ElBreadcrumb,
+  ElBreadcrumbItem,
+} from 'element-plus'
+
+import { useAppStore } from '@/stores/app'
+import { useUserStore } from '@/stores/user'
 
 const appStore = useAppStore()
 const userStore = useUserStore()
@@ -103,17 +104,17 @@ const toggleSidebar = () => {
       :class="{ 'sidebar--collapsed': appStore.settings.theme.sidebarCollapsed }"
     >
       <div class="sidebar-header">
-        <h1 class="logo" v-if="!appStore.settings.theme.sidebarCollapsed">
+        <h1 v-if="!appStore.settings.theme.sidebarCollapsed" class="logo">
           {{ $t('app.title') }}
         </h1>
-        <h1 class="logo-mini" v-else>F</h1>
+        <h1 v-else class="logo-mini">F</h1>
       </div>
 
       <ElMenu
         :default-active="route.path"
         :collapse="appStore.settings.theme.sidebarCollapsed"
-        @select="handleMenuSelect"
         class="sidebar-menu"
+        @select="handleMenuSelect"
       >
         <template v-for="item in menuItems" :key="item.index">
           <ElMenuItem v-if="!item.children" :index="item.index">

@@ -30,15 +30,15 @@ class SecureStorage {
    */
   set<T>(key: string, value: T, options: StorageOptions = {}): void {
     const { encrypt = false, expire } = options
-    
+
     const item: StorageItem<T> = {
       data: value,
       timestamp: Date.now(),
-      expire: expire ? Date.now() + expire : undefined
+      expire: expire ? Date.now() + expire : undefined,
     }
 
     let stringValue = JSON.stringify(item)
-    
+
     // 加密处理
     if (encrypt) {
       stringValue = encrypt(stringValue)
@@ -65,14 +65,14 @@ class SecureStorage {
    */
   get<T>(key: string, defaultValue?: T): T | null {
     const storedValue = this.storage.getItem(this.prefix + key)
-    
+
     if (storedValue === null) {
       return defaultValue !== undefined ? defaultValue : null
     }
 
     try {
       let parsedValue = storedValue
-      
+
       // 尝试解密
       try {
         parsedValue = decrypt(storedValue)
@@ -81,7 +81,7 @@ class SecureStorage {
       }
 
       const item: StorageItem<T> = JSON.parse(parsedValue)
-      
+
       // 检查是否过期
       if (item.expire && Date.now() > item.expire) {
         this.remove(key)
@@ -108,14 +108,14 @@ class SecureStorage {
    */
   clear(): void {
     const keysToRemove: string[] = []
-    
+
     for (let i = 0; i < this.storage.length; i++) {
       const key = this.storage.key(i)
       if (key && key.startsWith(this.prefix)) {
         keysToRemove.push(key)
       }
     }
-    
+
     keysToRemove.forEach(key => {
       this.storage.removeItem(key)
     })
@@ -133,14 +133,14 @@ class SecureStorage {
    */
   keys(): string[] {
     const keys: string[] = []
-    
+
     for (let i = 0; i < this.storage.length; i++) {
       const key = this.storage.key(i)
       if (key && key.startsWith(this.prefix)) {
         keys.push(key.substring(this.prefix.length))
       }
     }
-    
+
     return keys
   }
 
@@ -150,7 +150,7 @@ class SecureStorage {
   clearExpired(): void {
     const now = Date.now()
     const keysToRemove: string[] = []
-    
+
     for (let i = 0; i < this.storage.length; i++) {
       const key = this.storage.key(i)
       if (key && key.startsWith(this.prefix)) {
@@ -158,7 +158,7 @@ class SecureStorage {
           const storedValue = this.storage.getItem(key)
           if (storedValue) {
             let parsedValue = storedValue
-            
+
             // 尝试解密
             try {
               parsedValue = decrypt(storedValue)
@@ -167,7 +167,7 @@ class SecureStorage {
             }
 
             const item: StorageItem = JSON.parse(parsedValue)
-            
+
             if (item.expire && now > item.expire) {
               keysToRemove.push(key)
             }
@@ -178,7 +178,7 @@ class SecureStorage {
         }
       }
     }
-    
+
     keysToRemove.forEach(key => {
       this.storage.removeItem(key)
     })
@@ -190,7 +190,7 @@ class SecureStorage {
   getUsage(): { used: number; total: number; percentage: number } {
     let total = 0
     let used = 0
-    
+
     for (let i = 0; i < this.storage.length; i++) {
       const key = this.storage.key(i)
       const value = this.storage.getItem(key!)
@@ -198,15 +198,15 @@ class SecureStorage {
         total += key.length + value.length
       }
     }
-    
+
     // 估算总容量(5MB)
     const capacity = 5 * 1024 * 1024
     used = total * 2 // UTF-16编码，每个字符占2字节
-    
+
     return {
       used,
       total: capacity,
-      percentage: Math.round((used / capacity) * 100)
+      percentage: Math.round((used / capacity) * 100),
     }
   }
 }

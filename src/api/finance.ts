@@ -1,7 +1,6 @@
 /**
  * 金融数据相关API
  */
-import { http } from '@/utils/http/client'
 import type {
   FinancialAsset,
   Portfolio,
@@ -11,6 +10,7 @@ import type {
   CandlestickData,
 } from '@/types/finance'
 import type { PaginationRequest, PaginationResponse } from '@/types/system'
+import { http } from '@/utils/http/client'
 
 export class FinanceAPI {
   /**

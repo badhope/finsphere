@@ -1,11 +1,12 @@
 /**
  * 路由配置
  */
+import NProgress from 'nprogress'
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { useUserStore } from '@/stores/user'
+
 import { useAppStore } from '@/stores/app'
-import NProgress from 'nprogress'
+import { useUserStore } from '@/stores/user'
 
 // 静态路由
 export const constantRoutes: RouteRecordRaw[] = [
@@ -24,6 +25,15 @@ export const constantRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/Register.vue'),
     meta: {
       title: '注册',
+      hidden: true,
+    },
+  },
+  {
+    path: '/content-intro',
+    name: 'ContentIntro',
+    component: () => import('@/views/content/ContentIntro.vue'),
+    meta: {
+      title: '产品介绍',
       hidden: true,
     },
   },

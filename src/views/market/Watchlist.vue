@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Search, Star, StarFilled, Delete } from '@element-plus/icons-vue'
 import {
   ElCard,
   ElTable,
@@ -9,7 +10,7 @@ import {
   ElTag,
   ElEmpty,
 } from 'element-plus'
-import { Search, Star, StarFilled, Delete } from '@element-plus/icons-vue'
+
 import { FinanceAPI } from '@/api/finance'
 import type { FinancialAsset } from '@/types/finance'
 
@@ -80,16 +81,16 @@ onMounted(() => {
               placeholder="搜索股票代码或名称"
               :prefix-icon="Search"
               clearable
+              style="width: 300px"
               @keyup.enter="handleSearch"
               @clear="loadWatchlist"
-              style="width: 300px"
             />
             <ElButton type="primary" @click="handleSearch">搜索</ElButton>
           </div>
         </div>
       </template>
 
-      <ElTable :data="watchlist" v-loading="loading" stripe>
+      <ElTable v-loading="loading" :data="watchlist" stripe>
         <ElTableColumn prop="symbol" label="代码" min-width="100" />
         <ElTableColumn prop="name" label="名称" min-width="120" />
         <ElTableColumn prop="currentPrice" label="现价" min-width="100">

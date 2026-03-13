@@ -122,9 +122,9 @@ export function validatePassword(
     score += 10
   }
 
-  if (finalPolicy.requireSpecialChar && !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (finalPolicy.requireSpecialChar && !/[!@#$%^&*()_+\-=[\]{}|;':"\\,.<>?]/.test(password)) {
     errors.push('密码必须包含至少一个特殊字符')
-  } else if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  } else if (/[!@#$%^&*()_+\-=[\]{}|;':"\\,.<>?]/.test(password)) {
     score += 15
   }
 

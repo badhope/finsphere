@@ -2,18 +2,19 @@
  * 用户状态管理
  */
 import { defineStore } from 'pinia'
+
 import type { User, LoginRequest, RegisterRequest } from '@/types/user'
-import { http } from '@/utils/http/client'
-import { 
-  getToken, 
-  setToken, 
-  removeToken, 
-  getUserInfo, 
-  setUserInfo, 
+import {
+  getToken,
+  setToken,
+  removeToken,
+  getUserInfo,
+  setUserInfo,
   removeUserInfo,
   clearAuth,
-  isAuthenticated
+  isAuthenticated,
 } from '@/utils/auth'
+import { http } from '@/utils/http/client'
 
 export const useUserStore = defineStore('user', () => {
   // 状态
@@ -25,13 +26,15 @@ export const useUserStore = defineStore('user', () => {
   // Getters
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const userRoles = computed(() => user.value?.roles.map(role => role.code) || [])
-  const userPermissions = computed(() => user.value?.permissions.map(permission => permission.code) || [])
+  const userPermissions = computed(
+    () => user.value?.permissions.map(permission => permission.code) || []
+  )
 
   // 初始化认证状态
   const initAuth = () => {
     const savedToken = getToken()
     const savedUser = getUserInfo<User>()
-    
+
     if (savedToken && savedUser) {
       token.value = savedToken
       user.value = savedUser
@@ -52,21 +55,21 @@ export const useUserStore = defineStore('user', () => {
       loginError.value = null
 
       const response = await http.post('/auth/login', loginData)
-      
+
       const { accessToken, refreshToken, user: userData } = response
-      
+
       // 保存认证信息
       token.value = accessToken
       user.value = userData
-      
+
       setToken(accessToken, loginData.rememberMe)
       setUserInfo(userData)
-      
+
       // 如果有刷新令牌，也保存
       if (refreshToken) {
         // 这里可以单独处理刷新令牌
       }
-      
+
       return response
     } catch (error: any) {
       loginError.value = error.message || '登录失败'
@@ -78,12 +81,8 @@ export const useUserStore = defineStore('user', () => {
 
   // 注册
   const register = async (registerData: RegisterRequest) => {
-    try {
-      const response = await http.post('/auth/register', registerData)
-      return response
-    } catch (error: any) {
-      throw error
-    }
+    const response = await http.post('/auth/register', registerData)
+    return response
   }
 
   // 登出
@@ -107,10 +106,10 @@ export const useUserStore = defineStore('user', () => {
     try {
       const response = await http.post('/auth/refresh')
       const { accessToken } = response
-      
+
       token.value = accessToken
       setToken(accessToken)
-      
+
       return accessToken
     } catch (error) {
       // 刷新失败，执行登出
@@ -121,24 +120,16 @@ export const useUserStore = defineStore('user', () => {
 
   // 更新用户信息
   const updateUserProfile = async (userData: Partial<User>) => {
-    try {
-      const response = await http.put('/user/profile', userData)
-      user.value = { ...user.value, ...response } as User
-      setUserInfo(user.value)
-      return response
-    } catch (error) {
-      throw error
-    }
+    const response = await http.put('/user/profile', userData)
+    user.value = { ...user.value, ...response } as User
+    setUserInfo(user.value)
+    return response
   }
 
   // 修改密码
   const changePassword = async (passwordData: { oldPassword: string; newPassword: string }) => {
-    try {
-      const response = await http.put('/user/password', passwordData)
-      return response
-    } catch (error) {
-      throw error
-    }
+    const response = await http.put('/user/password', passwordData)
+    return response
   }
 
   // 检查权限
@@ -158,12 +149,12 @@ export const useUserStore = defineStore('user', () => {
     token,
     isLoggingIn,
     loginError,
-    
+
     // Getters
     isLoggedIn,
     userRoles,
     userPermissions,
-    
+
     // 方法
     initAuth,
     checkAuthStatus,
@@ -174,6 +165,6 @@ export const useUserStore = defineStore('user', () => {
     updateUserProfile,
     changePassword,
     hasPermission,
-    hasRole
+    hasRole,
   }
 })

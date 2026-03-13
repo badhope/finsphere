@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { User, Lock, WarningFilled } from '@element-plus/icons-vue'
 import {
   ElForm,
   ElFormItem,
@@ -9,7 +10,7 @@ import {
   ElMessage,
   ElProgress,
 } from 'element-plus'
-import { User, Lock, WarningFilled } from '@element-plus/icons-vue'
+
 import { useUserStore } from '@/stores/user'
 import type { LoginRequest } from '@/types/user'
 import {

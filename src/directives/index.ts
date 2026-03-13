@@ -2,6 +2,7 @@
  * 全局指令注册
  */
 import type { App, Directive, DirectiveBinding } from 'vue'
+
 import { useUserStore } from '@/stores/user'
 
 function checkPermission(value: string | string[]): boolean {

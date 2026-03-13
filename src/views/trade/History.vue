@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Download } from '@element-plus/icons-vue'
 import {
   ElCard,
   ElTable,
@@ -12,7 +13,7 @@ import {
   ElTag,
   ElEmpty,
 } from 'element-plus'
-import { Download } from '@element-plus/icons-vue'
+
 import { FinanceAPI } from '@/api/finance'
 import type { Transaction } from '@/types/finance'
 
@@ -125,7 +126,7 @@ onMounted(() => {
         </div>
       </template>
 
-      <ElTable :data="transactions" v-loading="loading" stripe>
+      <ElTable v-loading="loading" :data="transactions" stripe>
         <ElTableColumn prop="assetId" label="资产代码" min-width="100" />
         <ElTableColumn prop="type" label="交易类型" min-width="80">
           <template #default="{ row }">

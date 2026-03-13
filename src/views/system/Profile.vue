@@ -9,6 +9,7 @@ import {
   ElUpload,
   ElMessage,
 } from 'element-plus'
+
 import { useUserStore } from '@/stores/user'
 import type { UserInfoUpdateRequest } from '@/types/user'
 

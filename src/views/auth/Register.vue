@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ElForm, ElFormItem, ElInput, ElButton, ElCard, ElCheckbox } from 'element-plus'
 import { User, Lock, Message } from '@element-plus/icons-vue'
+import { ElForm, ElFormItem, ElInput, ElButton, ElCard, ElCheckbox } from 'element-plus'
+
 import { useUserStore } from '@/stores/user'
 import type { RegisterRequest } from '@/types/user'
 
@@ -12,22 +13,22 @@ const registerForm = ref<RegisterRequest>({
   username: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
 })
 
 // 表单规则
 const registerRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度应在3-20个字符之间', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度应在3-20个字符之间', trigger: 'blur' },
   ],
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' },
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度应在6-20个字符之间', trigger: 'blur' }
+    { min: 6, max: 20, message: '密码长度应在6-20个字符之间', trigger: 'blur' },
   ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
@@ -39,9 +40,9 @@ const registerRules = {
           callback()
         }
       },
-      trigger: 'blur'
-    }
-  ]
+      trigger: 'blur',
+    },
+  ],
 }
 
 const formRef = ref()
@@ -49,7 +50,7 @@ const formRef = ref()
 // 处理注册
 const handleRegister = async () => {
   if (!formRef.value) return
-  
+
   await formRef.value.validate(async (valid: boolean) => {
     if (valid) {
       try {
@@ -79,7 +80,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
           <h1 class="register-title">注册账户</h1>
           <p class="register-subtitle">创建您的FinSphere Pro账户</p>
         </div>
-        
+
         <ElForm
           ref="formRef"
           :model="registerForm"
@@ -88,31 +89,21 @@ const handleKeyPress = (event: KeyboardEvent) => {
           @keyup.enter="handleKeyPress"
         >
           <ElFormItem prop="username">
-            <ElInput
-              v-model="registerForm.username"
-              placeholder="用户名"
-              size="large"
-              clearable
-            >
+            <ElInput v-model="registerForm.username" placeholder="用户名" size="large" clearable>
               <template #prefix>
                 <User class="input-icon" />
               </template>
             </ElInput>
           </ElFormItem>
-          
+
           <ElFormItem prop="email">
-            <ElInput
-              v-model="registerForm.email"
-              placeholder="邮箱地址"
-              size="large"
-              clearable
-            >
+            <ElInput v-model="registerForm.email" placeholder="邮箱地址" size="large" clearable>
               <template #prefix>
                 <Message class="input-icon" />
               </template>
             </ElInput>
           </ElFormItem>
-          
+
           <ElFormItem prop="password">
             <ElInput
               v-model="registerForm.password"
@@ -126,7 +117,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
               </template>
             </ElInput>
           </ElFormItem>
-          
+
           <ElFormItem prop="confirmPassword">
             <ElInput
               v-model="registerForm.confirmPassword"
@@ -140,7 +131,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
               </template>
             </ElInput>
           </ElFormItem>
-          
+
           <ElFormItem>
             <ElCheckbox required>
               我已阅读并同意
@@ -149,7 +140,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
               <a href="#" class="agreement-link">隐私政策</a>
             </ElCheckbox>
           </ElFormItem>
-          
+
           <ElFormItem>
             <ElButton
               type="primary"
@@ -162,18 +153,16 @@ const handleKeyPress = (event: KeyboardEvent) => {
             </ElButton>
           </ElFormItem>
         </ElForm>
-        
+
         <div class="register-footer">
           <p>
             已有账户？
-            <router-link to="/login" class="login-link">
-              立即登录
-            </router-link>
+            <router-link to="/login" class="login-link"> 立即登录 </router-link>
           </p>
         </div>
       </ElCard>
     </div>
-    
+
     <div class="register-background">
       <div class="background-overlay"></div>
     </div>
@@ -201,7 +190,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
 .register-card {
   border-radius: 12px;
   overflow: hidden;
-  
+
   :deep(.el-card__body) {
     padding: 40px 30px;
   }
@@ -210,14 +199,14 @@ const handleKeyPress = (event: KeyboardEvent) => {
 .register-header {
   text-align: center;
   margin-bottom: 30px;
-  
+
   .register-title {
     font-size: 28px;
     font-weight: 600;
     color: var(--el-text-color-primary);
     margin: 0 0 10px 0;
   }
-  
+
   .register-subtitle {
     font-size: 14px;
     color: var(--el-text-color-secondary);
@@ -229,7 +218,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
   :deep(.el-form-item) {
     margin-bottom: 24px;
   }
-  
+
   :deep(.el-input__wrapper) {
     border-radius: 8px;
   }
@@ -250,7 +239,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
 .agreement-link {
   color: var(--el-color-primary);
   text-decoration: none;
-  
+
   &:hover {
     text-decoration: underline;
   }
@@ -259,7 +248,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
 .register-footer {
   text-align: center;
   margin-top: 20px;
-  
+
   p {
     margin: 0;
     font-size: 14px;
@@ -271,7 +260,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
   color: var(--el-color-primary);
   text-decoration: none;
   font-weight: 500;
-  
+
   &:hover {
     text-decoration: underline;
   }
@@ -284,7 +273,7 @@ const handleKeyPress = (event: KeyboardEvent) => {
   width: 100%;
   height: 100%;
   z-index: 1;
-  
+
   .background-overlay {
     position: absolute;
     top: 0;
@@ -300,13 +289,13 @@ const handleKeyPress = (event: KeyboardEvent) => {
   .register-container {
     padding: 10px;
   }
-  
+
   .register-card {
     :deep(.el-card__body) {
       padding: 30px 20px;
     }
   }
-  
+
   .register-header {
     .register-title {
       font-size: 24px;

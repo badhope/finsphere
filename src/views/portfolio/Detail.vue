@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowUp, ArrowDown, Back } from '@element-plus/icons-vue'
 import {
   ElCard,
   ElRow,
@@ -12,10 +13,10 @@ import {
   ElDescriptionsItem,
   ElTag,
 } from 'element-plus'
-import { ArrowUp, ArrowDown, Back } from '@element-plus/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
+
 import { FinanceAPI } from '@/api/finance'
 import type { Portfolio, PortfolioAsset } from '@/types/finance'
-import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,7 +56,7 @@ onMounted(() => {
 
 <template>
   <div class="portfolio-detail">
-    <ElCard class="header-card" v-loading="loading">
+    <ElCard v-loading="loading" class="header-card">
       <template #header>
         <div class="card-header">
           <div class="header-left">
@@ -65,7 +66,7 @@ onMounted(() => {
         </div>
       </template>
 
-      <ElRow :gutter="20" v-if="portfolio">
+      <ElRow v-if="portfolio" :gutter="20">
         <ElCol :span="6">
           <ElStatistic title="总市值" :value="portfolio.totalValue" prefix="¥" :precision="2" />
         </ElCol>

@@ -11,15 +11,9 @@ const goHome = () => {
 <template>
   <div class="not-found">
     <ElCard class="not-found-card">
-      <ElResult
-        status="404"
-        title="404"
-        sub-title="抱歉，您访问的页面不存在"
-      >
+      <ElResult status="404" title="404" sub-title="抱歉，您访问的页面不存在">
         <template #extra>
-          <ElButton type="primary" @click="goHome">
-            返回首页
-          </ElButton>
+          <ElButton type="primary" @click="goHome"> 返回首页 </ElButton>
         </template>
       </ElResult>
     </ElCard>
@@ -39,7 +33,7 @@ const goHome = () => {
 .not-found-card {
   width: 100%;
   max-width: 500px;
-  
+
   :deep(.el-card__body) {
     padding: 40px 20px;
   }

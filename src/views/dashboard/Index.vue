@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ElCard, ElRow, ElCol, ElStatistic, ElMessage, ElSkeleton } from 'element-plus'
 import { ArrowUp, ArrowDown, User, Coin, TrendCharts, DataAnalysis } from '@element-plus/icons-vue'
+import { ElCard, ElRow, ElCol, ElStatistic, ElMessage, ElSkeleton } from 'element-plus'
+
 import { FinanceAPI } from '@/api/finance'
 
 const { t } = useI18n()

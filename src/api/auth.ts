@@ -1,13 +1,13 @@
 /**
  * 用户认证相关API
  */
-import { http } from '@/utils/http/client'
-import type { 
-  LoginRequest, 
-  RegisterRequest, 
-  LoginResponse, 
-  UserInfoUpdateRequest 
+import type {
+  LoginRequest,
+  RegisterRequest,
+  LoginResponse,
+  UserInfoUpdateRequest,
 } from '@/types/user'
+import { http } from '@/utils/http/client'
 
 export class AuthAPI {
   /**

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Plus, View, Edit, Delete } from '@element-plus/icons-vue'
 import {
   ElCard,
   ElTable,
@@ -13,7 +14,7 @@ import {
   ElTag,
   ElEmpty,
 } from 'element-plus'
-import { Plus, View, Edit, Delete } from '@element-plus/icons-vue'
+
 import { FinanceAPI } from '@/api/finance'
 import type { Portfolio } from '@/types/finance'
 
@@ -141,7 +142,7 @@ onMounted(() => {
         </div>
       </template>
 
-      <ElTable :data="portfolios" v-loading="loading" stripe>
+      <ElTable v-loading="loading" :data="portfolios" stripe>
         <ElTableColumn prop="name" label="组合名称" min-width="150" />
         <ElTableColumn prop="totalValue" label="总市值" min-width="120">
           <template #default="{ row }">

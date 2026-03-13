@@ -2,6 +2,7 @@
  * 应用状态管理（包含主题管理）
  */
 import { defineStore } from 'pinia'
+
 import type { AppSettings, ThemeConfig } from '@/types/system'
 import { localStore } from '@/utils/storage'
 

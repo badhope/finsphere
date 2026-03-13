@@ -24,7 +24,7 @@ export enum AssetType {
   ETF = 'ETF',
   CRYPTOCURRENCY = 'CRYPTOCURRENCY',
   COMMODITY = 'COMMODITY',
-  FOREX = 'FOREX'
+  FOREX = 'FOREX',
 }
 
 export interface Portfolio {
@@ -67,7 +67,7 @@ export enum TransactionType {
   BUY = 'BUY',
   SELL = 'SELL',
   DIVIDEND = 'DIVIDEND',
-  INTEREST = 'INTEREST'
+  INTEREST = 'INTEREST',
 }
 
 export interface MarketData {
