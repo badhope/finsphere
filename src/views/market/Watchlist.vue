@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Search, Star, StarFilled, Delete } from '@element-plus/icons-vue'
+import { Search, Delete } from '@element-plus/icons-vue'
 import {
   ElCard,
   ElTable,
@@ -7,7 +7,6 @@ import {
   ElButton,
   ElInput,
   ElMessage,
-  ElTag,
   ElEmpty,
 } from 'element-plus'
 

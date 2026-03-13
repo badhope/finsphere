@@ -7,7 +7,6 @@ import {
   HomeFilled,
   WarningFilled,
   Link,
-  Plus,
   Files,
 } from '@element-plus/icons-vue'
 import {

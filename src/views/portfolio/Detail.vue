@@ -9,9 +9,6 @@ import {
   ElTableColumn,
   ElButton,
   ElMessage,
-  ElDescriptions,
-  ElDescriptionsItem,
-  ElTag,
 } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 

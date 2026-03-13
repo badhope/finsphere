@@ -8,8 +8,6 @@ import {
   ElStatistic,
   ElButton,
   ElMessage,
-  ElTabs,
-  ElTabPane,
 } from 'element-plus'
 import { onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

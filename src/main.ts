@@ -25,8 +25,6 @@ function bootstrap() {
   }
 
   app.mount('#app')
-
-  console.log('🚀 FinSphere Pro started')
 }
 
 bootstrap().catch(error => {
