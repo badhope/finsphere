@@ -6,6 +6,7 @@ import AutoImport from 'unplugin-auto-import/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import Components from 'unplugin-vue-components/vite'
 import { defineConfig, loadEnv } from 'vite'
+import { createHtmlPlugin } from 'vite-plugin-html'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -16,6 +17,10 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       vueJsx(),
+      createHtmlPlugin({
+        minify: true,
+        template: 'index.html',
+      }),
       // 自动导入
       AutoImport({
         resolvers: [ElementPlusResolver()],
