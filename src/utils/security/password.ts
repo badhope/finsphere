@@ -34,6 +34,8 @@ const DEFAULT_POLICY: PasswordPolicy = {
   preventUserInfoInPassword: true,
 }
 
+export { DEFAULT_POLICY }
+
 const COMMON_PASSWORDS = new Set([
   '123456',
   'password',
