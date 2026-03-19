@@ -2,97 +2,104 @@
 
 本文档是仓库的中央索引，AI 和人类都可以通过它快速定位任何内容。
 
+---
+
 ## 统计概览
 
-- **Skills**: X 个
-- **Prompts**: X 个
-- **Workflows**: X 个
-- **Templates**: X 个
-- **Tools**: X 个
+- **Prompts**: 47+ 个
+- **Skills (Trae)**: 11 个
+- **Workflows**: 10 个
+- **工具调用指南**: 8 个
 - **最后更新**: 2026-03-19
 
-## Skills 分类速查
+---
 
-| 分类 | 数量 | 路径 |
-|------|------|------|
-| writing | - | skills/writing/ |
-| coding | - | skills/coding/ |
-| research | - | skills/research/ |
-| analysis | - | skills/analysis/ |
-| design | - | skills/design/ |
-| automation | - | skills/automation/ |
-| agent | - | skills/agent/ |
-| business | - | skills/business/ |
-| learning | - | skills/learning/ |
-| productivity | - | skills/productivity/ |
-| media | - | skills/media/ |
-| personal | - | skills/personal/ |
+## 快速导航
+
+| 你要做什么 | 去哪里 |
+|-----------|--------|
+| 让 AI 写代码 | [prompts/task/coding/](prompts/task/coding/) |
+| 让 AI 修 Bug | [prompts/task/debugging/](prompts/task/debugging/) |
+| 让 AI 分析项目 | [prompts/task/repo-analysis/](prompts/task/repo-analysis/) |
+| 让 AI 做计划 | [prompts/task/planning/](prompts/task/planning/) |
+| 让 AI 做研究 | [prompts/task/research/](prompts/task/research/) |
+| 让 AI 做多步骤任务 | [prompts/workflow/](prompts/workflow/) |
+| 让 AI 输出特定格式 | [prompts/output/](prompts/output/) |
+| 优化 Prompt | [prompts/meta/](prompts/meta/) |
+| AI 自动路由选择 | [prompts/_routing/](prompts/_routing/) |
+
+---
 
 ## Prompts 分类速查
 
 | 类型 | 数量 | 路径 |
 |------|------|------|
-| system | - | prompts/system/ |
-| role | - | prompts/role/ |
-| task | - | prompts/task/ |
-| workflow | - | prompts/workflow/ |
-| templates | - | prompts/templates/ |
+| routing | 4 | `prompts/_routing/` |
+| system | 3 | `prompts/system/` |
+| task/coding | 3 | `prompts/task/coding/` |
+| task/debugging | 4 | `prompts/task/debugging/` |
+| task/repo-analysis | 3 | `prompts/task/repo-analysis/` |
+| task/planning | 2 | `prompts/task/planning/` |
+| task/research | 1 | `prompts/task/research/` |
+| workflow | 10 | `prompts/workflow/` |
+| tool-use | 8 | `prompts/tool-use/` |
+| output | 6 | `prompts/output/` |
+| meta | 8 | `prompts/meta/` |
 
-## Workflows 分类速查
+---
 
-| 类型 | 数量 | 路径 |
-|------|------|------|
-| multi-step | - | workflows/multi-step/ |
-| sequential | - | workflows/sequential/ |
-| conditional | - | workflows/conditional/ |
+## Skills (Trae IDE)
 
-## 常用组合
+`.trae/skills/` 目录包含可直接导入 Trae IDE 的 Skills：
 
-### 写作工作流
-- skill: `skills/writing/article-outline.md`
-- prompt: `prompts/task/writing/article-outline.md`
-- workflow: `workflows/multi-step/article-writing.md`
+| Skill | 用途 |
+|-------|------|
+| ai-routing | AI 自主路由 |
+| coding | 编程辅助 |
+| coding-bug-fixing | Bug 修复 |
+| coding-code-review | 代码审查 |
+| debugging | 调试辅助 |
+| planning | 任务规划 |
+| repo-analysis | 仓库分析 |
+| research | 研究调查 |
+| system-prompts | 系统提示 |
+| workflows | 工作流 |
+| writing-article-draft | 文章起草 |
 
-### 编码工作流
-- skill: `skills/coding/code-review.md`
-- prompt: `prompts/task/coding/code-review.md`
-- workflow: `workflows/sequential/bug-fix.md`
+---
 
-### 研究工作流
-- skill: `skills/research/topic-analysis.md`
-- prompt: `prompts/task/research/deep-dive.md`
-- workflow: `workflows/sequential/research-report.md`
+## AI 使用文档
 
-## 快速开始
+| 文档 | 说明 |
+|------|------|
+| [AI-BOOTSTRAP.md](AI-BOOTSTRAP.md) | AI 启动引导 |
+| [AI-USAGE.md](AI-USAGE.md) | AI 使用指南 |
+| [AI-ROUTING.md](AI-ROUTING.md) | AI 路由指南 |
 
-### 新手推荐路径
-1. 阅读 [skills/writing/](skills/writing/)
-2. 尝试 [prompts/templates/](prompts/templates/)
-3. 使用 [workflows/multi-step/](workflows/multi-step/)
-4. 参考 [templates/docs/](templates/docs/)
+---
 
-### 按场景查找
+## 规范文档
 
-| 场景 | 推荐 Skill | 推荐 Prompt |
-|------|----------|-------------|
-| 写文章 | writing/article-writing | task/article-draft |
-| 写代码 | coding/code-generation | task/generate-function |
-| 找bug | coding/bug-fixing | task/debug-assist |
-| 做研究 | research/topic-analysis | task/research-summarize |
-| 做设计 | design/ui-design | task/design-spec |
-| 自动化 | automation/workflow-build | task/automation-plan |
+| 文档 | 说明 |
+|------|------|
+| [docs/guides/SPEC.md](docs/guides/SPEC.md) | 完整规范 |
+| [docs/guides/prompt-template.md](docs/guides/prompt-template.md) | Prompt 模板 |
+| [docs/guides/skill-template.md](docs/guides/skill-template.md) | Skill 模板 |
+| [docs/guides/workflow-template.md](docs/guides/workflow-template.md) | Workflow 模板 |
 
-## 注册表
+---
 
-- [Skills Registry](registry/skills-registry.md)
-- [Prompts Registry](registry/prompts-registry.md)
-- [Workflows Registry](registry/workflows-registry.md)
-- [Tags Registry](registry/tags-registry.md)
-- [Relations Registry](registry/relations-registry.md)
+## 许可说明
 
-## 维护指南
+本仓库采用双许可模式：
+- **Apache-2.0**: 代码、脚本、配置（`.trae/skills/`）
+- **CC BY 4.0**: 内容资产（`prompts/`、`workflows/`、`docs/`）
 
-- 如何添加新的 Skill → [添加 Skill 指南](docs/guides/add-skill.md)
-- 如何添加新的 Prompt → [添加 Prompt 指南](docs/guides/add-prompt.md)
-- 如何添加新的 Workflow → [添加 Workflow 指南](docs/guides/add-workflow.md)
-- 命名规范 → [规范文档](docs/guides/SPEC.md#命名规范)
+详见 [LICENSE](LICENSE)
+
+---
+
+## 相关链接
+
+- [README.md](README.md) - 仓库入口
+- [prompts/INDEX.md](prompts/INDEX.md) - Prompts 仓库详细索引
