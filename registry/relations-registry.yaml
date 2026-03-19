@@ -116,11 +116,11 @@ relations:
     usage_note: 需要记录生成结果时使用
 
   - source_id: prompt-task-coding-review-code
-    target_id: prompt-task-coding-fix-bug
+    target_id: prompt-task-debugging-fix-bug
     relation_type: specializes
     strength: medium
-    reason: 代码审查发现的问题需要通过修复解决
-    usage_note: 审查发现问题后使用修复 prompt
+    reason: 代码审查发现的问题需要通过调试修复 prompt 解决
+    usage_note: 审查发现问题后使用调试修复 prompt
 
   - source_id: prompt-task-coding-review-code
     target_id: prompt-meta-evaluate-quality

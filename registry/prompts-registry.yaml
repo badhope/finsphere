@@ -2002,19 +2002,3 @@ prompts:
       - "Prompt 过长或需要模块化设计时使用"
     model_fit: "*"
     status: active
-
-# ==================== 待补全项 ====================
-pending_items:
-  - |
-    以下 related_skills 和 related_workflows 引用了尚不存在的内容：
-    - skill-coding-code-review (在 prompt-task-coding-review-code 中引用)
-    - skill-coding (在多个 coding prompts 中引用)
-    - skill-debugging (在多个 debugging prompts 中引用)
-    - skill-planning (在多个 planning prompts 中引用)
-    - skill-research (在多个 research prompts 中引用)
-    - skill-repo-analysis (在多个 repo-analysis prompts 中引用)
-    - workflow-feature-implementation (在 prompt-system-coding-agent 中引用)
-    - workflow-bug-investigation (在 prompt-system-debugging-agent 中引用)
-  - |
-    建议：这些 Skills 应该在 .trae/skills/ 目录中创建对应的 SKILL.md 文件，
-    以便与 registry 中的引用对应。
