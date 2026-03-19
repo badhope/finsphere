@@ -1,14 +1,38 @@
 # Skills Registry
 # Skills 中央注册表
+# Canonical directory: skills/
 # 最后更新：2026-03-19
 
 skills:
+
+  # ==================== ROUTING ====================
+
+  - id: skill-ai-routing-v1
+    name: AI Routing
+    path: skills/ai-routing/skill-ai-routing.md
+    category: routing
+    tags: [routing, task-identification, selection, ai-understanding]
+    summary: AI 自主路由和任务识别能力
+    intent: 帮助 AI 理解用户需求并路由到合适的资源
+    typical_use_cases:
+      - 用户需求不明确时判断任务类型
+      - 从多个候选中选择合适的 prompts
+      - 组合多个 prompts 处理复杂任务
+    related_prompts:
+      - prompt-routing-scan-repository
+      - prompt-routing-identify-task-type
+      - prompt-routing-select-relevant
+      - prompt-routing-compose
+    related_workflows:
+      - workflow-vague-request-to-action
+      - workflow-prompt-selection-composition
+    status: active
 
   # ==================== CODING ====================
 
   - id: skill-coding-v1
     name: Coding
-    path: .trae/skills/coding/SKILL.md
+    path: skills/coding/skill-coding.md
     category: coding
     tags: [coding, code-generation, implementation]
     summary: 代码生成、实现、审查的完整能力
@@ -49,12 +73,12 @@ skills:
     summary: 安全修复 Bug 的技术
     intent: 在理解根因的基础上实施安全修复
     typical_use_cases:
-      - 已确定 Bug 原因后的修复
-      - 需要确保修复安全时
-      - 需要验证修复时
+      - 修复已知 Bug
+      - 回归测试后的修复
+      - Hotfix 场景
     related_prompts:
-      - prompt-task-debugging-fix-bug
-      - prompt-task-debugging-verify-fix
+      - prompt-task-debugging-fix-bug-safely
+      - prompt-task-debugging-verify-fix-after-change
     related_workflows:
       - workflow-bug-investigation
     status: active
@@ -63,142 +87,132 @@ skills:
 
   - id: skill-debugging-v1
     name: Debugging
-    path: .trae/skills/debugging/SKILL.md
+    path: skills/debugging/skill-debugging.md
     category: debugging
-    tags: [debugging, root-cause, analysis]
-    summary: 系统性调试：识别根因、生成计划、安全修复、验证结果
-    intent: 提供完整的调试方法论
+    tags: [debugging, bug-investigation, root-cause]
+    summary: 系统性调试流程
+    intent: 定位问题根因、制定修复计划、安全实施修复、验证结果
     typical_use_cases:
-      - 调查 Bug 根本原因
-      - 制定调试计划
+      - Bug 调查和根因定位
+      - 生成调试计划
       - 验证修复结果
+      - 复杂问题分析
     related_prompts:
       - prompt-task-debugging-identify-root-cause
-      - prompt-task-debugging-generate-plan
-      - prompt-task-debugging-fix-bug
-      - prompt-task-debugging-verify-fix
+      - prompt-task-debugging-generate-debug-plan
+      - prompt-task-debugging-fix-bug-safely
+      - prompt-task-debugging-verify-fix-after-change
     related_workflows:
       - workflow-bug-investigation
       - workflow-tool-assisted-debug
-    status: active
-
-  # ==================== REPO ANALYSIS ====================
-
-  - id: skill-repo-analysis-v1
-    name: Repo Analysis
-    path: .trae/skills/repo-analysis/SKILL.md
-    category: repo-analysis
-    tags: [repo-analysis, structure, architecture]
-    summary: 仓库结构分析、文件定位、架构总结
-    intent: 帮助理解陌生代码库
-    typical_use_cases:
-      - 接手新项目
-      - 了解项目结构
-      - 定位特定文件
-    related_prompts:
-      - prompt-task-repo-analysis-structure
-      - prompt-task-repo-analysis-locate-files
-      - prompt-task-repo-analysis-summarize-architecture
-    related_workflows:
-      - workflow-new-repo-onboarding
-      - workflow-repo-reading-to-change
     status: active
 
   # ==================== PLANNING ====================
 
   - id: skill-planning-v1
     name: Planning
-    path: .trae/skills/planning/SKILL.md
+    path: skills/planning/skill-planning.md
     category: planning
-    tags: [planning, task-decomposition, execution-plan]
-    summary: 任务分解、计划制定、执行规划
-    intent: 帮助将复杂任务拆解为可执行的步骤
+    tags: [planning, task-breakdown, execution-plan]
+    summary: 任务规划和分解能力
+    intent: 将复杂任务分解为可执行的子任务，制定执行计划
     typical_use_cases:
-      - 任务太大需要拆解
-      - 需要制定执行计划
-      - 估算工作量
+      - 复杂任务分解
+      - 制定执行计划
+      - 项目规划
+      - 里程碑设定
     related_prompts:
-      - prompt-task-planning-break-down
-      - prompt-task-planning-create-plan
-    related_workflows: []
+      - prompt-task-planning-break-down-task-into-subtasks
+      - prompt-task-planning-create-execution-plan
+    related_workflows:
+      - workflow-vague-request-to-action
+    status: active
+
+  # ==================== REPO ANALYSIS ====================
+
+  - id: skill-repo-analysis-v1
+    name: Repository Analysis
+    path: skills/repo-analysis/skill-repo-analysis.md
+    category: repo-analysis
+    tags: [repo-analysis, project-understanding, architecture]
+    summary: 仓库分析和项目理解能力
+    intent: 帮助 AI 理解项目结构、架构、技术栈
+    typical_use_cases:
+      - 新项目接手
+      - 理解代码库结构
+      - 定位相关文件
+      - 架构分析
+    related_prompts:
+      - prompt-task-repo-analysis-analyze-repository-structure
+      - prompt-task-repo-analysis-summarize-project-architecture
+      - prompt-task-repo-analysis-locate-bug-related-files
+    related_workflows:
+      - workflow-new-repo-onboarding
+      - workflow-repo-reading-to-change-plan
     status: active
 
   # ==================== RESEARCH ====================
 
   - id: skill-research-v1
     name: Research
-    path: .trae/skills/research/SKILL.md
+    path: skills/research/skill-research.md
     category: research
-    tags: [research, investigation, evaluation]
-    summary: 信息收集、主题研究、方案评估
-    intent: 帮助深入研究主题并生成结构化结论
+    tags: [research, investigation, briefing]
+    summary: 结构化研究和调研能力
+    intent: 进行系统性研究，准备结构化简报
     typical_use_cases:
-      - 调研某个主题
-      - 对比多个方案
-      - 评估技术选型
+      - 技术调研
+      - 方案评估
+      - 市场研究
+      - 竞品分析
     related_prompts:
-      - prompt-task-research-brief
+      - prompt-task-research-prepare-research-brief
     related_workflows:
       - workflow-research-to-summary
     status: active
 
-  # ==================== ROUTING ====================
-
-  - id: skill-routing-v1
-    name: Routing
-    path: skills/routing/skill-routing.md
-    category: routing
-    tags: [routing, task-identification, selection]
-    summary: 路由和任务类型识别
-    intent: 帮助 AI 理解用户需求并路由到合适的资源
-    typical_use_cases:
-      - 用户需求不明确时判断任务类型
-      - 从多个候选中选择合适的 prompts
-      - 组合多个 prompts 处理复杂任务
-    related_prompts:
-      - prompt-routing-scan-repository
-      - prompt-routing-identify-task-type
-      - prompt-routing-select-relevant
-      - prompt-routing-compose
-    related_workflows:
-      - workflow-vague-request-to-action
-      - workflow-prompt-selection-composition
-    status: active
-
-  # ==================== TOOL-USE ====================
+  # ==================== TOOL USE ====================
 
   - id: skill-tool-use-v1
     name: Tool Use
     path: skills/tool-use/skill-tool-use.md
     category: tool-use
-    tags: [tool-use, file-reading, command-execution]
-    summary: 工具使用的指导和安全规范
+    tags: [tool-use, file-reading, command-execution, safety]
+    summary: 工具使用能力
     intent: 确保 AI 安全、高效地使用各种工具
     typical_use_cases:
-      - 读取文件获取信息
+      - 读取多个文件获取信息
       - 执行命令验证结果
       - 组合多个工具的结果
+      - 配置文件检查
     related_prompts:
       - prompt-tool-use-read-files
+      - prompt-tool-use-analyze-folder
+      - prompt-tool-use-search-before-concluding
       - prompt-tool-use-use-command
       - prompt-tool-use-combine-results
+      - prompt-tool-use-inspect-config
+      - prompt-tool-use-tools-step-by-step
+      - prompt-tool-use-structured-summary
     related_workflows:
       - workflow-tool-assisted-debug
+      - workflow-new-repo-onboarding
     status: active
 
-  # ==================== PROMPT-COMPOSITION ====================
+  # ==================== PROMPT COMPOSITION ====================
 
   - id: skill-prompt-composition-v1
     name: Prompt Composition
     path: skills/prompt-composition/skill-prompt-composition.md
     category: prompt-composition
-    tags: [prompt-composition, workflow, orchestration]
-    summary: 将多个 prompts 组合为连贯工作流
-    intent: 指导 AI 如何将简单 prompts 组装成复杂工作流
+    tags: [prompt-composition, workflow, orchestration, multi-step]
+    summary: Prompt 组合和工作流编排能力
+    intent: 将多个 prompts 组合为连贯工作流
     typical_use_cases:
-      - 复杂任务需要多个步骤时
+      - 复杂任务需要多个步骤
       - 确定 prompts 执行顺序
       - 在 prompts 之间传递参数
+      - 建立 prompt 执行闭环
     related_prompts:
       - prompt-routing-compose
       - prompt-routing-select-relevant
@@ -206,19 +220,73 @@ skills:
       - workflow-prompt-selection-composition
     status: active
 
-  # ==================== WRITING ====================
+  # ==================== SYSTEM PROMPTS ====================
 
-  - id: skill-writing-article-draft-v1
-    name: Article Draft Writing
-    path: skills/writing/skill-writing-article-draft.md
-    category: writing
-    tags: [writing, article, content-generation]
-    summary: 生成结构化文章草稿
-    intent: 帮助生成高质量的文章内容
+  - id: skill-system-prompts-v1
+    name: System Prompts
+    path: skills/system-prompts/skill-system-prompts.md
+    category: system
+    tags: [system-prompts, ai-configuration, behavior]
+    summary: 系统级 Prompt 配置能力
+    intent: 提供 AI 行为配置的基础系统 prompts
     typical_use_cases:
-      - 需要生成文章内容时
-      - 头脑风暴整理思路
-      - 撰写文档
-    related_prompts: []
+      - 配置 AI 系统行为
+      - 作为其他 prompts 的基础
+      - 启动新的 AI 辅助项目
+      - 专业化 AI 任务配置
+    related_prompts:
+      - prompt-system-general-ai-workbench
+      - prompt-system-debugging-agent
+      - prompt-system-coding-agent
     related_workflows: []
     status: active
+
+  # ==================== WORKFLOWS ====================
+
+  - id: skill-workflows-v1
+    name: Workflows
+    path: skills/workflows/skill-workflows.md
+    category: workflows
+    tags: [workflows, multi-step, process, templates]
+    summary: 工作流模板和能力
+    intent: 提供多步骤执行流程的模板和指导
+    typical_use_cases:
+      - 需要可重复的流程模板
+      - 复杂多步骤任务需要结构
+      - 需要确保一致的结果
+      - 需要复杂过程的指导
+    related_prompts:
+      - prompt-workflow-bug-investigation
+      - prompt-workflow-feature-implementation
+      - prompt-workflow-new-repo-onboarding
+    related_workflows: []
+    status: active
+
+  # ==================== WRITING ====================
+
+  - id: skill-writing-v1
+    name: Writing
+    path: skills/writing/skill-writing-article-draft.md
+    category: writing
+    tags: [writing, article, drafting, content-creation]
+    summary: 文章起草能力
+    intent: 生成结构化文章草稿
+    typical_use_cases:
+      - 公众号文章写作
+      - 博客文章
+      - 技术文档
+      - 内容创作
+    related_prompts:
+      - prompt-meta-expand-rough-idea
+      - prompt-meta-convert-natural-language-to-structured-prompt
+    related_workflows: []
+    status: active
+
+# ==================== METADATA ====================
+
+metadata:
+  version: v1.0.0
+  last_updated: 2026-03-19
+  total_skills: 14
+  canonical_directory: skills/
+  note: All skill paths now reference the canonical skills/ directory
