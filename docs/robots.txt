@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://aiskill.qzz.io/sitemap.xml
