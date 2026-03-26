@@ -1,6 +1,7 @@
 # AI Skill & Prompt Repository
 
 <!-- ==================== SEO METADATA ==================== -->
+
 <!--
   Primary Keywords: AI prompts, ChatGPT prompts, GPT prompts, AI skills, 
     prompt engineering, code generation, debugging, AI workflows,
@@ -10,11 +11,14 @@
   repository: badhope/skill
   version: v2.0.0
   description: Modular AI Skill/Prompt/Workflow repository with advanced technical capabilities
+  
   topics: [ai, prompts, skills, workflows, coding, debugging, mcp, rl-engine, academic, creative]
 -->
+
 <!-- ================================================= -->
 
 <!-- HTML Meta Tags -->
+
 <meta name="description" content="AI Skill & Prompt Repository - 132+ 高质量提示词，27+ 技能定义，10+ 工作流。涵盖编程开发、调试修复、学习支持、日常工具的全方位AI辅助解决方案。支持GPT-4、Claude等主流模型。" />
 <meta name="keywords" content="AI提示词,ChatGPT提示词,GPT提示词,AI技能,提示词工程,代码生成,代码调试,AI工作流,机器学习提示词,AI助手,效率工具,强化学习,上下文记忆,MCP工具,学术写作AI,创意写作AI,Prompt模板" />
 <meta name="author" content="badhope" />
