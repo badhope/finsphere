@@ -1,6 +1,6 @@
 # Skills Index
 
-Complete index of all 105 skills organized in two views:
+Complete index of all 130 skills organized in two views:
 1. **By Layer**: Enhanced HCSA 6-layer architecture (AI-friendly)
 2. **By Function**: Functional categories (human-friendly)
 3. **By Tier**: Complexity tier (for collaboration mode)
@@ -257,6 +257,56 @@ Domain-specific expertise skills.
 | mcp-server-development | MCP server dev | [domains/mcp/server-development](.trae/skills/domains/mcp/server-development) |
 | mcp-tools | MCP tools | [domains/mcp/tools](.trae/skills/domains/mcp/tools) |
 
+### Office Automation (NEW)
+
+| Skill | Description | Location |
+|-------|-------------|----------|
+| excel-automation | Excel automation | [domains/office/excel-automation](.trae/skills/domains/office/excel-automation) |
+| word-automation | Word document automation | [domains/office/word-automation](.trae/skills/domains/office/word-automation) |
+| ppt-automation | PowerPoint automation | [domains/office/ppt-automation](.trae/skills/domains/office/ppt-automation) |
+| pdf-processing | PDF processing | [domains/office/pdf-processing](.trae/skills/domains/office/pdf-processing) |
+| email-automation | Email automation | [domains/office/email-automation](.trae/skills/domains/office/email-automation) |
+
+### Media Processing (NEW)
+
+| Skill | Description | Location |
+|-------|-------------|----------|
+| image-processing | Image processing | [domains/media/image-processing](.trae/skills/domains/media/image-processing) |
+| audio-processing | Audio processing | [domains/media/audio-processing](.trae/skills/domains/media/audio-processing) |
+| video-processing | Video processing | [domains/media/video-processing](.trae/skills/domains/media/video-processing) |
+| image-generation | AI image generation | [domains/media/image-generation](.trae/skills/domains/media/image-generation) |
+| video-generation | AI video generation | [domains/media/video-generation](.trae/skills/domains/media/video-generation) |
+
+### Content Creation (NEW)
+
+| Skill | Description | Location |
+|-------|-------------|----------|
+| content-writing | Content writing | [domains/content/content-writing](.trae/skills/domains/content/content-writing) |
+| translation | Translation | [domains/content/translation](.trae/skills/domains/content/translation) |
+| seo-content | SEO content | [domains/content/seo-content](.trae/skills/domains/content/seo-content) |
+| technical-writing | Technical writing | [domains/content/technical-writing](.trae/skills/domains/content/technical-writing) |
+| copywriting | Copywriting | [domains/content/copywriting](.trae/skills/domains/content/copywriting) |
+
+### NLP & Speech (NEW)
+
+| Skill | Description | Location |
+|-------|-------------|----------|
+| speech-recognition | Speech recognition | [domains/nlp/speech-recognition](.trae/skills/domains/nlp/speech-recognition) |
+| speech-synthesis | Speech synthesis | [domains/nlp/speech-synthesis](.trae/skills/domains/nlp/speech-synthesis) |
+| nlp-processing | NLP processing | [domains/nlp/nlp-processing](.trae/skills/domains/nlp/nlp-processing) |
+| chatbot-development | Chatbot development | [domains/nlp/chatbot-development](.trae/skills/domains/nlp/chatbot-development) |
+| text-analysis | Text analysis | [domains/nlp/text-analysis](.trae/skills/domains/nlp/text-analysis) |
+
+### Design (NEW)
+
+| Skill | Description | Location |
+|-------|-------------|----------|
+| ui-design | UI design | [domains/design/ui-design](.trae/skills/domains/design/ui-design) |
+| ux-design | UX design | [domains/design/ux-design](.trae/skills/domains/design/ux-design) |
+| graphic-design | Graphic design | [domains/design/graphic-design](.trae/skills/domains/design/graphic-design) |
+| design-system | Design system | [domains/design/design-system](.trae/skills/domains/design/design-system) |
+| 3d-design | 3D design | [domains/design/3d-design](.trae/skills/domains/design/3d-design) |
+
 ---
 
 ## By Function (Functional Categories) - Human-Friendly View
@@ -436,18 +486,18 @@ All remaining 58 skills (Actions, Domains, most Learning) are Tier 1 - single ag
 | Learning | 4 |
 | Meta | 4 |
 | Dispatcher | 2 |
-| Workflow | 42 (34 + 8 NEW) |
+| Workflow | 42 |
 | Action | 14 |
-| Domain | 39 |
-| **Total** | **105** |
+| Domain | 64 (39 + 25 NEW) |
+| **Total** | **130** |
 
 ### By Tier
 | Tier | Count |
 |------|-------|
-| Tier 1 | ~61 |
+| Tier 1 | ~86 |
 | Tier 2 | ~37 |
 | Tier 3 | ~7 |
-| **Total** | **105** |
+| **Total** | **130** |
 
 ---
 
