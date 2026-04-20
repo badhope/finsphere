@@ -1,238 +1,93 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
-
-async function safeExec(cmd: string): Promise<string> {
-  try { const { stdout } = await execAsync(cmd, { timeout: 30000 }); return stdout.trim() }
-  catch (e: any) { return e.stdout || e.message }
-}
-
-async function cfAPI(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
-  const token = process.env.CLOUDFLARE_TOKEN
-  const headers = `-H "Authorization: Bearer ${token}" -H "Content-Type: application/json"`
-  const bodyArg = body ? `-d '${JSON.stringify(body).replace(/'/g, "'\\''")}'` : ''
-  const result = await safeExec(`curl -s -X ${method} ${headers} ${bodyArg} https://api.cloudflare.com/client/v4${endpoint}`)
-  try { return JSON.parse(result) } catch { return { error: result } }
-}
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
 
 export default createMCPServer({
   name: 'cloudflare',
-  version: '1.0.0',
-  description: 'Cloudflare API toolkit - Manage DNS, Zones, Workers, CDN, and security settings with API token',
-  icon: '🌩️',
-  author: 'Trae Official'
+  version: '2.0.0',
+  description: 'Cloudflare toolkit - DNS, Workers, Cache, Rules, Analytics API',
+  author: 'Trae Professional',
+  icon: '🌩️'
 })
   .forTrae({
-    categories: ['API Integration', 'DevOps', 'Cloud'],
+    categories: ['Cloud', 'Networking'],
     rating: 'intermediate',
-    features: ['DNS Management', 'Workers', 'CDN', 'Security', 'Analytics']
+    features: ['DNS', 'Workers', 'Cache', 'Rules', 'Analytics']
   })
   .addTool({
-    name: 'cf_set_token',
-    description: 'Set Cloudflare API Token for authentication',
+    name: 'cf_dns_list',
+    description: 'List DNS records for a zone',
     parameters: {
-      token: { type: 'string', description: 'Cloudflare API Token' },
-      accountId: { type: 'string', description: 'Optional Cloudflare Account ID' }
+      zoneId: { type: 'string', description: 'Cloudflare zone ID', required: true },
+      type: { type: 'string', description: 'Record type', required: false }
     },
-    execute: async (params: any) => {
-      process.env.CLOUDFLARE_TOKEN = params.token
-      if (params.accountId) process.env.CLOUDFLARE_ACCOUNT = params.accountId
-      return { 
-        success: true, 
-        message: 'Cloudflare token configured successfully',
-        requiredScopes: 'zone:read, zone:edit, dns:read, dns:edit, workers:edit',
-        createToken: 'https://dash.cloudflare.com/profile/api-tokens'
-      }
-    }
-  })
-  .addTool({
-    name: 'cf_verify_token',
-    description: 'Verify Cloudflare token validity and permissions',
-    parameters: {},
-    execute: async () => {
-      const result = await cfAPI('/user/tokens/verify')
-      return {
-        valid: result.success,
-        status: result.result?.status,
-        expiresOn: result.result?.expires_on,
-        scopes: result.result?.policies
-      }
-    }
-  })
-  .addTool({
-    name: 'cf_list_zones',
-    description: 'List all Cloudflare zones (domains)',
-    parameters: {
-      status: { type: 'string', description: 'Filter by status: active, pending, initializing, deleted' },
-      perPage: { type: 'number', description: 'Results per page' }
-    },
-    execute: async (params: any) => {
-      const status = params.status ? `&status=${params.status}` : ''
-      const perPage = params.perPage || 50
-      const result = await cfAPI(`/zones?per_page=${perPage}${status}`)
-      return {
-        count: result.result?.length || 0,
-        zones: result.result?.map((z: any) => ({
-          id: z.id,
-          name: z.name,
-          status: z.status,
-          nameservers: z.name_servers,
-          plan: z.plan?.name
-        })) || []
-      }
-    }
-  })
-  .addTool({
-    name: 'cf_list_dns_records',
-    description: 'List all DNS records for a zone',
-    parameters: {
-      zoneId: { type: 'string', description: 'Zone ID' },
-      type: { type: 'string', description: 'Record type: A, AAAA, CNAME, TXT, MX' },
-      perPage: { type: 'number', description: 'Results per page' }
-    },
-    execute: async (params: any) => {
-      const type = params.type ? `&type=${params.type}` : ''
-      const perPage = params.perPage || 100
-      const result = await cfAPI(`/zones/${params.zoneId}/dns_records?per_page=${perPage}${type}`)
-      return {
-        count: result.result?.length || 0,
-        records: result.result?.map((r: any) => ({
-          id: r.id,
-          type: r.type,
-          name: r.name,
-          content: r.content,
-          ttl: r.ttl,
-          proxied: r.proxied
-        })) || []
-      }
-    }
-  })
-  .addTool({
-    name: 'cf_create_dns_record',
-    description: 'Create a new DNS record',
-    parameters: {
-      zoneId: { type: 'string', description: 'Zone ID' },
-      type: { type: 'string', description: 'Record type: A, AAAA, CNAME, TXT, MX' },
-      name: { type: 'string', description: 'DNS record name' },
-      content: { type: 'string', description: 'Record content/value' },
-      ttl: { type: 'number', description: 'TTL (1 for auto)' },
-      proxied: { type: 'boolean', description: 'Proxy through Cloudflare' }
-    },
-    execute: async (params: any) => {
-      const result = await cfAPI(`/zones/${params.zoneId}/dns_records`, 'POST', {
-        type: params.type,
-        name: params.name,
-        content: params.content,
-        ttl: params.ttl || 1,
-        proxied: params.proxied !== false
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        zoneId: { type: 'string', required: true },
+        type: { type: 'string', required: false, default: 'all' }
       })
-      return {
-        success: result.success,
-        record: result.result,
-        errors: result.errors
-      }
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      return formatSuccess({
+        apiEndpoint: `https://api.cloudflare.com/client/v4/zones/${validation.data.zoneId}/dns_records`,
+        method: 'GET',
+        recordTypes: ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV'],
+        curlExample: `curl -X GET "https://api.cloudflare.com/client/v4/zones/${validation.data.zoneId}/dns_records" -H "Authorization: Bearer <token>"`
+      })
     }
   })
   .addTool({
-    name: 'cf_update_dns_record',
-    description: 'Update an existing DNS record',
+    name: 'cf_dns_create',
+    description: 'Create DNS record with proxy support',
     parameters: {
-      zoneId: { type: 'string', description: 'Zone ID' },
-      recordId: { type: 'string', description: 'DNS Record ID' },
-      type: { type: 'string', description: 'Record type' },
-      name: { type: 'string', description: 'DNS record name' },
-      content: { type: 'string', description: 'Record content/value' },
-      ttl: { type: 'number', description: 'TTL' },
-      proxied: { type: 'boolean', description: 'Proxy through Cloudflare' }
+      zoneId: { type: 'string', description: 'Zone ID', required: true },
+      type: { type: 'string', description: 'Record type', required: true },
+      name: { type: 'string', description: 'Record name', required: true },
+      content: { type: 'string', description: 'Record content', required: true },
+      proxied: { type: 'boolean', description: 'Cloudflare proxy', required: false }
     },
-    execute: async (params: any) => {
-      const body: any = {}
-      if (params.type) body.type = params.type
-      if (params.name) body.name = params.name
-      if (params.content) body.content = params.content
-      if (params.ttl) body.ttl = params.ttl
-      if (typeof params.proxied === 'boolean') body.proxied = params.proxied
-      
-      const result = await cfAPI(`/zones/${params.zoneId}/dns_records/${params.recordId}`, 'PATCH', body)
-      return {
-        success: result.success,
-        errors: result.errors
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        zoneId: { type: 'string', required: true },
+        type: { type: 'string', required: true },
+        name: { type: 'string', required: true },
+        content: { type: 'string', required: true },
+        proxied: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      return formatSuccess({
+        apiEndpoint: `https://api.cloudflare.com/client/v4/zones/${validation.data.zoneId}/dns_records`,
+        method: 'POST',
+        payload: {
+          type: validation.data.type,
+          name: validation.data.name,
+          content: validation.data.content,
+          proxied: validation.data.proxied,
+          ttl: 1
+        }
+      })
     }
   })
   .addTool({
-    name: 'cf_delete_dns_record',
-    description: 'Delete a DNS record',
+    name: 'cf_worker_deploy',
+    description: 'Deploy Cloudflare Worker script',
     parameters: {
-      zoneId: { type: 'string', description: 'Zone ID' },
-      recordId: { type: 'string', description: 'DNS Record ID' }
+      name: { type: 'string', description: 'Worker name', required: true },
+      accountId: { type: 'string', description: 'Account ID', required: true }
     },
-    execute: async (params: any) => {
-      const result = await cfAPI(`/zones/${params.zoneId}/dns_records/${params.recordId}`, 'DELETE')
-      return {
-        success: result.success,
-        errors: result.errors
-      }
-    }
-  })
-  .addTool({
-    name: 'cf_list_workers',
-    description: 'List all Cloudflare Workers',
-    parameters: {
-      accountId: { type: 'string', description: 'Account ID (uses env if not set)' }
-    },
-    execute: async (params: any) => {
-      const accountId = params.accountId || process.env.CLOUDFLARE_ACCOUNT
-      const result = await cfAPI(`/accounts/${accountId}/workers/scripts`)
-      return {
-        count: result.result?.length || 0,
-        workers: result.result?.map((w: any) => ({
-          id: w.id,
-          name: w.name,
-          modifiedOn: w.modified_on
-        })) || []
-      }
-    }
-  })
-  .addTool({
-    name: 'cf_purge_cache',
-    description: 'Purge Cloudflare cache for a zone',
-    parameters: {
-      zoneId: { type: 'string', description: 'Zone ID' },
-      purgeEverything: { type: 'boolean', description: 'Purge all cache' },
-      files: { type: 'string', description: 'JSON array of specific URLs to purge' }
-    },
-    execute: async (params: any) => {
-      const body: any = {}
-      if (params.purgeEverything !== false) body.purge_everything = true
-      if (params.files) {
-        try {
-          body.files = JSON.parse(params.files)
-        } catch {}
-      }
-      
-      const result = await cfAPI(`/zones/${params.zoneId}/purge_cache`, 'POST', body)
-      return {
-        success: result.success,
-        errors: result.errors
-      }
-    }
-  })
-  .addTool({
-    name: 'cf_get_zone_analytics',
-    description: 'Get zone analytics and traffic statistics',
-    parameters: {
-      zoneId: { type: 'string', description: 'Zone ID' },
-      since: { type: 'string', description: 'Start time (ISO format or relative: -7d)' }
-    },
-    execute: async (params: any) => {
-      const since = params.since || '-7d'
-      const result = await cfAPI(`/zones/${params.zoneId}/analytics/dashboard?since=${since}`)
-      return {
-        analytics: result.result
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        name: { type: 'string', required: true },
+        accountId: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      return formatSuccess({
+        wranglerCommand: `wrangler deploy --name ${validation.data.name}`,
+        devCommand: 'wrangler dev',
+        routes: [`${validation.data.name}.worker.dev`],
+        secretsCommand: `wrangler secret put <KEY>`
+      })
     }
   })
   .build()

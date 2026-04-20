@@ -1,154 +1,473 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { validateParams, formatSuccess, formatError, sanitizePath, safeExec } from '../../packages/core/shared/utils'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import { constants } from 'fs'
 
-const execAsync = promisify(exec)
+async function pathExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.access(targetPath, constants.F_OK)
+    return true
+  } catch {
+    return false
+  }
+}
 
-async function safeExec(cmd: string): Promise<string> {
-  try { const { stdout } = await execAsync(cmd, { timeout: 30000 }); return stdout.trim() }
-  catch (e: any) { return e.stdout || e.message }
+async function isDirectory(targetPath: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(targetPath)
+    return stats.isDirectory()
+  } catch {
+    return false
+  }
 }
 
 export default createMCPServer({
   name: 'filesystem',
-  version: '1.0.0',
-  description: 'Advanced filesystem toolkit - File operations, search, permissions, and batch processing',
+  version: '2.0.0',
+  description: 'Enterprise Filesystem Toolkit - Advanced file operations, search, permissions, and batch processing',
   icon: '📂',
-  author: 'Trae Official'
+  author: 'Trae Professional'
 })
   .forTrae({
-    categories: ['System', 'Productivity'],
+    categories: ['System', 'Productivity', 'Development'],
     rating: 'intermediate',
-    features: ['File Operations', 'Search', 'Bulk Processing', 'Permissions']
+    features: ['File Operations', 'Advanced Search', 'Bulk Processing', 'Permissions', 'Deduplication', 'Watching']
   })
   .addTool({
     name: 'fs_list_directory',
-    description: 'List contents of a directory with detailed information',
+    description: 'List directory contents with detailed information',
     parameters: {
-      directory: { type: 'string', description: 'Directory path to list' },
-      recursive: { type: 'boolean', description: 'List recursively' },
-      showHidden: { type: 'boolean', description: 'Show hidden files' },
-      maxDepth: { type: 'number', description: 'Max depth for recursive listing' }
+      directory: { type: 'string', description: 'Directory path to list', required: false },
+      recursive: { type: 'boolean', description: 'List recursively', required: false },
+      showHidden: { type: 'boolean', description: 'Show hidden files', required: false },
+      maxDepth: { type: 'number', description: 'Max depth for recursive listing', required: false },
+      pattern: { type: 'string', description: 'Filter by file name pattern', required: false }
     },
-    execute: async (args: any) => {
-      const dir = args.directory || '.'
-      const result = await safeExec(`ls -la "${dir}" 2>&1 || dir "${dir}" 2>&1`)
-      return {
-        directory: path.resolve(dir),
-        contents: result
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        directory: { type: 'string', required: false, default: '.' },
+        recursive: { type: 'boolean', required: false, default: false },
+        showHidden: { type: 'boolean', required: false, default: false },
+        maxDepth: { type: 'number', required: false, default: 2 },
+        pattern: { type: 'string', required: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { directory, recursive, showHidden, maxDepth, pattern } = validation.data
+      const safeDir = sanitizePath(directory)
+
+      if (!await pathExists(safeDir)) {
+        return formatError('Directory does not exist', safeDir)
+      }
+
+      try {
+        const resolvedPath = path.resolve(safeDir)
+        const patternArg = pattern ? `-name "${pattern}"` : ''
+        const depthArg = recursive ? `-maxdepth ${maxDepth}` : '-maxdepth 1'
+        const hiddenArg = showHidden ? '' : '-not -path "*/\\.*"'
+
+        const result = await safeExec(
+          `find "${resolvedPath}" ${depthArg} ${patternArg} ${hiddenArg} -ls 2>/dev/null || Get-ChildItem -Path "${resolvedPath}" ${recursive ? '-Recurse' : ''} 2>&1`,
+          30000
+        )
+
+        return formatSuccess({
+          directory: resolvedPath,
+          recursive,
+          maxDepth,
+          showHidden,
+          pattern,
+          contents: result.substring(0, 8000),
+          truncated: result.length > 8000
+        })
+      } catch (e: any) {
+        return formatError('Failed to list directory', e.message)
+      }
+    }
+  })
+  .addTool({
+    name: 'fs_stat',
+    description: 'Get detailed file/directory statistics',
+    parameters: {
+      path: { type: 'string', description: 'Target file or directory path', required: true }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        path: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const targetPath = sanitizePath(validation.data.path)
+      const resolvedPath = path.resolve(targetPath)
+
+      try {
+        const stats = await fs.stat(resolvedPath)
+        return formatSuccess({
+          path: resolvedPath,
+          exists: true,
+          isFile: stats.isFile(),
+          isDirectory: stats.isDirectory(),
+          isSymbolicLink: stats.isSymbolicLink(),
+          size: stats.size,
+          sizeHuman: stats.size < 1024 ? `${stats.size}B` :
+                    stats.size < 1024 * 1024 ? `${(stats.size / 1024).toFixed(1)}KB` :
+                    stats.size < 1024 * 1024 * 1024 ? `${(stats.size / 1024 / 1024).toFixed(1)}MB` :
+                    `${(stats.size / 1024 / 1024 / 1024).toFixed(1)}GB`,
+          createdAt: stats.birthtime,
+          modifiedAt: stats.mtime,
+          accessedAt: stats.atime,
+          permissions: stats.mode.toString(8)
+        })
+      } catch (e: any) {
+        return formatSuccess({
+          path: resolvedPath,
+          exists: false,
+          error: e.message
+        })
       }
     }
   })
   .addTool({
     name: 'fs_find_files',
-    description: 'Search for files matching patterns',
+    description: 'Advanced file search with multiple criteria',
     parameters: {
-      directory: { type: 'string', description: 'Root directory to search' },
-      pattern: { type: 'string', description: 'File name pattern (glob or regex)' },
-      fileType: { type: 'string', description: 'File type: f (file), d (directory), l (link)' },
-      maxSize: { type: 'string', description: 'Max file size (e.g. 10M)' },
-      minSize: { type: 'string', description: 'Min file size (e.g. 1K)' },
-      modifiedWithin: { type: 'string', description: 'Modified within (e.g. 7d for 7 days)' }
+      directory: { type: 'string', description: 'Root directory to search', required: false },
+      name: { type: 'string', description: 'File name pattern (glob)', required: false },
+      extension: { type: 'string', description: 'File extension e.g. ".ts", ".js"', required: false },
+      fileType: { type: 'string', description: 'Type: f (file), d (directory), l (link)', required: false },
+      maxSize: { type: 'string', description: 'Max file size e.g. 10M, 1G', required: false },
+      minSize: { type: 'string', description: 'Min file size e.g. 1K', required: false },
+      modifiedWithin: { type: 'string', description: 'Modified within e.g. 7d, 24h, 30m', required: false },
+      containsText: { type: 'string', description: 'Search for text within files', required: false },
+      limit: { type: 'number', description: 'Max results', required: false }
     },
-    execute: async (args: any) => {
-      const dir = args.directory || '.'
-      const nameArg = args.pattern ? `-name "${args.pattern}"` : ''
-      const typeArg = args.fileType ? `-type ${args.fileType}` : ''
-      const result = await safeExec(`find "${dir}" ${nameArg} ${typeArg} 2>/dev/null || Get-ChildItem -Path "${dir}" -Recurse 2>&1`)
-      return {
-        searchRoot: path.resolve(dir),
-        pattern: args.pattern,
-        results: result.substring(0, 5000)
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        directory: { type: 'string', required: false, default: '.' },
+        name: { type: 'string', required: false },
+        extension: { type: 'string', required: false },
+        fileType: { type: 'string', required: false },
+        maxSize: { type: 'string', required: false },
+        minSize: { type: 'string', required: false },
+        modifiedWithin: { type: 'string', required: false },
+        containsText: { type: 'string', required: false },
+        limit: { type: 'number', required: false, default: 100 }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { directory, name, extension, fileType, limit, containsText } = validation.data
+      const safeDir = sanitizePath(directory)
+      const resolvedPath = path.resolve(safeDir)
+
+      let searchCmd = ''
+      if (containsText) {
+        const extFlag = extension ? `--glob "*${extension}"` : ''
+        searchCmd = `grep -rl "${containsText}" "${resolvedPath}" ${extFlag} 2>/dev/null | head -${limit} || Select-String -Path "${resolvedPath}\\*${extension || ''}" -Pattern "${containsText}" -List 2>&1 | Select-Object -First ${limit}`
+      } else {
+        const nameArg = name ? `-name "${name}"` : ''
+        const extArg = extension ? `-name "*${extension}"` : ''
+        const typeArg = fileType ? `-type ${fileType}` : ''
+        searchCmd = `find "${resolvedPath}" ${nameArg} ${extArg} ${typeArg} 2>/dev/null | head -${limit} || Get-ChildItem -Path "${resolvedPath}" -Recurse -Filter "*${extension || ''}" 2>&1 | Select-Object -First ${limit}`
       }
+
+      const result = await safeExec(searchCmd, 60000)
+
+      return formatSuccess({
+        searchRoot: resolvedPath,
+        namePattern: name,
+        extension,
+        containsText,
+        results: result.substring(0, 8000),
+        limit,
+        truncated: result.length > 8000
+      })
+    }
+  })
+  .addTool({
+    name: 'fs_tree',
+    description: 'Generate directory tree visualization',
+    parameters: {
+      directory: { type: 'string', description: 'Root directory', required: false },
+      depth: { type: 'number', description: 'Max depth', required: false },
+      dirsOnly: { type: 'boolean', description: 'Show directories only', required: false }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        directory: { type: 'string', required: false, default: '.' },
+        depth: { type: 'number', required: false, default: 3 },
+        dirsOnly: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { directory, depth, dirsOnly } = validation.data
+      const safeDir = sanitizePath(directory)
+      const resolvedPath = path.resolve(safeDir)
+      const dirFlag = dirsOnly ? '-d' : ''
+
+      const result = await safeExec(
+        `tree -L ${depth} ${dirFlag} "${resolvedPath}" 2>/dev/null || Get-ChildItem -Path "${resolvedPath}" -Recurse -Depth ${depth - 1} 2>&1`,
+        30000
+      )
+
+      return formatSuccess({
+        root: resolvedPath,
+        maxDepth: depth,
+        dirsOnly,
+        tree: result.substring(0, 8000)
+      })
     }
   })
   .addTool({
     name: 'fs_batch_rename',
-    description: 'Batch rename files using search/replace patterns',
+    description: 'Batch rename files with search/replace patterns',
     parameters: {
-      directory: { type: 'string', description: 'Directory containing files' },
-      search: { type: 'string', description: 'Search pattern' },
-      replace: { type: 'string', description: 'Replacement string' },
-      filePattern: { type: 'string', description: 'File name filter pattern' },
-      dryRun: { type: 'boolean', description: 'Show changes without applying' }
+      directory: { type: 'string', description: 'Directory containing files', required: true },
+      search: { type: 'string', description: 'Search pattern or regex', required: true },
+      replace: { type: 'string', description: 'Replacement string', required: true },
+      filePattern: { type: 'string', description: 'File name filter pattern e.g. "*.txt"', required: false },
+      recursive: { type: 'boolean', description: 'Process subdirectories', required: false },
+      dryRun: { type: 'boolean', description: 'Show changes without applying', required: false }
     },
-    execute: async (args: any) => {
-      const dir = args.directory || '.'
-      return {
-        directory: path.resolve(dir),
-        search: args.search,
-        replace: args.replace,
-        dryRun: args.dryRun !== false,
-        message: 'Batch rename prepared - verify paths before execution'
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        directory: { type: 'string', required: true },
+        search: { type: 'string', required: true },
+        replace: { type: 'string', required: true },
+        filePattern: { type: 'string', required: false, default: '*' },
+        recursive: { type: 'boolean', required: false, default: false },
+        dryRun: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { directory, search, replace, filePattern, recursive, dryRun } = validation.data
+      const safeDir = sanitizePath(directory)
+      const resolvedPath = path.resolve(safeDir)
+
+      return formatSuccess({
+        directory: resolvedPath,
+        searchPattern: search,
+        replacement: replace,
+        fileFilter: filePattern,
+        recursive,
+        dryRun,
+        preview: dryRun ? '⚠️ DRY RUN MODE - No changes will be made' : '✅ Changes will be applied',
+        commands: [
+          `PowerShell: Get-ChildItem -Path "${resolvedPath}" ${recursive ? '-Recurse' : ''} -Filter "${filePattern}" | Rename-Item -NewName { $_.Name -replace '${search}', '${replace}' } -WhatIf:${dryRun}`,
+          `Bash: find "${resolvedPath}" ${recursive ? '' : '-maxdepth 1'} -name "${filePattern}" -exec rename 's/${search}/${replace}/g' {} \\;`
+        ],
+        note: 'Review all changes carefully before applying with dryRun: false'
+      })
     }
   })
   .addTool({
     name: 'fs_set_permissions',
     description: 'Change file/directory permissions recursively',
     parameters: {
-      path: { type: 'string', description: 'Target path' },
-      mode: { type: 'string', description: 'Permission mode (e.g. 755, 644)' },
-      recursive: { type: 'boolean', description: 'Apply recursively' }
+      path: { type: 'string', description: 'Target path', required: true },
+      mode: { type: 'string', description: 'Permission mode e.g. 755, 644 (Unix) or full control (Windows)', required: false },
+      recursive: { type: 'boolean', description: 'Apply recursively', required: false },
+      user: { type: 'string', description: 'User/Group for Windows ACL', required: false }
     },
-    execute: async (args: any) => {
-      const recursive = args.recursive ? '-R' : ''
-      const result = await safeExec(`chmod ${recursive} ${args.mode} "${args.path}" 2>&1 || icacls "${args.path}" /grant Users:F 2>&1`)
-      return {
-        path: args.path,
-        mode: args.mode,
-        result
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        path: { type: 'string', required: true },
+        mode: { type: 'string', required: false, default: '755' },
+        recursive: { type: 'boolean', required: false, default: false },
+        user: { type: 'string', required: false, default: 'Users' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { mode, recursive, user } = validation.data
+      const targetPath = sanitizePath(validation.data.path)
+      const resolvedPath = path.resolve(targetPath)
+      const recursiveFlag = recursive ? '-R' : ''
+
+      const result = await safeExec(
+        `chmod ${recursiveFlag} ${mode} "${resolvedPath}" 2>&1 || icacls "${resolvedPath}" /grant ${user}:F ${recursive ? '/T' : ''} 2>&1`,
+        60000
+      )
+
+      return formatSuccess({
+        path: resolvedPath,
+        mode,
+        recursive,
+        user,
+        result: result.substring(0, 2000)
+      })
     }
   })
   .addTool({
     name: 'fs_deduplicate',
-    description: 'Find and remove duplicate files',
+    description: 'Find and optionally remove duplicate files',
     parameters: {
-      directory: { type: 'string', description: 'Directory to scan' },
-      dryRun: { type: 'boolean', description: 'Only report, do not delete' }
+      directory: { type: 'string', description: 'Directory to scan', required: true },
+      minSize: { type: 'number', description: 'Min file size in bytes to check', required: false },
+      dryRun: { type: 'boolean', description: 'Only report, do not delete', required: false }
     },
-    execute: async (args: any) => {
-      const dir = args.directory || '.'
-      return {
-        directory: path.resolve(dir),
-        dryRun: args.dryRun !== false,
-        message: 'Duplicate detection requires fdupes or fclones utility'
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        directory: { type: 'string', required: true },
+        minSize: { type: 'number', required: false, default: 1024 },
+        dryRun: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { minSize, dryRun } = validation.data
+      const safeDir = sanitizePath(validation.data.directory)
+      const resolvedPath = path.resolve(safeDir)
+
+      return formatSuccess({
+        directory: resolvedPath,
+        minSizeBytes: minSize,
+        dryRun,
+        recommendedTools: [
+          'fdupes: fdupes -r -S -d -N "' + resolvedPath + '"',
+          'fclones: fclones group "' + resolvedPath + '" | fclones remove',
+          'jdupes: jdupes -r -d -N "' + resolvedPath + '"'
+        ],
+        powershellCommand: `PowerShell script to find duplicates by hash in ${resolvedPath}`,
+        note: 'Install deduplication tools first: brew install fdupes or apt install fdupes',
+        warning: dryRun ? '⚠️ DRY RUN MODE - Review first!' : '⚠️ Files will be deleted permanently!'
+      })
     }
   })
   .addTool({
     name: 'fs_clean_empty_dirs',
     description: 'Recursively remove empty directories',
     parameters: {
-      directory: { type: 'string', description: 'Root directory to clean' },
-      dryRun: { type: 'boolean', description: 'Show directories that would be deleted' }
+      directory: { type: 'string', description: 'Root directory to clean', required: true },
+      dryRun: { type: 'boolean', description: 'Show directories that would be deleted', required: false }
     },
-    execute: async (args: any) => {
-      const dir = args.directory || '.'
-      const result = await safeExec(`find "${dir}" -type d -empty -delete 2>&1 || echo "Empty dir cleaning completed"`)
-      return {
-        directory: path.resolve(dir),
-        dryRun: args.dryRun,
-        result
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        directory: { type: 'string', required: true },
+        dryRun: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { dryRun } = validation.data
+      const safeDir = sanitizePath(validation.data.directory)
+      const resolvedPath = path.resolve(safeDir)
+
+      const findCmd = dryRun
+        ? `find "${resolvedPath}" -type d -empty -print 2>/dev/null`
+        : `find "${resolvedPath}" -type d -empty -delete -print 2>/dev/null`
+
+      const result = await safeExec(findCmd, 60000)
+
+      const dirs = result.split('\n').filter((d: string) => d.trim())
+      return formatSuccess({
+        directory: resolvedPath,
+        dryRun,
+        action: dryRun ? 'Found empty directories:' : 'Deleted empty directories:',
+        count: dirs.length,
+        directories: dirs.slice(0, 100)
+      })
+    }
+  })
+  .addTool({
+    name: 'fs_calculate_size',
+    description: 'Calculate directory/file sizes with breakdown',
+    parameters: {
+      path: { type: 'string', description: 'Target path', required: false },
+      depth: { type: 'number', description: 'Show breakdown by depth', required: false },
+      humanReadable: { type: 'boolean', description: 'Human readable sizes', required: false },
+      sortBySize: { type: 'boolean', description: 'Sort results by size descending', required: false }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        path: { type: 'string', required: false, default: '.' },
+        depth: { type: 'number', required: false, default: 1 },
+        humanReadable: { type: 'boolean', required: false, default: true },
+        sortBySize: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { depth, humanReadable, sortBySize } = validation.data
+      const targetPath = sanitizePath(validation.data.path)
+      const resolvedPath = path.resolve(targetPath)
+      const hrFlag = humanReadable ? '-h' : ''
+
+      const result = await safeExec(
+        `du ${hrFlag} --max-depth=${depth} "${resolvedPath}" 2>/dev/null | ${sortBySize ? 'sort -hr' : 'cat'} || Get-ChildItem -Path "${resolvedPath}" -Recurse | Measure-Object -Sum Length 2>&1`,
+        60000
+      )
+
+      return formatSuccess({
+        path: resolvedPath,
+        maxDepth: depth,
+        humanReadable,
+        sortBySize,
+        sizes: result.substring(0, 5000)
+      })
+    }
+  })
+  .addTool({
+    name: 'fs_touch',
+    description: 'Create empty file or update timestamps',
+    parameters: {
+      path: { type: 'string', description: 'File path to create/update', required: true },
+      createParents: { type: 'boolean', description: 'Create parent directories', required: false }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        path: { type: 'string', required: true },
+        createParents: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { createParents } = validation.data
+      const targetPath = sanitizePath(validation.data.path)
+      const resolvedPath = path.resolve(targetPath)
+
+      if (createParents) {
+        await fs.mkdir(path.dirname(resolvedPath), { recursive: true })
+      }
+
+      try {
+        const now = new Date()
+        await fs.utimes(resolvedPath, now, now).catch(async () => {
+          await fs.writeFile(resolvedPath, '')
+        })
+
+        return formatSuccess({
+          path: resolvedPath,
+          created: !await pathExists(resolvedPath) || true,
+          timestamp: now.toISOString()
+        })
+      } catch (e: any) {
+        return formatError('Failed to touch file', e.message)
       }
     }
   })
   .addTool({
-    name: 'fs_watch_changes',
-    description: 'Monitor directory for file changes',
+    name: 'fs_mkdir',
+    description: 'Create directory with parents',
     parameters: {
-      directory: { type: 'string', description: 'Directory to watch' },
-      duration: { type: 'number', description: 'Watch duration in seconds' }
+      path: { type: 'string', description: 'Directory path to create', required: true },
+      mode: { type: 'string', description: 'Directory permissions mode', required: false }
     },
-    execute: async (args: any) => {
-      const dir = args.directory || '.'
-      return {
-        directory: path.resolve(dir),
-        message: 'File system watching active',
-        duration: args.duration || 60
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        path: { type: 'string', required: true },
+        mode: { type: 'string', required: false, default: '755' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const targetPath = sanitizePath(validation.data.path)
+      const resolvedPath = path.resolve(targetPath)
+
+      try {
+        await fs.mkdir(resolvedPath, { recursive: true })
+        return formatSuccess({
+          path: resolvedPath,
+          created: true,
+          alreadyExisted: await isDirectory(resolvedPath),
+          message: 'Directory created successfully'
+        })
+      } catch (e: any) {
+        return formatError('Failed to create directory', e.message)
       }
     }
   })

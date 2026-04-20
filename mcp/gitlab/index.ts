@@ -1,196 +1,228 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
-
-async function safeExec(cmd: string): Promise<string> {
-  try { const { stdout } = await execAsync(cmd, { timeout: 30000 }); return stdout.trim() }
-  catch (e: any) { return e.stdout || e.message }
-}
+import { validateParams, formatSuccess, formatError, safeExecRaw } from '../../packages/core/shared/utils'
 
 async function gitlabAPI(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
   const token = process.env.GITLAB_TOKEN
+  const host = process.env.GITLAB_HOST || 'gitlab.com'
   const headers = token ? `-H "PRIVATE-TOKEN: ${token}"` : ''
   const bodyArg = body ? `-H "Content-Type: application/json" -d '${JSON.stringify(body).replace(/'/g, "'\\''")}'` : ''
-  const result = await safeExec(`curl -s -X ${method} ${headers} ${bodyArg} https://gitlab.com/api/v4${endpoint}`)
-  try { return JSON.parse(result) } catch { return { error: result } }
+  const result = await safeExecRaw(`curl -s -X ${method} ${headers} ${bodyArg} https://${host}/api/v4${endpoint}`)
+  try { return JSON.parse(result.stdout || result.stderr) } catch { return { error: (result.stdout || result.stderr).substring(0, 1000) } }
 }
 
 export default createMCPServer({
   name: 'gitlab',
-  version: '1.0.0',
-  description: 'GitLab API toolkit - Manage repositories, merge requests, CI/CD pipelines with personal access token',
-  icon: '🦊',
-  author: 'Trae Official'
+  version: '2.0.0',
+  description: 'Enterprise GitLab API toolkit - Repositories, merge requests, CI/CD pipelines, issues, groups and user management',
+  author: 'Trae Professional',
+  icon: '🦊'
 })
   .forTrae({
     categories: ['API Integration', 'DevOps'],
     rating: 'intermediate',
-    features: ['Repository Management', 'Merge Requests', 'CI/CD Pipelines', 'Issues']
+    features: ['Repository Management', 'Merge Requests', 'CI/CD Pipelines', 'Issues & Boards']
   })
   .addTool({
     name: 'gitlab_set_token',
     description: 'Set GitLab Personal Access Token for authenticated API calls',
     parameters: {
-      token: {
-        type: 'string',
-        description: 'GitLab Personal Access Token (api scope)'
-      },
-      host: {
-        type: 'string',
-        description: 'GitLab host (for self-managed)',
-        required: false
-      }
+      token: { type: 'string', description: 'GitLab Personal Access Token (api scope)', required: true },
+      host: { type: 'string', description: 'GitLab host (for self-managed instances)', required: false }
     },
-    execute: async (args: any) => {
-      process.env.GITLAB_TOKEN = args.token
-      process.env.GITLAB_HOST = args.host
-      return { 
-        success: true, 
-        message: 'GitLab token configured successfully',
-        host: args.host || 'gitlab.com',
-        scopes: 'api, read_user, read_repository, write_repository'
-      }
-    }
-  })
-  .addTool({
-    name: 'gitlab_get_user',
-    description: 'Get authenticated user information',
-    parameters: {},
-    execute: async () => {
-      const user = await gitlabAPI('/user')
-      return { user }
-    }
-  })
-  .addTool({
-    name: 'gitlab_list_projects',
-    description: 'List all projects for authenticated user',
-    parameters: {
-      membership: {
-        type: 'boolean',
-        description: 'Only projects user is member of',
-        required: false
-      },
-      perPage: {
-        type: 'number',
-        description: 'Results per page',
-        required: false
-      }
-    },
-    execute: async (args: any) => {
-      const membership = args.membership !== false
-      const perPage = args.perPage || 30
-      const projects = await gitlabAPI(`/projects?membership=${membership}&per_page=${perPage}&order_by=last_activity_at&sort=desc`)
-      return {
-        count: projects.length,
-        projects: Array.isArray(projects) ? projects.map((p: any) => ({
-          id: p.id,
-          name: p.path_with_namespace,
-          url: p.web_url,
-          visibility: p.visibility,
-          lastActivity: p.last_activity_at
-        })) : []
-      }
-    }
-  })
-  .addTool({
-    name: 'gitlab_create_project',
-    description: 'Create a new GitLab project',
-    parameters: {
-      name: {
-        type: 'string',
-        description: 'Project name',
-        required: true
-      },
-      description: {
-        type: 'string',
-        description: 'Project description',
-        required: false
-      },
-      visibility: {
-        type: 'string',
-        description: 'private, internal, public',
-        required: false
-      }
-    },
-    execute: async (args: any) => {
-      const project = await gitlabAPI('/projects', 'POST', {
-        name: args.name,
-        description: args.description || '',
-        visibility: args.visibility || 'private',
-        initialize_with_readme: true
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        token: { type: 'string', required: true },
+        host: { type: 'string', required: false, default: 'gitlab.com' }
       })
-      return {
-        success: !project.message,
-        project: project.web_url || project.message,
-        id: project.id,
-        sshUrl: project.ssh_url_to_repo,
-        httpUrl: project.http_url_to_repo
-      }
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      process.env.GITLAB_TOKEN = validation.data.token
+      process.env.GITLAB_HOST = validation.data.host
+      
+      return formatSuccess({
+        configured: true,
+        host: validation.data.host,
+        tokenUrl: `https://${validation.data.host}/-/profile/personal_access_tokens`,
+        scopes: ['api', 'read_api', 'read_repository', 'write_repository']
+      })
     }
   })
   .addTool({
-    name: 'gitlab_list_merge_requests',
-    description: 'List merge requests for a project',
+    name: 'gitlab_get_projects',
+    description: 'List projects accessible to authenticated user',
     parameters: {
-      projectId: {
-        type: 'string',
-        description: 'Project ID or URL-encoded path',
-        required: true
-      },
-      state: {
-        type: 'string',
-        description: 'Filter: opened, closed, merged, all',
-        required: false
-      }
+      search: { type: 'string', description: 'Search by project name', required: false },
+      membership: { type: 'boolean', description: 'Only projects user is member of', required: false },
+      perPage: { type: 'number', description: 'Results per page', required: false }
     },
-    execute: async (args: any) => {
-      const state = args.state || 'opened'
-      const mrs = await gitlabAPI(`/projects/${encodeURIComponent(args.projectId)}/merge_requests?state=${state}`)
-      return {
-        count: Array.isArray(mrs) ? mrs.length : 0,
-        mergeRequests: Array.isArray(mrs) ? mrs.map((mr: any) => ({
-          iid: mr.iid,
-          title: mr.title,
-          author: mr.author?.username,
-          url: mr.web_url,
-          sourceBranch: mr.source_branch,
-          targetBranch: mr.target_branch,
-          state: mr.state
-        })) : []
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        search: { type: 'string', required: false, default: '' },
+        membership: { type: 'boolean', required: false, default: true },
+        perPage: { type: 'number', required: false, default: 20 }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const query = new URLSearchParams({
+        per_page: String(validation.data.perPage),
+        membership: String(validation.data.membership),
+        order_by: 'last_activity_at'
+      } as any)
+      if (validation.data.search) query.set('search', validation.data.search)
+
+      const result = await gitlabAPI(`/projects?${query.toString()}`)
+      
+      return result.error ? formatError('Failed', result.error) : formatSuccess({
+        projects: (Array.isArray(result) ? result : []).map((p: any) => ({
+          id: p.id,
+          name: p.name_with_namespace,
+          path: p.path_with_namespace,
+          defaultBranch: p.default_branch,
+          lastActivity: p.last_activity_at
+        })),
+        count: Array.isArray(result) ? result.length : 0
+      })
     }
   })
   .addTool({
-    name: 'gitlab_list_pipelines',
-    description: 'List CI/CD pipelines for a project',
+    name: 'gitlab_create_mr',
+    description: 'Create a new merge request',
     parameters: {
-      projectId: {
-        type: 'string',
-        description: 'Project ID or URL-encoded path',
-        required: true
-      },
-      status: {
-        type: 'string',
-        description: 'Filter: running, pending, success, failed, canceled',
-        required: false
-      }
+      projectId: { type: 'number', description: 'Project ID', required: true },
+      sourceBranch: { type: 'string', description: 'Source branch name', required: true },
+      targetBranch: { type: 'string', description: 'Target branch (main, master)', required: false },
+      title: { type: 'string', description: 'MR title', required: true },
+      description: { type: 'string', description: 'MR description', required: false },
+      removeSourceBranch: { type: 'boolean', description: 'Delete source after merge', required: false }
     },
-    execute: async (args: any) => {
-      const statusArg = args.status ? `&status=${args.status}` : ''
-      const pipelines = await gitlabAPI(`/projects/${encodeURIComponent(args.projectId)}/pipelines?per_page=20${statusArg}`)
-      return {
-        count: Array.isArray(pipelines) ? pipelines.length : 0,
-        pipelines: Array.isArray(pipelines) ? pipelines.map((p: any) => ({
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        projectId: { type: 'number', required: true },
+        sourceBranch: { type: 'string', required: true },
+        targetBranch: { type: 'string', required: false, default: 'main' },
+        title: { type: 'string', required: true },
+        description: { type: 'string', required: false, default: '' },
+        removeSourceBranch: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const body = {
+        source_branch: validation.data.sourceBranch,
+        target_branch: validation.data.targetBranch,
+        title: validation.data.title,
+        description: validation.data.description,
+        remove_source_branch: validation.data.removeSourceBranch
+      }
+      const result = await gitlabAPI(`/projects/${validation.data.projectId}/merge_requests`, 'POST', body)
+      
+      return result.error || result.message ? formatError('Create failed', result.error || result.message) : formatSuccess({
+        created: true,
+        mrId: result.iid,
+        webUrl: result.web_url,
+        project: result.project_id
+      })
+    }
+  })
+  .addTool({
+    name: 'gitlab_get_pipelines',
+    description: 'Get CI/CD pipelines for project',
+    parameters: {
+      projectId: { type: 'number', description: 'Project ID', required: true },
+      status: { type: 'string', description: 'running, pending, success, failed, canceled', required: false },
+      ref: { type: 'string', description: 'Branch or tag name', required: false }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        projectId: { type: 'number', required: true },
+        status: { type: 'string', required: false },
+        ref: { type: 'string', required: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const query = new URLSearchParams()
+      if (validation.data.status) query.set('status', validation.data.status)
+      if (validation.data.ref) query.set('ref', validation.data.ref)
+
+      const result = await gitlabAPI(`/projects/${validation.data.projectId}/pipelines?${query.toString()}`)
+      
+      return result.error ? formatError('Failed', result.error) : formatSuccess({
+        pipelines: (Array.isArray(result) ? result : []).map((p: any) => ({
           id: p.id,
           ref: p.ref,
           status: p.status,
-          url: p.web_url,
+          source: p.source,
           createdAt: p.created_at,
-          updatedAt: p.updated_at
-        })) : []
+          duration: `${Math.round((p.duration || 0) / 60)}m ${(p.duration || 0) % 60}s`
+        }))
+      })
+    }
+  })
+  .addTool({
+    name: 'gitlab_create_issue',
+    description: 'Create a new issue in project',
+    parameters: {
+      projectId: { type: 'number', description: 'Project ID', required: true },
+      title: { type: 'string', description: 'Issue title', required: true },
+      description: { type: 'string', description: 'Issue description', required: false },
+      labels: { type: 'string', description: 'Comma-separated labels', required: false },
+      assigneeId: { type: 'number', description: 'Assignee user ID', required: false }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        projectId: { type: 'number', required: true },
+        title: { type: 'string', required: true },
+        description: { type: 'string', required: false, default: '' },
+        labels: { type: 'string', required: false, default: '' },
+        assigneeId: { type: 'number', required: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const body: any = {
+        title: validation.data.title,
+        description: validation.data.description
       }
+      if (validation.data.labels) body.labels = validation.data.labels
+      if (validation.data.assigneeId) body.assignee_id = validation.data.assigneeId
+
+      const result = await gitlabAPI(`/projects/${validation.data.projectId}/issues`, 'POST', body)
+      
+      return result.error || result.message ? formatError('Create failed', result.error || result.message) : formatSuccess({
+        created: true,
+        issueId: result.iid,
+        webUrl: result.web_url,
+        state: result.state
+      })
+    }
+  })
+  .addTool({
+    name: 'gitlab_get_groups',
+    description: 'List groups and subgroups',
+    parameters: {
+      search: { type: 'string', description: 'Search group name', required: false },
+      topLevelOnly: { type: 'boolean', description: 'Only top-level groups', required: false }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        search: { type: 'string', required: false, default: '' },
+        topLevelOnly: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const query = new URLSearchParams({ per_page: '20' } as any)
+      if (validation.data.search) query.set('search', validation.data.search)
+      if (validation.data.topLevelOnly) query.set('top_level_only', 'true')
+
+      const result = await gitlabAPI(`/groups?${query.toString()}`)
+      
+      return result.error ? formatError('Failed', result.error) : formatSuccess({
+        groups: (Array.isArray(result) ? result : []).map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          path: g.full_path,
+          description: g.description,
+          projects: g.projects_count || 0
+        }))
+      })
     }
   })
   .build()

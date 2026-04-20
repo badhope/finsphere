@@ -54,10 +54,19 @@
     "version": "1.1.0",
     "entrypoint": "packages/cli/index.js",
     "marketplace": {
-      "categories": ["AI Agents", "Development", "Code Quality", "Workflow", "Productivity"],
+      "categories": [
+        "AI Agents",
+        "Development",
+        "Code Quality",
+        "Workflow",
+        "Productivity"
+      ],
       "featured": true,
       "official": true,
-      "badges": ["Editor's Pick", "Productivity"]
+      "badges": [
+        "Editor's Pick",
+        "Productivity"
+      ]
     },
     "skills": [
       "agent-autonomous",
@@ -112,7 +121,6 @@
       "sentry": "mcp/sentry/index.ts",
       "puppeteer": "mcp/puppeteer/index.ts",
       "aliyun": "mcp/aliyun/index.ts",
-      "docker": "mcp/docker/index.ts",
       "kubernetes": "mcp/kubernetes/index.ts",
       "aws": "mcp/aws/index.ts",
       "ssh": "mcp/ssh/index.ts",
@@ -127,7 +135,6 @@
       "website-builder": "mcp/website-builder/index.ts",
       "web-search": "mcp/web-search/index.ts",
       "thinking": "mcp/thinking/index.ts",
-      "memory": "mcp/memory/index.ts",
       "llm": "mcp/llm/index.ts",
       "site-generator": "mcp/site-generator/index.ts",
       "browser-automation": "mcp/browser-automation/index.ts",
@@ -154,18 +161,18 @@
   "license": "Apache-2.0",
   "homepage": "https://skills.trae.dev",
   "dependencies": {
-    "commander": "^12.0.0",
     "chalk": "^5.3.0",
-    "zod": "^3.22.4",
-    "yaml": "^2.4.1"
+    "commander": "^12.0.0",
+    "yaml": "^2.4.1",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/node": "^20.19.39",
+    "@typescript-eslint/parser": "^7.6.0",
+    "eslint": "^8.57.0",
     "typescript": "^5.4.0",
     "vite": "^5.2.0",
-    "vitest": "^1.5.0",
-    "@types/node": "^20.12.0",
-    "eslint": "^8.57.0",
-    "@typescript-eslint/parser": "^7.6.0"
+    "vitest": "^1.5.0"
   },
   "engines": {
     "node": ">=18.0.0"

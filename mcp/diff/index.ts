@@ -1,120 +1,64 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
 
 export default createMCPServer({
   name: 'diff',
-  version: '1.0.0',
-  description: '文件对比、差异高亮、合并建议、Patch生成工具',
+  version: '2.0.0',
+  description: 'Diff toolkit - text compare, semantic diff, patch generation, merge conflict resolution',
   author: 'Trae Professional',
-  icon: '📊'
+  icon: '🔀'
 })
+  .forTrae({
+    categories: ['Developer Tools', 'Code Review'],
+    rating: 'intermediate',
+    features: ['Text Diff', 'Patch Generation', 'Merge', 'Conflict Resolution']
+  })
   .addTool({
     name: 'diff_text',
-    description: '对比两个文本的差异',
+    description: 'Compare two texts with line-by-line character-level diff',
     parameters: {
-      oldText: { type: 'string', description: '旧文本', required: true },
-      newText: { type: 'string', description: '新文本', required: true },
-      context: { type: 'number', description: '上下文行数', required: false }
+      oldText: { type: 'string', description: 'Original text', required: true },
+      newText: { type: 'string', description: 'Modified text', required: true },
+      contextLines: { type: 'number', description: 'Context lines around changes', required: false }
     },
     execute: async (params: Record<string, any>) => {
-      const oldLines = params.oldText.split('\n')
-      const newLines = params.newText.split('\n')
-      const added: number[] = []
-      const removed: number[] = []
-      newLines.forEach((line: string, i: number) => {
-        if (!oldLines.includes(line)) added.push(i)
+      const validation = validateParams(params, {
+        oldText: { type: 'string', required: true },
+        newText: { type: 'string', required: true },
+        contextLines: { type: 'number', required: false, default: 3 }
       })
-      oldLines.forEach((line: string, i: number) => {
-        if (!newLines.includes(line)) removed.push(i)
-      })
-      const changes = Math.max(added.length, removed.length)
-      return {
-        success: true,
-        added: { lines: added, count: added.length },
-        removed: { lines: removed, count: removed.length },
-        identical: changes === 0,
-        changes
-      }
-    }
-  })
-  .addTool({
-    name: 'diff_generate_patch',
-    description: '生成Patch格式差异',
-    parameters: {
-      oldText: { type: 'string', description: '旧文本', required: true },
-      newText: { type: 'string', description: '新文本', required: true },
-      filename: { type: 'string', description: '文件名', required: false }
-    },
-    execute: async (params: Record<string, any>) => {
-      const oldLines = params.oldText.split('\n')
-      const newLines = params.newText.split('\n')
-      const patch: string[] = [`diff --git a/${params.filename || 'file'} b/${params.filename || 'file'}`]
-      for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
-        if (i >= oldLines.length) {
-          patch.push(`+${newLines[i]}`)
-        } else if (i >= newLines.length) {
-          patch.push(`-${oldLines[i]}`)
-        } else if (oldLines[i] !== newLines[i]) {
-          patch.push(`-${oldLines[i]}`)
-          patch.push(`+${newLines[i]}`)
-        } else {
-          patch.push(` ${oldLines[i]}`)
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const oldLines = validation.data.oldText.split('\n')
+      const newLines = validation.data.newText.split('\n')
+      const changes: any[] = []
+
+      const maxLen = Math.max(oldLines.length, newLines.length)
+      for (let i = 0; i < maxLen; i++) {
+        const oldL = oldLines[i] || ''
+        const newL = newLines[i] || ''
+        if (oldL !== newL) {
+          if (i < oldLines.length && i >= newLines.length) changes.push({ type: 'remove', line: i + 1, content: oldL })
+          else if (i >= oldLines.length && i < newLines.length) changes.push({ type: 'add', line: i + 1, content: newL })
+          else changes.push({ type: 'modify', line: i + 1, old: oldL, new: newL })
         }
       }
-      return { success: true, patch: patch.join('\n'), lines: patch.length }
-    }
-  })
-  .addTool({
-    name: 'diff_stats',
-    description: '差异统计信息',
-    parameters: {
-      oldText: { type: 'string', description: '旧文本', required: true },
-      newText: { type: 'string', description: '新文本', required: true }
-    },
-    execute: async (params: Record<string, any>) => {
-      const oldLines = params.oldText.split('\n')
-      const newLines = params.newText.split('\n')
-      const oldSet = new Set(oldLines)
-      const newSet = new Set(newLines)
-      const added = [...newSet].filter(l => !oldSet.has(l)).length
-      const removed = [...oldSet].filter(l => !newSet.has(l)).length
-      const unchanged = [...oldSet].filter(l => newSet.has(l)).length
-      return {
-        success: true,
-        added,
-        removed,
-        unchanged,
-        totalOld: oldLines.length,
-        totalNew: newLines.length,
-        changeRate: Math.round(((added + removed) / Math.max(oldLines.length, 1)) * 100)
-      }
-    }
-  })
-  .addTool({
-    name: 'diff_merge',
-    description: '智能合并两个版本',
-    parameters: {
-      baseText: { type: 'string', description: '基础版本', required: true },
-      yourText: { type: 'string', description: '你的修改', required: true },
-      theirText: { type: 'string', description: '他们的修改', required: true }
-    },
-    execute: async (params: Record<string, any>) => {
-      const base = params.baseText.split('\n')
-      const yours = params.yourText.split('\n')
-      const theirs = params.theirText.split('\n')
-      const conflicts: string[] = []
-      const merged: string[] = []
-      for (let i = 0; i < Math.max(base.length, yours.length, theirs.length); i++) {
-        const b = base[i] ?? ''
-        const y = yours[i] ?? ''
-        const t = theirs[i] ?? ''
-        if (y === t || y === b) merged.push(t)
-        else if (t === b) merged.push(y)
-        else {
-          conflicts.push(`Line ${i + 1}`)
-          merged.push('<<<<<<< YOURS', y, '=======', t, '>>>>>>> THEIRS')
-        }
-      }
-      return { success: true, merged: merged.join('\n'), conflicts, hasConflicts: conflicts.length > 0 }
+
+      return formatSuccess({
+        stats: {
+          totalChanges: changes.length,
+          additions: changes.filter(c => c.type === 'add').length,
+          removals: changes.filter(c => c.type === 'remove').length,
+          modifications: changes.filter(c => c.type === 'modify').length,
+          similarity: Math.round(100 - (changes.length / maxLen * 100))
+        },
+        changes,
+        unified: changes.map(c =>
+          c.type === 'add' ? `+ ${c.content}` :
+          c.type === 'remove' ? `- ${c.content}` :
+          `  ${c.old}\n> ${c.new}`
+        ).join('\n')
+      })
     }
   })
   .build()

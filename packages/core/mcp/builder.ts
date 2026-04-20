@@ -37,7 +37,7 @@ export class MCPServerBuilder {
 
   forTrae(options: {
     categories?: string[]
-    rating?: 'beginner' | 'intermediate' | 'advanced'
+    rating?: 'beginner' | 'intermediate' | 'advanced' | 'professional'
     features?: string[]
   }): this {
     this.config.trae = {

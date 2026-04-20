@@ -1,40 +1,38 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
-
-async function safeExec(cmd: string): Promise<string> {
-  try {
-    const { stdout } = await execAsync(cmd, { timeout: 15000 })
-    return stdout.trim()
-  } catch (e: any) {
-    return e.stdout?.trim() || e.message
-  }
-}
+import { safeExecRaw, validateParams, formatSuccess, formatError } from '../../packages/core/shared'
 
 export default createMCPServer({
   name: 'git',
-  version: '1.0.0',
-  description: 'Git version control toolkit - commit, branch, diff, log and code review operations',
+  version: '2.0.0',
+  description: 'Git version control toolkit - commit, branch, diff, log and code review operations with full error handling',
   icon: '📦'
 })
   .forTrae({
     categories: ['Version Control', 'Core'],
     rating: 'beginner',
-    features: ['Git Operations', 'Code Review', 'Branch Management']
+    features: ['Git Operations', 'Code Review', 'Branch Management', 'Quality Assurance']
   })
   .addTool({
     name: 'get_current_branch',
     description: 'Get the name of currently active git branch',
     parameters: {},
-    execute: async () => ({ branch: await safeExec('git branch --show-current') })
+    execute: async () => {
+      const result = await safeExecRaw('git branch --show-current')
+      return result.exitCode === 0
+        ? formatSuccess({ branch: result.stdout })
+        : formatError('Failed to get branch name', result.stderr)
+    }
   })
   .addTool({
     name: 'get_staged_diff',
     description: 'Get diff of all staged changes for code review',
     parameters: {},
-    execute: async () => ({ diff: await safeExec('git diff --staged') })
+    execute: async () => {
+      const result = await safeExecRaw('git diff --staged')
+      return result.exitCode === 0
+        ? formatSuccess({ diff: result.stdout })
+        : formatError('Failed to get staged diff', result.stderr)
+    }
   })
   .addTool({
     name: 'get_commit_history',
@@ -46,9 +44,17 @@ export default createMCPServer({
         required: false
       }
     },
-    execute: async (params: Record<string, any>) => ({
-      log: await safeExec(`git log --oneline -n ${params.limit || 10}`)
-    })
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        limit: { type: 'number', required: false, default: 10 }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const result = await safeExecRaw(`git log --oneline -n ${validation.data.limit}`)
+      return result.exitCode === 0
+        ? formatSuccess({ log: result.stdout.split('\n').filter(Boolean) })
+        : formatError('Failed to get commit history', result.stderr)
+    }
   })
   .addTool({
     name: 'create_commit',
@@ -60,44 +66,37 @@ export default createMCPServer({
         required: true
       }
     },
-    execute: async (params: Record<string, any>) => ({
-      add: await safeExec('git add .'),
-      commit: await safeExec(`git commit -m "${params.message}"`)
-    })
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        message: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const addResult = await safeExecRaw('git add .')
+      if (addResult.exitCode !== 0) return formatError('Failed to stage changes', addResult.stderr)
+
+      const commitResult = await safeExecRaw(`git commit -m "${validation.data.message.replace(/["]/g, '\\"')}"`)
+      return commitResult.exitCode === 0
+        ? formatSuccess({ staged: true, committed: true })
+        : formatError('Failed to create commit', commitResult.stderr)
+    }
   })
-  .addResource({
-    uri: 'trae://git/status',
-    name: 'Git Workspace Status',
-    description: 'Current repository status with modified and staged files',
-    get: async () => ({
-      branch: await safeExec('git branch --show-current'),
-      status: await safeExec('git status --short'),
-      staged: await safeExec('git diff --staged --name-only'),
-      unstaged: await safeExec('git diff --name-only')
-    })
-  })
-  .addPrompt({
-    name: 'review-my-changes',
-    description: 'Review changes before committing',
-    arguments: [{ name: 'files', description: 'Specific files to review', required: false }],
-    generate: async (args?: Record<string, any>) => `
-## 📝 Code Change Review Request
+  .addTool({
+    name: 'create_branch',
+    description: 'Create and switch to a new branch',
+    parameters: {
+      name: { type: 'string', description: 'Branch name', required: true }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        name: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
 
-### Current Workspace Changes:
-\`\`\`diff
-${await safeExec('git diff')}
-\`\`\`
-
-### Task
-Please perform a thorough code review and provide:
-
-1. 🔍 **Bug Detection**: Find potential issues, edge cases, or logical errors
-2. 🎯 **Best Practices**: Suggest improvements following coding standards
-3. 🔒 **Security**: Identify any security vulnerabilities
-4. ⚡ **Performance**: Mention any performance concerns
-5. 💡 **Refactoring**: Suggest cleaner implementation approaches
-
-Focus on the quality and maintainability of the code changes.
-    `.trim()
+      const result = await safeExecRaw(`git checkout -b ${validation.data.name}`)
+      return result.exitCode === 0
+        ? formatSuccess({ branch: validation.data.name, created: true, switched: true })
+        : formatError('Failed to create branch', result.stderr)
+    }
   })
   .build()

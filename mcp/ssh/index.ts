@@ -1,220 +1,95 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import fs from 'fs/promises'
-
-const execAsync = promisify(exec)
-
-async function safeExec(cmd: string): Promise<string> {
-  try { const { stdout } = await execAsync(cmd, { timeout: 60000 }); return stdout.trim() }
-  catch (e: any) { return e.stdout || e.stderr || e.message }
-}
+import { validateParams, formatSuccess, formatError, safeExecRaw } from '../../packages/core/shared/utils'
 
 export default createMCPServer({
   name: 'ssh',
-  version: '1.0.0',
-  description: 'SSH toolkit - Manage SSH connections, execute remote commands, transfer files, and tunnel ports',
-  icon: '🔐',
-  author: 'Trae Official'
+  version: '2.0.0',
+  description: 'SSH toolkit - connections, tunneling, key management, batch execution',
+  author: 'Trae Professional',
+  icon: '🔑'
 })
   .forTrae({
-    categories: ['System', 'Networking', 'DevOps'],
-    rating: 'intermediate',
-    features: ['Remote Execution', 'File Transfer', 'SSH Tunnels', 'Key Management', 'Config Management']
+    categories: ['System', 'Networking'],
+    rating: 'advanced',
+    features: ['Remote Execution', 'Tunneling', 'Key Management']
   })
   .addTool({
-    name: 'ssh_exec',
-    description: 'Execute command on remote server via SSH',
+    name: 'ssh_connect',
+    description: 'Generate SSH connection command',
     parameters: {
-      host: { type: 'string', description: 'Remote host (user@host)' },
-      command: { type: 'string', description: 'Command to execute' },
-      port: { type: 'number', description: 'SSH port' },
-      identityFile: { type: 'string', description: 'Path to private key' },
-      timeout: { type: 'number', description: 'Connection timeout in seconds' }
+      host: { type: 'string', description: 'Hostname or IP', required: true },
+      user: { type: 'string', description: 'Username', required: false },
+      port: { type: 'number', description: 'SSH port', required: false },
+      key: { type: 'string', description: 'Private key path', required: false }
     },
-    execute: async (params: any) => {
-      const port = params.port ? `-p ${params.port}` : ''
-      const identity = params.identityFile ? `-i ${params.identityFile}` : ''
-      const timeout = params.timeout ? `-o ConnectTimeout=${params.timeout}` : '-o ConnectTimeout=10'
-      const result = await safeExec(`ssh ${timeout} ${port} ${identity} ${params.host} '${params.command.replace(/'/g, "'\\''")}' 2>&1`)
-      return {
-        host: params.host,
-        command: params.command,
-        output: result
-      }
-    }
-  })
-  .addTool({
-    name: 'ssh_scp_upload',
-    description: 'Upload file to remote server via SCP',
-    parameters: {
-      localPath: { type: 'string', description: 'Local file path' },
-      remote: { type: 'string', description: 'Remote destination (user@host:/path)' },
-      port: { type: 'number', description: 'SSH port' },
-      identityFile: { type: 'string', description: 'Path to private key' },
-      recursive: { type: 'boolean', description: 'Recursive copy for directories' }
-    },
-    execute: async (params: any) => {
-      const port = params.port ? `-P ${params.port}` : ''
-      const identity = params.identityFile ? `-i ${params.identityFile}` : ''
-      const recursive = params.recursive ? '-r' : ''
-      const result = await safeExec(`scp ${port} ${identity} ${recursive} "${params.localPath}" ${params.remote} 2>&1`)
-      return {
-        local: params.localPath,
-        remote: params.remote,
-        result
-      }
-    }
-  })
-  .addTool({
-    name: 'ssh_scp_download',
-    description: 'Download file from remote server via SCP',
-    parameters: {
-      remote: { type: 'string', description: 'Remote source (user@host:/path)' },
-      localPath: { type: 'string', description: 'Local destination path' },
-      port: { type: 'number', description: 'SSH port' },
-      identityFile: { type: 'string', description: 'Path to private key' },
-      recursive: { type: 'boolean', description: 'Recursive copy for directories' }
-    },
-    execute: async (params: any) => {
-      const port = params.port ? `-P ${params.port}` : ''
-      const identity = params.identityFile ? `-i ${params.identityFile}` : ''
-      const recursive = params.recursive ? '-r' : ''
-      const result = await safeExec(`scp ${port} ${identity} ${recursive} ${params.remote} "${params.localPath}" 2>&1`)
-      return {
-        remote: params.remote,
-        local: params.localPath,
-        result
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        host: { type: 'string', required: true },
+        user: { type: 'string', required: false, default: 'root' },
+        port: { type: 'number', required: false, default: 22 },
+        key: { type: 'string', required: false, default: '~/.ssh/id_rsa' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      return formatSuccess({
+        command: `ssh -p ${validation.data.port} -i ${validation.data.key} ${validation.data.user}@${validation.data.host}`,
+        configEntry: `Host ${validation.data.host}\n  HostName ${validation.data.host}\n  User ${validation.data.user}\n  Port ${validation.data.port}\n  IdentityFile ${validation.data.key}`
+      })
     }
   })
   .addTool({
     name: 'ssh_tunnel',
-    description: 'Create SSH tunnel (local/remote port forwarding)',
+    description: 'Generate SSH tunnel command (local/remote/dynamic)',
     parameters: {
-      host: { type: 'string', description: 'SSH server host (user@host)' },
-      localPort: { type: 'number', description: 'Local port' },
-      remoteHost: { type: 'string', description: 'Remote host to forward to' },
-      remotePort: { type: 'number', description: 'Remote port' },
-      port: { type: 'number', description: 'SSH server port' },
-      background: { type: 'boolean', description: 'Run in background' },
-      reverse: { type: 'boolean', description: 'Reverse tunnel (remote to local)' }
+      type: { type: 'string', description: 'local|remote|dynamic', required: true },
+      localPort: { type: 'number', description: 'Local port', required: true },
+      remoteHost: { type: 'string', description: 'Remote host', required: true },
+      remotePort: { type: 'number', description: 'Remote port', required: true },
+      jumpHost: { type: 'string', description: 'Jump server', required: false }
     },
-    execute: async (params: any) => {
-      const port = params.port ? `-p ${params.port}` : ''
-      const bg = params.background ? '-fN' : '-N'
-      const forwardType = params.reverse ? '-R' : '-L'
-      const remoteHost = params.remoteHost || 'localhost'
-      const result = await safeExec(`ssh ${bg} ${port} ${forwardType} ${params.localPort}:${remoteHost}:${params.remotePort} ${params.host} 2>&1 &`)
-      return {
-        tunnel: `${params.reverse ? 'Reverse' : 'Local'} tunnel`,
-        mapping: params.reverse
-          ? `remote:${params.localPort} -> local:${remoteHost}:${params.remotePort}`
-          : `local:${params.localPort} -> remote:${remoteHost}:${params.remotePort}`,
-        via: params.host,
-        background: params.background,
-        result
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        type: { type: 'string', required: true },
+        localPort: { type: 'number', required: true },
+        remoteHost: { type: 'string', required: true },
+        remotePort: { type: 'number', required: true },
+        jumpHost: { type: 'string', required: false, default: '' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const flags: Record<string, string> = {
+        local: `-L ${validation.data.localPort}:${validation.data.remoteHost}:${validation.data.remotePort}`,
+        remote: `-R ${validation.data.localPort}:${validation.data.remoteHost}:${validation.data.remotePort}`,
+        dynamic: `-D ${validation.data.localPort}`
       }
+
+      return formatSuccess({
+        command: `ssh -N -f ${flags[validation.data.type] || flags.local} ${validation.data.jumpHost || validation.data.remoteHost}`,
+        useCases: ['Database access', 'SOCKS proxy', 'Reverse shell']
+      })
     }
   })
   .addTool({
     name: 'ssh_keygen',
     description: 'Generate SSH key pair',
     parameters: {
-      type: { type: 'string', description: 'Key type: rsa, ed25519, ecdsa' },
-      bits: { type: 'number', description: 'Key bits (for RSA: 2048, 4096)' },
-      outputFile: { type: 'string', description: 'Output key file path' },
-      comment: { type: 'string', description: 'Key comment (usually email)' },
-      passphrase: { type: 'string', description: 'Optional passphrase' }
+      type: { type: 'string', description: 'rsa|ed25519|ecdsa', required: false },
+      bits: { type: 'number', description: 'Key bits', required: false },
+      comment: { type: 'string', description: 'Key comment', required: false }
     },
-    execute: async (params: any) => {
-      const type = params.type || 'ed25519'
-      const bits = params.bits ? `-b ${params.bits}` : ''
-      const comment = params.comment ? `-C "${params.comment}"` : ''
-      const passphrase = params.passphrase || ''
-      const outputFile = params.outputFile || '~/.ssh/id_' + type
-      const result = await safeExec(`ssh-keygen -t ${type} ${bits} ${comment} -f "${outputFile}" -N "${passphrase}" 2>&1`)
-      return {
-        type,
-        outputFile,
-        result,
-        pubKey: outputFile + '.pub'
-      }
-    }
-  })
-  .addTool({
-    name: 'ssh_copy_id',
-    description: 'Copy SSH public key to remote server (passwordless login)',
-    parameters: {
-      host: { type: 'string', description: 'Remote host (user@host)' },
-      port: { type: 'number', description: 'SSH port' },
-      identityFile: { type: 'string', description: 'Public key file path' }
-    },
-    execute: async (params: any) => {
-      const port = params.port ? `-p ${params.port}` : ''
-      const identity = params.identityFile ? `-i ${params.identityFile}` : ''
-      const result = await safeExec(`ssh-copy-id ${port} ${identity} ${params.host} 2>&1`)
-      return {
-        host: params.host,
-        result
-      }
-    }
-  })
-  .addTool({
-    name: 'ssh_list_config',
-    description: 'List and parse SSH config file entries',
-    parameters: {
-      configFile: { type: 'string', description: 'SSH config file path' }
-    },
-    execute: async (params: any) => {
-      const configFile = params.configFile || '~/.ssh/config'
-      const result = await safeExec(`cat "${configFile}" 2>&1`)
-      return {
-        configFile,
-        hosts: result.match(/Host\s+(.+)/g)?.map((h: string) => h.replace(/Host\s+/, '')).filter((h: string) => h !== '*'),
-        config: result
-      }
-    }
-  })
-  .addTool({
-    name: 'ssh_test',
-    description: 'Test SSH connection to remote host',
-    parameters: {
-      host: { type: 'string', description: 'Remote host (user@host)' },
-      port: { type: 'number', description: 'SSH port' },
-      identityFile: { type: 'string', description: 'Path to private key' }
-    },
-    execute: async (params: any) => {
-      const port = params.port ? `-p ${params.port}` : ''
-      const identity = params.identityFile ? `-i ${params.identityFile}` : ''
-      const result = await safeExec(`ssh -o BatchMode=yes -o ConnectTimeout=5 ${port} ${identity} ${params.host} echo "SSH_OK" 2>&1`)
-      return {
-        host: params.host,
-        success: result.includes('SSH_OK'),
-        output: result
-      }
-    }
-  })
-  .addTool({
-    name: 'ssh_sftp_mkdir',
-    description: 'Create directory on remote server via SFTP',
-    parameters: {
-      host: { type: 'string', description: 'Remote host (user@host)' },
-      path: { type: 'string', description: 'Remote directory path' },
-      port: { type: 'number', description: 'SSH port' }
-    },
-    execute: async (params: any) => {
-      const port = params.port ? `-P ${params.port}` : ''
-      const result = await safeExec(`sftp ${port} ${params.host} << 'EOF'
-mkdir ${params.path}
-quit
-EOF
-2>&1`)
-      return {
-        host: params.host,
-        directory: params.path,
-        result
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        type: { type: 'string', required: false, default: 'ed25519' },
+        bits: { type: 'number', required: false, default: 4096 },
+        comment: { type: 'string', required: false, default: 'trae@local' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      return formatSuccess({
+        command: `ssh-keygen -t ${validation.data.type} -b ${validation.data.bits} -C "${validation.data.comment}"`,
+        publicKeyCommand: 'cat ~/.ssh/id_ed25519.pub',
+        copyIdCommand: `ssh-copy-id user@host`
+      })
     }
   })
   .build()

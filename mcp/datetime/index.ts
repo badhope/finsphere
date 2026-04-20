@@ -1,125 +1,107 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
 
 export default createMCPServer({
   name: 'datetime',
-  version: '1.0.0',
-  description: '时间转换、时区处理、格式化、日历计算',
+  version: '2.0.0',
+  description: 'Datetime toolkit - parsing, formatting, timezone conversion, duration calculation',
   author: 'Trae Professional',
   icon: '🕐'
 })
+  .forTrae({
+    categories: ['Developer Tools', 'Utilities'],
+    rating: 'beginner',
+    features: ['Parsing', 'Formatting', 'Timezones', 'Duration', 'Calendar']
+  })
   .addTool({
     name: 'dt_now',
-    description: '获取当前时间，支持时区和格式化',
+    description: 'Get current datetime in multiple formats and timezones',
     parameters: {
-      timezone: { type: 'string', description: '时区，如 Asia/Shanghai', required: false },
-      format: { type: 'string', description: '输出格式: iso, timestamp, friendly, unix', required: false }
+      timezone: { type: 'string', description: 'IANA timezone', required: false },
+      locale: { type: 'string', description: 'Locale for formatting', required: false }
     },
     execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        timezone: { type: 'string', required: false, default: 'UTC' },
+        locale: { type: 'string', required: false, default: 'en-US' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
       const now = new Date()
-      const format = params.format || 'iso'
-      const result: Record<string, any> = {
+
+      return formatSuccess({
         iso: now.toISOString(),
-        timestamp: now.getTime(),
         unix: Math.floor(now.getTime() / 1000),
-        friendly: now.toLocaleString('zh-CN', { timeZone: params.timezone || 'Asia/Shanghai' })
-      }
-      return { success: true, now: result[format], timezone: params.timezone || 'UTC' }
+        unixMs: now.getTime(),
+        utc: now.toUTCString(),
+        locale: now.toLocaleString(validation.data.locale, { timeZone: validation.data.timezone }),
+        date: now.toLocaleDateString(),
+        time: now.toLocaleTimeString()
+      })
     }
   })
   .addTool({
     name: 'dt_format',
-    description: '时间戳/字符串格式化',
+    description: 'Format datetime with custom patterns',
     parameters: {
-      timestamp: { type: 'number', description: '时间戳ms', required: false },
-      dateString: { type: 'string', description: '日期字符串', required: false },
-      pattern: { type: 'string', description: '格式: YYYY-MM-DD HH:mm:ss', required: false }
+      timestamp: { type: 'string', description: 'Date string or timestamp', required: true },
+      pattern: { type: 'string', description: 'Format pattern', required: true }
     },
     execute: async (params: Record<string, any>) => {
-      const date = params.timestamp ? new Date(params.timestamp) : new Date(params.dateString || Date.now())
+      const validation = validateParams(params, {
+        timestamp: { type: 'string', required: true },
+        pattern: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const d = new Date(validation.data.timestamp)
+      if (isNaN(d.getTime())) return formatError('Invalid date')
+
       const pad = (n: number) => String(n).padStart(2, '0')
-      const pattern = params.pattern || 'YYYY-MM-DD HH:mm:ss'
-      const formatted = pattern
-        .replace('YYYY', String(date.getFullYear()))
-        .replace('MM', pad(date.getMonth() + 1))
-        .replace('DD', pad(date.getDate()))
-        .replace('HH', pad(date.getHours()))
-        .replace('mm', pad(date.getMinutes()))
-        .replace('ss', pad(date.getSeconds()))
-      return { success: true, formatted, timestamp: date.getTime() }
+      let result = validation.data.pattern
+        .replace(/YYYY/g, String(d.getFullYear()))
+        .replace(/MM/g, pad(d.getMonth() + 1))
+        .replace(/DD/g, pad(d.getDate()))
+        .replace(/HH/g, pad(d.getHours()))
+        .replace(/mm/g, pad(d.getMinutes()))
+        .replace(/ss/g, pad(d.getSeconds()))
+
+      return formatSuccess({ result, parsed: d.toISOString() })
     }
   })
   .addTool({
     name: 'dt_diff',
-    description: '计算两个日期的时间差',
+    description: 'Calculate duration between two dates with breakdown',
     parameters: {
-      start: { type: 'string', description: '开始日期/时间戳', required: true },
-      end: { type: 'string', description: '结束日期/时间戳', required: true },
-      unit: { type: 'string', description: '单位: days, hours, minutes, seconds', required: false }
+      start: { type: 'string', description: 'Start date', required: true },
+      end: { type: 'string', description: 'End date', required: true }
     },
     execute: async (params: Record<string, any>) => {
-      const start = new Date(params.start).getTime()
-      const end = new Date(params.end).getTime()
-      const diff = Math.abs(end - start)
-      const unit = params.unit || 'days'
-      const units: Record<string, number> = {
-        days: 86400000,
-        hours: 3600000,
-        minutes: 60000,
-        seconds: 1000
-      }
-      return {
-        success: true,
-        diff: Math.round(diff / units[unit]),
-        unit,
-        humanReadable: `${Math.round(diff / units[unit])} ${unit}`
-      }
-    }
-  })
-  .addTool({
-    name: 'dt_calendar',
-    description: '生成指定月份的日历',
-    parameters: {
-      year: { type: 'number', description: '年份', required: false },
-      month: { type: 'number', description: '月份 1-12', required: false },
-      weekStart: { type: 'number', description: '每周起始日 0=日 1=一', required: false }
-    },
-    execute: async (params: Record<string, any>) => {
-      const now = new Date()
-      const y = params.year || now.getFullYear()
-      const m = params.month || now.getMonth() + 1
-      const firstDay = new Date(y, m - 1, 1)
-      const lastDay = new Date(y, m, 0)
-      const days = lastDay.getDate()
-      const startWeekday = firstDay.getDay()
-      const calendar: (number | null)[] = Array(startWeekday).fill(null)
-      for (let i = 1; i <= days; i++) calendar.push(i)
-      const weeks: (number | null)[][] = []
-      for (let i = 0; i < calendar.length; i += 7) weeks.push(calendar.slice(i, i + 7))
-      return { success: true, year: y, month: m, weeks, today: now.getDate() }
-    }
-  })
-  .addTool({
-    name: 'dt_relative',
-    description: '生成相对时间描述（如"3分钟前"）',
-    parameters: {
-      timestamp: { type: 'number', description: '时间戳ms', required: true }
-    },
-    execute: async (params: Record<string, any>) => {
-      const now = Date.now()
-      const diff = now - params.timestamp
-      const ranges = [
-        { limit: 60000, unit: 1000, name: '秒' },
-        { limit: 3600000, unit: 60000, name: '分钟' },
-        { limit: 86400000, unit: 3600000, name: '小时' },
-        { limit: 2592000000, unit: 86400000, name: '天' }
-      ]
-      for (const r of ranges) {
-        if (diff < r.limit) {
-          const n = Math.round(diff / r.unit)
-          return { success: true, relative: `${n}${r.name}前`, ago: true }
-        }
-      }
-      return { success: true, relative: new Date(params.timestamp).toLocaleDateString() }
+      const validation = validateParams(params, {
+        start: { type: 'string', required: true },
+        end: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const s = new Date(validation.data.start)
+      const e = new Date(validation.data.end)
+      const diff = e.getTime() - s.getTime()
+      const abs = Math.abs(diff)
+
+      return formatSuccess({
+        milliseconds: diff,
+        seconds: Math.round(diff / 1000),
+        minutes: Math.round(diff / 60000),
+        hours: Math.round(diff / 3600000),
+        days: Math.round(diff / 86400000),
+        breakdown: {
+          days: Math.floor(abs / 86400000),
+          hours: Math.floor((abs % 86400000) / 3600000),
+          minutes: Math.floor((abs % 3600000) / 60000),
+          seconds: Math.floor((abs % 60000) / 1000)
+        },
+        isNegative: diff < 0
+      })
     }
   })
   .build()

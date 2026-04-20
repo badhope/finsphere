@@ -1,136 +1,88 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import fs from 'fs/promises'
-
-const execAsync = promisify(exec)
-
-async function safeExec(cmd: string): Promise<string> {
-  try { const { stdout } = await execAsync(cmd, { timeout: 60000 }); return stdout.trim() }
-  catch (e: any) { return e.stdout || e.message }
-}
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
 
 export default createMCPServer({
   name: 'images',
-  version: '1.0.0',
-  description: 'Image processing toolkit - Resize, compress, convert formats, OCR, and analyze images',
-  icon: '🖼️',
-  author: 'Trae Official'
+  version: '2.0.0',
+  description: 'Image toolkit - resize, compress, convert, placeholder, QR code',
+  author: 'Trae Professional',
+  icon: '🖼️'
 })
   .forTrae({
-    categories: ['Media Processing', 'Utilities'],
+    categories: ['Media', 'Utilities'],
     rating: 'intermediate',
-    features: ['Resize', 'Compression', 'Format Conversion', 'OCR', 'Metadata Extraction']
+    features: ['Resize', 'Compress', 'Convert', 'Placeholders', 'QR Codes']
   })
   .addTool({
-    name: 'image_info',
-    description: 'Get image dimensions, format, and metadata',
+    name: 'img_resize',
+    description: 'Generate ImageMagick resize command',
     parameters: {
-      filePath: { type: 'string', description: 'Path to image file' }
+      input: { type: 'string', description: 'Input file', required: true },
+      width: { type: 'number', description: 'Width', required: true },
+      height: { type: 'number', description: 'Height', required: false },
+      format: { type: 'string', description: 'Output format', required: false }
     },
-    execute: async (params: any) => {
-      const result = await safeExec(`identify -verbose "${params.filePath}" 2>&1`)
-      return { info: result }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        input: { type: 'string', required: true },
+        width: { type: 'number', required: true },
+        height: { type: 'number', required: false, default: 0 },
+        format: { type: 'string', required: false, default: 'jpg' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const size = validation.data.height ? `${validation.data.width}x${validation.data.height}` : `${validation.data.width}`
+      return formatSuccess({
+        command: `convert "${validation.data.input}" -resize ${size} output.${validation.data.format}`,
+        quality: `convert input.jpg -quality 85 output.jpg`,
+        responsive: `create multiple sizes: 320w, 640w, 1280w`
+      })
     }
   })
   .addTool({
-    name: 'image_convert',
-    description: 'Convert image to different format and resize if needed',
+    name: 'img_placeholder',
+    description: 'Generate placeholder URLs',
     parameters: {
-      inputPath: { type: 'string', description: 'Input image path' },
-      outputPath: { type: 'string', description: 'Output image path (e.g., output.jpg)' },
-      quality: { type: 'number', description: 'Quality 1-100 (for JPEG/WebP)' },
-      width: { type: 'number', description: 'New width (maintains aspect ratio)' },
-      height: { type: 'number', description: 'New height (maintains aspect ratio)' }
+      width: { type: 'number', description: 'Width', required: true },
+      height: { type: 'number', description: 'Height', required: false },
+      text: { type: 'string', description: 'Custom text', required: false },
+      provider: { type: 'string', description: 'placeholder|picsum|dummyimage', required: false }
     },
-    execute: async (params: any) => {
-      const quality = params.quality ? `-quality ${params.quality}` : ''
-      const resize = params.width || params.height ? `-resize ${params.width}x${params.height}` : ''
-      const result = await safeExec(`convert ${resize} ${quality} "${params.inputPath}" "${params.outputPath}" 2>&1`)
-      return {
-        success: !result || result.includes('error'),
-        input: params.inputPath,
-        output: params.outputPath,
-        logs: result
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        width: { type: 'number', required: true },
+        height: { type: 'number', required: false },
+        text: { type: 'string', required: false, default: '' },
+        provider: { type: 'string', required: false, default: 'placeholder' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const h = validation.data.height || validation.data.width
+      return formatSuccess({
+        placeholder: `https://via.placeholder.com/${validation.data.width}x${h}`,
+        picsum: `https://picsum.photos/${validation.data.width}/${h}`,
+        unsplash: `https://source.unsplash.com/${validation.data.width}x${h}`
+      })
     }
   })
   .addTool({
-    name: 'image_optimize',
-    description: 'Compress and optimize image for web',
+    name: 'img_qrcode',
+    description: 'Generate QR code URL',
     parameters: {
-      inputPath: { type: 'string', description: 'Input image path' },
-      outputPath: { type: 'string', description: 'Output image path' },
-      maxWidth: { type: 'number', description: 'Max width in pixels' }
+      data: { type: 'string', description: 'QR data', required: true },
+      size: { type: 'number', description: 'Size pixels', required: false }
     },
-    execute: async (params: any) => {
-      const maxWidth = params.maxWidth || 1920
-      const result = await safeExec(`convert -resize ${maxWidth}x\> -strip -interlace Plane -gaussian-blur 0.05 -quality 85% "${params.inputPath}" "${params.outputPath}" 2>&1`)
-      return {
-        input: params.inputPath,
-        output: params.outputPath,
-        logs: result
-      }
-    }
-  })
-  .addTool({
-    name: 'image_thumbnail',
-    description: 'Generate thumbnail from image',
-    parameters: {
-      inputPath: { type: 'string', description: 'Input image path' },
-      outputPath: { type: 'string', description: 'Output thumbnail path' },
-      size: { type: 'number', description: 'Thumbnail size (square)' },
-      crop: { type: 'string', description: 'Crop gravity: center, north, south, east, west' }
-    },
-    execute: async (params: any) => {
-      const size = params.size || 256
-      const gravity = params.crop || 'center'
-      const result = await safeExec(`convert "${params.inputPath}" -thumbnail ${size}x${size}^ -gravity ${gravity} -extent ${size}x${size} "${params.outputPath}" 2>&1`)
-      return {
-        input: params.inputPath,
-        output: params.outputPath,
-        logs: result
-      }
-    }
-  })
-  .addTool({
-    name: 'image_ocr',
-    description: 'Extract text from image using OCR',
-    parameters: {
-      inputPath: { type: 'string', description: 'Input image path' },
-      lang: { type: 'string', description: 'Language: eng, chi_sim, chi_tra, etc.' }
-    },
-    execute: async (params: any) => {
-      const lang = params.lang || 'eng'
-      const result = await safeExec(`tesseract "${params.inputPath}" stdout -l ${lang} 2>&1`)
-      return {
-        text: result,
-        language: lang
-      }
-    }
-  })
-  .addTool({
-    name: 'image_watermark',
-    description: 'Add text watermark to image',
-    parameters: {
-      inputPath: { type: 'string', description: 'Input image path' },
-      outputPath: { type: 'string', description: 'Output image path' },
-      text: { type: 'string', description: 'Watermark text' },
-      fontSize: { type: 'number', description: 'Font size' },
-      position: { type: 'string', description: 'Position: southeast, northeast, southwest, northwest, center' },
-      opacity: { type: 'number', description: 'Opacity 0-100' }
-    },
-    execute: async (params: any) => {
-      const fontSize = params.fontSize || 36
-      const position = params.position || 'southeast'
-      const opacity = params.opacity || 30
-      const result = await safeExec(`convert "${params.inputPath}" -fill white -pointsize ${fontSize} -gravity ${position} -annotate +20+20 "${params.text}" -channel A -evaluate multiply ${opacity/100} "${params.outputPath}" 2>&1`)
-      return {
-        input: params.inputPath,
-        output: params.outputPath,
-        watermark: params.text,
-        logs: result
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        data: { type: 'string', required: true },
+        size: { type: 'number', required: false, default: 300 }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      return formatSuccess({
+        qrServer: `https://api.qrserver.com/v1/create-qr-code/?size=${validation.data.size}x${validation.data.size}&data=${encodeURIComponent(validation.data.data)}`,
+        types: ['URL', 'WiFi', 'vCard', 'Email', 'SMS']
+      })
     }
   })
   .build()

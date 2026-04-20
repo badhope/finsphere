@@ -1,13 +1,13 @@
 export * from './mcp/types'
 export * from './mcp/builder'
 export * from './mcp/registry'
+export * from './shared'
 export { loadSkillFromDirectory } from './loader'
 export { SkillRegistry } from './registry'
 
 import { globalMCPRegistry } from './mcp/registry'
 
 const MCP_MODULES = {
-  agent: () => import('../../mcp/agent/index'),
   aliyun: () => import('../../mcp/aliyun/index'),
   aws: () => import('../../mcp/aws/index'),
   bitbucket: () => import('../../mcp/bitbucket/index'),
@@ -28,15 +28,11 @@ const MCP_MODULES = {
   images: () => import('../../mcp/images/index'),
   jira: () => import('../../mcp/jira/index'),
   kubernetes: () => import('../../mcp/kubernetes/index'),
-  llm: () => import('../../mcp/llm/index'),
   memory: () => import('../../mcp/memory/index'),
   mongodb: () => import('../../mcp/mongodb/index'),
-  npm: () => import('../../mcp/npm/index'),
   openai: () => import('../../mcp/openai/index'),
   pdf: () => import('../../mcp/pdf/index'),
   'performance-optimizer': () => import('../../mcp/performance-optimizer/index'),
-  powerpoint: () => import('../../mcp/powerpoint/index'),
-  prompt: () => import('../../mcp/prompt/index'),
   puppeteer: () => import('../../mcp/puppeteer/index'),
   react: () => import('../../mcp/react/index'),
   redis: () => import('../../mcp/redis/index'),
@@ -49,9 +45,7 @@ const MCP_MODULES = {
   terminal: () => import('../../mcp/terminal/index'),
   'test-generator': () => import('../../mcp/test-generator/index'),
   typescript: () => import('../../mcp/typescript/index'),
-  vector: () => import('../../mcp/vector/index'),
-  vercel: () => import('../../mcp/vercel/index'),
-  word: () => import('../../mcp/word/index')
+  vercel: () => import('../../mcp/vercel/index')
 }
 
 export async function registerAllMCP(

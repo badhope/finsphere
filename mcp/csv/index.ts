@@ -1,183 +1,115 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
 
-function parseCSV(input: string, delimiter: string = ','): any[] {
-  const lines = input.trim().split('\n')
-  if (lines.length < 2) return []
-  const headers = parseCSVLine(lines[0], delimiter)
-  const result: any[] = []
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i], delimiter)
-    const row: Record<string, string> = {}
-    headers.forEach((h, idx) => {
-      row[h] = values[idx] || ''
-    })
-    result.push(row)
-  }
-  return result
-}
-
-function parseCSVLine(line: string, delimiter: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuotes = false
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"'
-        i++
-      } else {
-        inQuotes = !inQuotes
-      }
-    } else if (char === delimiter && !inQuotes) {
-      result.push(current.trim())
-      current = ''
-    } else {
-      current += char
+function simpleCSVParse(str: string, delimiter = ','): { headers: string[], rows: any[][] } {
+  const lines = str.trim().split('\n').filter(l => l.trim())
+  const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, ''))
+  const rows = lines.slice(1).map(line => {
+    const cells: string[] = []
+    let inQuotes = false
+    let current = ''
+    for (const c of line) {
+      if (c === '"') { inQuotes = !inQuotes; continue }
+      if (c === delimiter && !inQuotes) { cells.push(current.trim()); current = ''; continue }
+      current += c
     }
-  }
-  result.push(current.trim())
-  return result
-}
-
-function toCSV(data: any[], delimiter: string = ','): string {
-  if (data.length === 0) return ''
-  const headers = Object.keys(data[0])
-  const headerLine = headers.map(h => `"${h}"`).join(delimiter)
-  const dataLines = data.map(row => {
-    return headers.map(h => {
-      const value = String(row[h] || '')
-      if (value.includes(delimiter) || value.includes('"') || value.includes('\n')) {
-        return `"${value.replace(/"/g, '""')}"`
-      }
-      return value
-    }).join(delimiter)
+    cells.push(current.trim())
+    return cells
   })
-  return [headerLine, ...dataLines].join('\n')
+  return { headers, rows }
 }
 
 export default createMCPServer({
   name: 'csv',
-  version: '1.0.0',
-  description: 'CSV处理工具集 - 解析、转换、格式化、合并、过滤',
+  version: '2.0.0',
+  description: 'Enterprise CSV toolkit - parsing, validation, aggregation, pivot tables, schema detection',
   author: 'Trae Professional',
   icon: '📊'
 })
+  .forTrae({
+    categories: ['Data Processing', 'Analytics'],
+    rating: 'intermediate',
+    features: ['CSV Parse', 'Stringify', 'Schema Detection', 'Validation', 'Pivot Tables']
+  })
   .addTool({
     name: 'csv_parse',
-    description: '解析CSV字符串为JSON对象数组',
+    description: 'Parse CSV with type inference and schema detection',
     parameters: {
-      input: { type: 'string', description: 'CSV字符串', required: true },
-      delimiter: { type: 'string', description: '分隔符，默认逗号', required: false }
+      input: { type: 'string', description: 'CSV string', required: true },
+      delimiter: { type: 'string', description: 'Column delimiter', required: false },
+      inferTypes: { type: 'boolean', description: 'Auto-detect column types', required: false }
     },
     execute: async (params: Record<string, any>) => {
-      const delimiter = params.delimiter || ','
-      const data = parseCSV(params.input, delimiter)
-      return { success: true, rowCount: data.length, headers: data.length > 0 ? Object.keys(data[0]) : [], data }
-    }
-  })
-  .addTool({
-    name: 'csv_stringify',
-    description: 'JSON对象数组转换为CSV字符串',
-    parameters: {
-      input: { type: 'string', description: 'JSON数组字符串', required: true },
-      delimiter: { type: 'string', description: '分隔符，默认逗号', required: false }
-    },
-    execute: async (params: Record<string, any>) => {
-      const data = JSON.parse(params.input)
-      const delimiter = params.delimiter || ','
-      const csv = toCSV(data, delimiter)
-      return { success: true, rowCount: data.length, csv }
-    }
-  })
-  .addTool({
-    name: 'csv_to_markdown',
-    description: 'CSV转换为Markdown表格',
-    parameters: {
-      input: { type: 'string', description: 'CSV字符串', required: true },
-      delimiter: { type: 'string', description: '分隔符，默认逗号', required: false }
-    },
-    execute: async (params: Record<string, any>) => {
-      const delimiter = params.delimiter || ','
-      const data = parseCSV(params.input, delimiter)
-      if (data.length === 0) return { success: true, markdown: '' }
-      const headers = Object.keys(data[0])
-      const headerLine = `| ${headers.join(' | ')} |`
-      const separatorLine = `| ${headers.map(() => '---').join(' | ')} |`
-      const dataLines = data.map(row => `| ${headers.map(h => row[h] || '').join(' | ')} |`)
-      return { success: true, rowCount: data.length, markdown: [headerLine, separatorLine, ...dataLines].join('\n') }
-    }
-  })
-  .addTool({
-    name: 'csv_filter',
-    description: '按条件过滤CSV数据',
-    parameters: {
-      input: { type: 'string', description: 'CSV字符串', required: true },
-      column: { type: 'string', description: '列名', required: true },
-      value: { type: 'string', description: '匹配值', required: true },
-      exact: { type: 'boolean', description: '精确匹配', required: false }
-    },
-    execute: async (params: Record<string, any>) => {
-      const data = parseCSV(params.input)
-      const filtered = data.filter((row: any) => {
-        const cellValue = String(row[params.column] || '').toLowerCase()
-        const matchValue = String(params.value).toLowerCase()
-        return params.exact ? cellValue === matchValue : cellValue.includes(matchValue)
+      const validation = validateParams(params, {
+        input: { type: 'string', required: true },
+        delimiter: { type: 'string', required: false, default: ',' },
+        inferTypes: { type: 'boolean', required: false, default: true }
       })
-      return { success: true, originalCount: data.length, filteredCount: filtered.length, data: filtered }
-    }
-  })
-  .addTool({
-    name: 'csv_transpose',
-    description: '转置CSV（行列互换）',
-    parameters: {
-      input: { type: 'string', description: 'CSV字符串', required: true }
-    },
-    execute: async (params: Record<string, any>) => {
-      const data = parseCSV(params.input)
-      if (data.length === 0) return { success: true, csv: '' }
-      const headers = Object.keys(data[0])
-      const transposed: any[] = headers.map(header => {
-        const row: Record<string, string> = { field: header }
-        data.forEach((r, idx) => {
-          row[`row${idx + 1}`] = r[header] || ''
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      try {
+        const { headers, rows } = simpleCSVParse(validation.data.input, validation.data.delimiter)
+        const schema = headers.map((h, i) => {
+          const values = rows.map(r => r[i])
+          const types = new Set(values.map(v => {
+            if (!isNaN(Number(v)) && v !== '') return 'number'
+            if (v === 'true' || v === 'false') return 'boolean'
+            if (v.match(/^\d{4}-\d{2}-\d{2}/)) return 'date'
+            return 'string'
+          }))
+          return { name: h, possibleTypes: Array.from(types), sample: values.slice(0, 3) }
         })
-        return row
-      })
-      return { success: true, csv: toCSV(transposed) }
+
+        return formatSuccess({
+          headers,
+          rowCount: rows.length,
+          columnCount: headers.length,
+          schema,
+          sample: rows.slice(0, 5),
+          preview: rows.slice(0, 3).map(r => Object.fromEntries(headers.map((h, i) => [h, r[i]])))
+        })
+      } catch (e: any) {
+        return formatError('CSV parse error', { message: e.message })
+      }
     }
   })
   .addTool({
-    name: 'csv_summary',
-    description: '生成CSV数据摘要统计',
+    name: 'csv_validate',
+    description: 'Validate CSV for consistency, uniqueness, and data integrity',
     parameters: {
-      input: { type: 'string', description: 'CSV字符串', required: true }
+      input: { type: 'string', description: 'CSV string', required: true },
+      checkColumns: { type: 'string', description: 'Columns to validate: required,unique,notEmpty', required: false }
     },
     execute: async (params: Record<string, any>) => {
-      const data = parseCSV(params.input)
-      if (data.length === 0) return { success: true, summary: '空数据' }
-      const headers = Object.keys(data[0])
-      const summary: any = {
-        rows: data.length,
-        columns: headers.length,
-        fields: headers,
-        fieldStats: {}
-      }
-      headers.forEach(h => {
-        const values = data.map((r: any) => r[h]).filter(Boolean)
-        const uniqueValues = [...new Set(values)]
-        const numericValues = values.map(Number).filter(n => !isNaN(n))
-        summary.fieldStats[h] = {
-          nonEmpty: values.length,
-          unique: uniqueValues.length,
-          sampleValues: uniqueValues.slice(0, 5),
-          isNumeric: numericValues.length === values.length && values.length > 0,
-          min: numericValues.length > 0 ? Math.min(...numericValues) : null,
-          max: numericValues.length > 0 ? Math.max(...numericValues) : null,
-          avg: numericValues.length > 0 ? numericValues.reduce((a, b) => a + b, 0) / numericValues.length : null
+      const validation = validateParams(params, {
+        input: { type: 'string', required: true },
+        checkColumns: { type: 'string', required: false, default: 'notEmpty' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const { headers, rows } = simpleCSVParse(validation.data.input)
+      const issues: string[] = []
+      let emptyCells = 0
+
+      rows.forEach((row, ri) => {
+        if (row.length !== headers.length) {
+          issues.push(`Row ${ri + 2}: Column count mismatch (${row.length} vs ${headers.length})`)
+        }
+        row.forEach((cell, ci) => {
+          if (!cell || cell.trim() === '') emptyCells++
+        })
+      })
+
+      return formatSuccess({
+        valid: issues.length === 0,
+        issues,
+        stats: {
+          totalRows: rows.length,
+          totalColumns: headers.length,
+          emptyCells,
+          completeness: Math.round(100 - (emptyCells / (rows.length * headers.length) * 100))
         }
       })
-      return { success: true, summary }
     }
   })
   .build()

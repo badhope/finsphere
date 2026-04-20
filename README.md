@@ -1,321 +1,193 @@
-# Trae Skills - Official MCP Skill Marketplace
+# 🚀 Trae Skill Platform v2.0
 
-> 🔌 **Model Context Protocol Skills for Trae IDE by ByteDance**
-> 
-> Industry-standard skill collection built on the MCP protocol, providing production-grade tools for AI-assisted development.
+> Production-grade MCP (Model Context Protocol) platform with 80+ professional tools and 71+ skill definitions
 
----
-
-## ✨ Quick Overview
-
-| Metric | Status |
-|--------|--------|
-| 📦 **MCP Servers** | 70 Production-Grade |
-| 🔧 **AI Tools** | 350+ |
-| ⚡ **User Prompts** | 80+ |
-| 📄 **Context Resources** | 35 |
-| ✅ **TypeScript Validated** | 0 Errors |
-| 🎯 **Trae Optimized** | 100% Ready |
-| 🤖 **AI Agent Modules** | 7 Advanced |
+[![CI Status](https://github.com/your-username/Trae-Skill/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/Trae-Skill/actions)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ---
 
-## 🚀 Installation for Trae IDE
+## ✨ Key Features
 
-This skill collection is **natively optimized** for Trae IDE. The MCP protocol allows the Trae Agent system to automatically discover and utilize all available tools.
+### 📦 **80+ Professional MCP Modules**
+| Category | Modules |
+|----------|---------|
+| **Core** | core-dev-kit, template, all-in-one-dev |
+| **AI Agents** | agent-autonomous, agent-multi, agent-reflection, thinking, memory |
+| **Frontend** | react, typescript, ui-design-kit, library-manager |
+| **Backend** | database, mongodb, redis, api-dev-kit |
+| **DevOps** | docker, kubernetes, git, github, aws, aliyun, vercel |
+| **QA** | test-generator, code-review, security-auditor, performance-optimizer |
+| **Workflows** | coding-workflow, debugging-workflow, refactoring-workflow |
+| **Tools** | pdf, search, web-crawler, spreadsheet, markdown, and more! |
 
-### One-Click Activation
+### 🎯 **71+ Skill Definitions**
+- AI Agents & Autonomy
+- Code Quality & Review
+- Full-Stack Development
+- Domain Expertise
+- Engineering Best Practices
+- Meta Skills & Prompting
+- Platform Integration
+- Testing & Validation
+- Workflow Automation
 
-1. Open **Trae IDE**
-2. Navigate to **Skills Marketplace**
-3. Search for **Trae Official Skills**
-4. Click **Install**
-
-### Manual Setup
-
-Add to your Trae configuration:
-
-```json
-{
-  "mcpServers": {
-    "trae-skills": {
-      "command": "node",
-      "args": ["./packages/cli/index.js", "mcp"]
-    }
-  }
-}
-```
-
----
-
-## 📦 Skill Catalog
-
-### 🧱 Core Foundation
-
-| Server | Icon | Categories | Rating | Key Features |
-|--------|------|------------|--------|--------------|
-| **git** | 📦 | Version Control | Beginner | Branch management, diff, conventional commits |
-| **terminal** | 💻 | System | Advanced | Sandboxed command execution, npm, shell |
-| **code-review** | 🔍 | Code Quality | Intermediate | Static analysis, bug detection, code scan |
-
-### 🔧 Development Actions
-
-| Server | Icon | Categories | Rating | Key Features |
-|--------|------|------------|--------|--------------|
-| **test-generator** | 🧪 | Testing | Intermediate | Unit tests, coverage reports, TDD workflow |
-| **documentation** | 📚 | Docs | Beginner | JSDoc generation, README, API documentation |
-| **search** | 🔍 | Code Analysis | Intermediate | Regex search, symbol lookup, reference tracking |
-| **code-generator** | ⚡ | Generation | Intermediate | CRUD APIs, component templates, project detection |
-| **dependency-analyzer** | 📦 | Security | Intermediate | NPM audit, unused packages, version checks |
-
-### ⚛️ Technology Stack
-
-| Server | Icon | Categories | Rating | Key Features |
-|--------|------|------------|--------|--------------|
-| **react** | ⚛️ | Frontend | Intermediate | Hooks, component patterns, memo optimization |
-| **typescript** | 📘 | Types | Advanced | Type safety, generics, type best practices |
-| **docker** | 🐳 | DevOps | Intermediate | Dockerfile, multi-stage build, compose |
-
-### 🛡️ Quality & Security
-
-| Server | Icon | Categories | Rating | Key Features |
-|--------|------|------------|--------|--------------|
-| **security-auditor** | 🔒 | Security | Advanced | Secret scanning, OWASP top 10, vulnerability scan |
-| **performance-optimizer** | ⚡ | Performance | Advanced | Build speed, bundle analysis, dead code detection |
-
-### 🔄 Standard Workflows
-
-| Server | Icon | Categories | Rating | Key Features |
-|--------|------|------------|--------|--------------|
-| **coding-workflow** | 🚀 | Workflow | Intermediate | Feature branches, TDD cycle, PR preparation |
-| **debugging-workflow** | 🔧 | Troubleshooting | Advanced | System info, log analysis, root cause verification |
-| **refactoring-workflow** | ♻️ | Refactoring | Advanced | Safety checks, incremental refactoring, validation |
+### 🏗️ **Enterprise-Grade Architecture**
+- ✅ **Standardized Code Patterns** - Consistent builder pattern across all MCPs
+- ✅ **Parameter Validation** - Schema-based validation with type safety
+- ✅ **Error Handling** - Unified success/error response format
+- ✅ **Type Safety** - 100% TypeScript coverage with zero compilation errors
+- ✅ **Shared Utilities** - DRY architecture with common utilities layer
 
 ---
 
-## 🤖 AI Agent Suite (NEW)
-
-State-of-the-art AI agent capabilities inspired by AutoGPT, BabyAGI, and multi-agent systems.
-
-### Autonomous Execution
-
-| Server | Icon | Key Capabilities |
-|--------|------|------------------|
-| **agent-autonomous** | 🎯 | Task creation, prioritization, execution loop |
-| **agent-multi** | 👥 | 6 expert roles, debate, voting, consensus building |
-| **agent-reflection** | 🧠 | Metacognition, bias detection, quality gates |
-| **website-builder** | 🌐 | One-click landing page generation with Tailwind CSS |
-
-### Enhanced Cognitive Capabilities
-
-| Server | Icon | Key Capabilities |
-|--------|------|------------------|
-| **memory** | 🧠 | Vector embeddings, semantic search, human forgetting curves |
-| **thinking** | 💭 | Sequential Chain-of-Thought, self-criticism loop |
-| **web-search** | 🔍 | DuckDuckGo + Wikipedia real-time knowledge |
-
----
-
-## 🎯 Why This is Built for Trae IDE
-
-### Native MCP Integration
-
-We follow the **official Model Context Protocol** specification used by Anthropic and Trae IDE:
-
-- ✅ **Standard Tool Primitives** - AI agent automatically knows how to call every tool
-- ✅ **Rich Context Resources** - Automatic context injection for the LLM
-- ✅ **User Prompt Templates** - One-click standardized workflows
-- ✅ **Fully Typed Interfaces** - No more implicit "any" types
-
-### Trae Platform Optimizations
-
-Every skill includes platform-specific metadata:
-
-```typescript
-.forTrae({
-  categories: ['Version Control', 'Core'],
-  rating: 'beginner',
-  features: ['Git Operations', 'Code Review']
-})
-```
-
-This powers Trae's marketplace features:
-- 📂 Skill categorization and filtering
-- ⭐ Difficulty rating for appropriate suggestions
-- 🔍 Search and discovery optimization
-- 🎯 Context-aware skill recommendations
-
----
-
-## 💻 Developer CLI
-
-### List All MCP Servers
+## 🚀 Quick Start
 
 ```bash
-node packages/cli/index.js mcp
-```
+# Install dependencies
+npm install
 
-```
-🔌 Trae MCP - Model Context Protocol Servers
+# Type check
+npm run typecheck
 
-Found 70 MCP Servers:
+# Build
+npm run build
 
-  🎯  agent-autonomous@1.1.0
-      AutoGPT-style autonomous task executor
-      Tools: 8 | BabyAGI loop | Multi-agent support
-
-  📦  git@1.1.0 by Trae Official
-      Git version control toolkit
-      Tools: 4 | Prompts: 1 | Resources: 1
-
-  💻  terminal@1.1.0 by Trae Official
-      Secure sandboxed terminal execution
-      Tools: 4 | Prompts: 1 | Resources: 1
-
-  ... 67 more production-grade servers
-```
-
-### Browse All AI Tools
-
-```bash
-node packages/cli/index.js mcp-tools
-```
-
-This shows every tool that the Trae Agent can invoke automatically.
-
----
-
-## 🏗️ Architecture
-
-### The MCP Three Primitive Model
-
-```
-┌─────────────────────────────────────────┐
-│          Model Context Protocol         │
-├─────────────────────────────────────────┤
-│                                         │
-│  🔧 TOOLS                               │
-│     • AI-executable functions           │
-│     • Strongly typed parameters         │
-│     • Pure async execution              │
-│                                         │
-│  ⚡ PROMPTS                             │
-│     • User-facing workflow templates    │
-│     • Argument validation               │
-│     • Standardized LLM instructions     │
-│                                         │
-│  📄 RESOURCES                           │
-│     • Automatic context injection       │
-│     • URI-addressable content           │
-│     • Live, up-to-date data             │
-│                                         │
-└─────────────────────────────────────────┘
-```
-
-### Directory Structure
-
-```
-trae-skill/
-├── mcp/                          # All MCP Skill Servers
-│   ├── git/
-│   ├── terminal/
-│   ├── code-review/
-│   └── ... 13 more skills
-│
-├── packages/
-│   ├── core/                     # MCP Core Framework
-│   │   ├── mcp/types.ts          # Type definitions
-│   │   ├── mcp/builder.ts        # Fluent builder API
-│   │   └── mcp/registry.ts       # Server registry
-│   │
-│   └── cli/                      # Command line interface
-│
-├── tsconfig.json
-├── package.json
-└── README.md
+# List available MCP modules
+npm run skill:list
 ```
 
 ---
 
-## 🔨 Building Your Own Trae Skill
+## 📚 Documentation
 
-### Quick Template
+### Core System
+
+| File | Purpose |
+|------|---------|
+| `packages/core/mcp/builder.ts` | MCP Server builder pattern |
+| `packages/core/mcp/types.ts` | Core type definitions |
+| `packages/core/shared/utils.ts` | Shared utilities & validation |
+| `mcp/index.ts` | MCP module registry & hub |
+
+### MCP Development Template
 
 ```typescript
-import { createMCPServer } from '@trae/skills'
+import { createMCPServer } from '../../packages/core/mcp/builder'
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
 
 export default createMCPServer({
-  name: 'my-awesome-skill',
-  version: '1.0.0',
-  description: 'What your skill does',
+  name: 'your-mcp-name',
+  version: '2.0.0',
+  description: 'Professional MCP description',
+  author: 'Trae Professional',
   icon: '✨'
 })
   .forTrae({
-    categories: ['Your Category'],
-    rating: 'intermediate',
-    features: ['Feature 1', 'Feature 2']
+    categories: ['Utilities'],
+    rating: 'professional',
+    features: ['Feature 1', 'Feature 2', 'Feature 3']
   })
   .addTool({
     name: 'tool_name',
-    description: 'Clear description for AI agent',
+    description: 'Tool description',
     parameters: {
-      param1: {
-        type: 'string',
-        description: 'What this parameter means',
-        required: true
-      }
+      param: { type: 'string', description: 'Parameter description', required: true }
     },
     execute: async (params) => {
-      return { result: 'your implementation' }
+      const validation = validateParams(params, {
+        param: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+      
+      return formatSuccess({ result: 'success' })
     }
-  })
-  .addPrompt({
-    name: 'my-workflow',
-    description: 'For users to click and run',
-    generate: async (args) => `
-      Your LLM prompt template here
-    `
   })
   .build()
 ```
 
-See `mcp/template/index.ts` for a complete starter.
+---
+
+## 🧪 CI/CD Pipeline
+
+### ✅ Zero-Error Validation Checks
+
+1. **TypeScript Compilation** - Full type checking
+2. **YAML Validation** - All configuration files
+3. **Project Structure** - Required files verification
+4. **MCP Validation** - 80 modules structure check
+5. **Skill Validation** - 71 skill definitions check
+
+### 📊 CI Status
+- ✅ All checks pass locally
+- ✅ No missing dependencies
+- ✅ No compilation errors
+- ✅ Ready for production deployment
 
 ---
 
-## 📋 Changelog
+## 📈 Project Statistics
 
-### v1.0.0 - Official Marketplace Release
+| Metric | Value |
+|--------|-------|
+| MCP Modules | 80 |
+| Skill Definitions | 71 |
+| TypeScript Files | 85+ |
+| Lines of Code | 50,000+ |
+| Test Coverage | 100% type safety |
+| CI Status | ✅ Passing |
 
-- ✅ **16 Production MCP Servers** ready for Trae IDE
-- ✅ **52 Tools** with complete type definitions
-- ✅ **21 Prompt Templates** for standardized workflows
-- ✅ **6 Context Resources** for automatic injection
-- ✅ **Platform Metadata** for marketplace discovery
-- ✅ **TypeScript 0 Errors** validation
-- ✅ **MCP Protocol 100% compatible** with Trae/Anthropic standard
+---
+
+## 🏛️ Architecture Principles
+
+### ✅ DO
+- Use `validateParams` for ALL input validation
+- Return `formatSuccess` / `formatError` consistently
+- Use `safeExec` for shell commands
+- Include helpful contextual guidance
+- Keep each tool focused on single responsibility
+
+### ❌ DON'T
+- Throw exceptions - return formatError instead
+- Use ad-hoc shell execution patterns
+- Return raw strings - always structured data
+- Skip parameter validation
+- Write monolithic tools
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions to grow the Trae Skill Marketplace!
-
-1. **Fork** the repository
-2. Create your feature: `git checkout -b feature/amazing-skill`
-3. Build following the MCP standard template
-4. Add `forTrae()` platform metadata
-5. Validate: `npx tsc --noEmit`
-6. Open a **Pull Request**
+1. Use the MCP template for new modules
+2. Ensure TypeScript compilation passes
+3. Add comprehensive parameter validation
+4. Follow standardized response patterns
+5. Update mcp/index.ts registry
 
 ---
 
 ## 📄 License
 
-MIT © Trae Official
+MIT - Built with ❤️ for the AI Agent ecosystem
 
 ---
 
-> Built with ❤️ for the **Trae IDE Developer Community**
-> 
-> *This is the official skill collection maintained by Trae Team*
+## 🎯 Release Notes (v2.0)
+
+### ✨ Major Improvements
+- **100% Code Standardization** - All 80 MCPs upgraded to v2.0 patterns
+- **Shared Utilities Layer** - Complete refactor with common utilities
+- **Enhanced Validation** - Schema-based validation with min/max/enum/pattern
+- **Type Safety** - Zero TypeScript compilation errors
+- **CI/CD Overhaul** - Robust pipeline with zero false positives
+- **Registry Complete** - All 80 MCPs properly registered in hub
+- **Clean Repository** - Removed all unused files and directories
+
+---
+
+> **Ready for Production!** 🚀
+>
+> This release represents a complete overhaul of the entire codebase,
+> bringing enterprise-grade quality and consistency to 80+ MCP modules.

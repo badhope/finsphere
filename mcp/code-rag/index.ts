@@ -1,18 +1,19 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { validateParams, formatSuccess, formatError } from '../../packages/core'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as crypto from 'crypto'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 
 const execAsync = promisify(exec)
 
-async function safeExec(cmd: string, cwd?: string): Promise<string> {
+async function safeExecCommand(cmd: string, options: any = {}): Promise<string> {
   try {
-    const { stdout } = await execAsync(cmd, { timeout: 120000, cwd })
-    return stdout.trim()
+    const { stdout } = await execAsync(cmd, { timeout: 60000, ...options })
+    return String(stdout || '').trim()
   } catch (e: any) {
-    return e.stdout || e.stderr || e.message
+    return String(e.stdout || e.stderr || e.message || '').trim()
   }
 }
 
@@ -74,7 +75,7 @@ async function loadIndex(): Promise<RAGIndex> {
     }
   } catch {
     return {
-      version: '1.0.0',
+      version: '2.0.0',
       projectRoot: process.cwd(),
       lastIndexed: 0,
       chunks: new Map(),
@@ -96,19 +97,17 @@ async function saveIndex(index: RAGIndex) {
   }, null, 2))
 }
 
-async function getTypeScriptFiles(root: string): Promise<string[]> {
-  const cmd = `npx ts-node -e "
-const fg = require('fast-glob');
-const files = fg.sync(['**/*.{ts,tsx,js,jsx}'], {
-  cwd: '${root.replace(/\\/g, '/')}',
-  ignore: ['node_modules/**', 'dist/**', 'build/**', '**/*.d.ts'],
-  absolute: true
-});
-console.log(files.join('\\n'));
-" 2>&1 || find . -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | grep -v node_modules | grep -v dist`
-  
-  const result = await safeExec(cmd)
-  return result.split('\n').filter(Boolean).slice(0, 500)
+async function getSourceFiles(root: string, extensions: string[] = ['ts', 'tsx', 'js', 'jsx']): Promise<string[]> {
+  const extPattern = extensions.map(e => `-name "*.${e}"`).join(' -o ')
+  try {
+    const result = await safeExecCommand(
+      `npx fast-glob "**/*.{${extensions.join(',')}}" --ignore "node_modules/**" --ignore "dist/**" --ignore "**/*.d.ts"`,
+      { cwd: root, timeout: 30000 }
+    )
+    return result.split('\n').filter(Boolean).slice(0, 1000).map(f => path.join(root, f))
+  } catch {
+    return []
+  }
 }
 
 async function extractSymbols(filePath: string, content: string): Promise<CodeChunk[]> {
@@ -117,7 +116,7 @@ async function extractSymbols(filePath: string, content: string): Promise<CodeCh
   
   const patterns = [
     { regex: /^(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(/gm, type: 'function' as const },
-    { regex: /^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(/gm, type: 'function' as const },
+    { regex: /^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\s*\([^)]*\)\s*[=:>]/gm, type: 'function' as const },
     { regex: /^(?:export\s+)?class\s+(\w+)/gm, type: 'class' as const },
     { regex: /^(?:export\s+)?interface\s+(\w+)/gm, type: 'interface' as const },
     { regex: /^(?:export\s+)?type\s+(\w+)\s*=/gm, type: 'type' as const },
@@ -133,6 +132,7 @@ async function extractSymbols(filePath: string, content: string): Promise<CodeCh
       let endLine = startLine
       let braceCount = 0
       let foundBrace = false
+      let parenCount = 0
       for (let i = startLine - 1; i < lines.length; i++) {
         const line = lines[i]
         if (line.includes('{')) {
@@ -142,18 +142,21 @@ async function extractSymbols(filePath: string, content: string): Promise<CodeCh
         if (line.includes('}')) {
           braceCount -= (line.match(/\}/g) || []).length
         }
-        if (foundBrace && braceCount === 0) {
+        if (line.includes('(')) parenCount += (line.match(/\(/g) || []).length
+        if (line.includes(')')) parenCount -= (line.match(/\)/g) || []).length
+        if (foundBrace && braceCount === 0 && parenCount === 0) {
           endLine = i + 1
           break
         }
       }
+      endLine = Math.min(endLine, startLine + 100)
       
       const chunkContent = lines.slice(startLine - 1, endLine).join('\n')
       const calls: string[] = []
       const callRegex = /(\w+)\s*\(/g
       let callMatch
       while ((callMatch = callRegex.exec(chunkContent)) !== null) {
-        if (!['if', 'for', 'while', 'switch', 'try', 'catch'].includes(callMatch[1])) {
+        if (!['if', 'for', 'while', 'switch', 'try', 'catch', 'await', 'return', 'new', 'throw'].includes(callMatch[1])) {
           calls.push(callMatch[1])
         }
       }
@@ -169,7 +172,7 @@ async function extractSymbols(filePath: string, content: string): Promise<CodeCh
         signature: lines[startLine - 1]?.trim() || name,
         imports: [],
         exports: [],
-        calls: [...new Set(calls)],
+        calls: Array.from(new Set(calls)),
         calledBy: [],
         dependencies: [],
         dependents: [],
@@ -184,13 +187,13 @@ async function extractSymbols(filePath: string, content: string): Promise<CodeCh
 
 function buildCallGraph(index: RAGIndex) {
   const nameToId = new Map<string, string[]>()
-  for (const [id, chunk] of index.chunks) {
+  for (const [id, chunk] of Array.from(index.chunks.entries())) {
     const existing = nameToId.get(chunk.name) || []
     existing.push(id)
     nameToId.set(chunk.name, existing)
   }
 
-  for (const [callerId, caller] of index.chunks) {
+  for (const [callerId, caller] of Array.from(index.chunks.entries())) {
     for (const calleeName of caller.calls) {
       const calleeIds = nameToId.get(calleeName) || []
       for (const calleeId of calleeIds) {
@@ -208,21 +211,46 @@ function buildCallGraph(index: RAGIndex) {
   }
 }
 
+function simpleVector(text: string): number[] {
+  const words = text.toLowerCase().split(/\W+/).filter(Boolean)
+  const vector: number[] = Array(32).fill(0)
+  words.forEach((word) => {
+    const hash = word.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+    vector[hash % 32] += 1 / (1 + Math.log(words.length))
+  })
+  const mag = Math.sqrt(vector.reduce((a, v) => a + v * v, 0)) || 1
+  return vector.map(v => v / mag)
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (!a || !b) return 0
+  let dot = 0, magA = 0, magB = 0
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    dot += a[i] * b[i]
+    magA += a[i] * a[i]
+    magB += b[i] * b[i]
+  }
+  return magA * magB > 0 ? dot / (Math.sqrt(magA) * Math.sqrt(magB)) : 0
+}
+
 function searchChunks(index: RAGIndex, query: string, limit: number = 10): CodeChunk[] {
   const queryLower = query.toLowerCase()
+  const queryVec = simpleVector(query)
   const scored: { chunk: CodeChunk, score: number }[] = []
 
-  for (const [_, chunk] of index.chunks) {
+  for (const [_, chunk] of Array.from(index.chunks.entries())) {
     let score = 0
     const contentLower = chunk.content.toLowerCase()
     const nameLower = chunk.name.toLowerCase()
 
     if (nameLower.includes(queryLower)) score += 50
     if (nameLower === queryLower) score += 100
-    if (contentLower.includes(queryLower)) score += 10
-    score += (chunk.calledBy.length + chunk.calls.length) * 2
+    if (contentLower.includes(queryLower)) score += 20
+    score += cosineSimilarity(queryVec, simpleVector(chunk.content)) * 50
+    score += (index.reverseCallGraph.get(chunk.id)?.length || 0) * 3
+    score += (chunk.calls.length || 0) * 1
+    if (chunk.type === 'class') score += 10
     if (chunk.type === 'function') score += 5
-    if (chunk.type === 'class') score += 8
 
     scored.push({ chunk, score })
   }
@@ -251,48 +279,60 @@ function getImpactChain(index: RAGIndex, chunkId: string, maxDepth: number = 3):
   return Array.from(visited)
 }
 
+const VALID_TYPES = ['function', 'class', 'interface', 'type', 'constant']
+
 export default createMCPServer({
   name: 'code-rag',
-  version: '1.0.0',
-  description: '代码语义RAG - 智能代码索引、调用链分析、跨文件依赖追踪、架构理解',
+  version: '2.0.0',
+  description: 'Enterprise Code RAG System - Intelligent semantic indexing, call graph analysis, cross-file dependency tracking, and automated architecture visualization for modern codebases',
   icon: '🧠',
   author: 'Trae Professional'
 })
   .forTrae({
     categories: ['Code Analysis', 'Architecture', 'Developer Tools'],
     rating: 'advanced',
-    features: ['增量代码索引', '调用链图谱', '依赖追踪', '语义搜索', '影响分析', '架构生成']
+    features: ['Incremental Indexing', 'Call Graphs', 'Dependency Tracking', 'Semantic Vector Search', 'Impact Analysis', 'Architecture Generation']
   })
   .withCache(300)
 
   .addTool({
     name: 'rag_index_build',
-    description: '构建代码索引 - 扫描整个项目、提取符号、构建调用图',
+    description: 'Build semantic code index - scan project, extract symbols, construct call graph',
     parameters: {
-      rootDir: { type: 'string', description: '项目根目录，默认当前目录' },
-      incremental: { type: 'boolean', description: '增量索引，只处理变更文件' },
-      maxFiles: { type: 'number', description: '最大索引文件数，默认500' }
+      rootDir: { type: 'string', description: 'Project root directory (default: current working directory)', required: false },
+      incremental: { type: 'boolean', description: 'Incremental indexing - only process changed files', required: false },
+      maxFiles: { type: 'number', description: 'Maximum files to index (default: 500)', required: false },
+      extensions: { type: 'string', description: 'Comma-separated file extensions (default: ts,tsx,js,jsx)', required: false }
     },
-    execute: async (params: any) => {
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        rootDir: { type: 'string', required: false, default: process.cwd() },
+        incremental: { type: 'boolean', required: false, default: true },
+        maxFiles: { type: 'number', required: false, default: 500 },
+        extensions: { type: 'string', required: false, default: 'ts,tsx,js,jsx' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
       await initRAGStorage()
       const index = await loadIndex()
-      const rootDir = params.rootDir || process.cwd()
-      const incremental = params.incremental !== false
+      const rootDir = validation.data.rootDir
+      const extensions = validation.data.extensions.split(',').map((e: string) => e.trim())
 
       const startTime = Date.now()
-      const files = await getTypeScriptFiles(rootDir)
-      const filesToProcess = files.slice(0, params.maxFiles || 500)
+      const files = await getSourceFiles(rootDir, extensions)
+      const filesToProcess = files.slice(0, validation.data.maxFiles)
 
       let newChunks = 0
       let updatedChunks = 0
       let skippedChunks = 0
+      const errors: string[] = []
 
       for (const file of filesToProcess) {
         try {
           const stats = await fs.stat(file)
           const fileHash = `${stats.mtimeMs}-${stats.size}`
           
-          if (incremental && index.fileHashMap.get(file) === fileHash) {
+          if (validation.data.incremental && index.fileHashMap.get(file) === fileHash) {
             skippedChunks++
             continue
           }
@@ -314,125 +354,157 @@ export default createMCPServer({
           }
 
           index.fileHashMap.set(file, fileHash)
-        } catch (e) {}
+        } catch (e: any) {
+          errors.push(`${path.basename(file)}: ${e.message}`)
+        }
       }
 
       buildCallGraph(index)
       index.lastIndexed = Date.now()
       await saveIndex(index)
 
-      return {
-        success: true,
+      const durationMs = Date.now() - startTime
+      const totalCallEdges = Array.from(index.callGraph.values()).reduce((a, b) => a + b.length, 0)
+
+      return formatSuccess({
+        indexed: true,
         projectRoot: rootDir,
-        durationMs: Date.now() - startTime,
-        totalFiles: filesToProcess.length,
-        totalSymbols: index.chunks.size,
-        newChunks,
-        updatedChunks,
-        skippedChunks,
+        durationMs,
+        durationReadable: `${Math.round(durationMs / 1000)}s`,
+        filesScanned: filesToProcess.length,
+        totalSymbolsIndexed: index.chunks.size,
+        newSymbols: newChunks,
+        updatedSymbols: updatedChunks,
+        skippedUnchanged: skippedChunks,
         functions: Array.from(index.chunks.values()).filter(c => c.type === 'function').length,
         classes: Array.from(index.chunks.values()).filter(c => c.type === 'class').length,
-        callGraphEdges: Array.from(index.callGraph.values()).reduce((a, b) => a + b.length, 0),
-        message: `✨ 索引构建完成！共 ${index.chunks.size} 个代码符号`
-      }
+        interfaces: Array.from(index.chunks.values()).filter(c => c.type === 'interface').length,
+        callGraphConnections: totalCallEdges,
+        errors: errors.slice(0, 5),
+        summary: `✨ Index complete: ${index.chunks.size} symbols, ${totalCallEdges} call graph connections`
+      })
     }
   })
 
   .addTool({
     name: 'rag_search',
-    description: '语义代码搜索 - 按功能、名称、类型搜索代码符号',
+    description: 'Semantic code search - hybrid keyword + vector similarity search',
     parameters: {
-      query: { type: 'string', description: '搜索关键词，如：函数名、功能描述等', required: true },
-      type: { type: 'string', description: '过滤类型: function, class, interface, type, constant' },
-      filePath: { type: 'string', description: '限定文件路径包含' },
-      limit: { type: 'number', description: '返回结果数量，默认10' },
-      includeCallers: { type: 'boolean', description: '包含调用者信息' },
-      includeCallees: { type: 'boolean', description: '包含被调用者信息' }
+      query: { type: 'string', description: 'Search query: function names, descriptions, patterns', required: true },
+      type: { type: 'string', description: 'Filter by type: function, class, interface, type, constant', required: false },
+      filePath: { type: 'string', description: 'Filter by file path containing this string', required: false },
+      limit: { type: 'number', description: 'Number of results (default: 10)', required: false },
+      includeCallContext: { type: 'boolean', description: 'Include caller and callee context', required: false },
+      includeFullCode: { type: 'boolean', description: 'Include full source code', required: false }
     },
-    execute: async (params: any) => {
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        query: { type: 'string', required: true },
+        type: { type: 'string', required: false },
+        filePath: { type: 'string', required: false },
+        limit: { type: 'number', required: false, default: 10 },
+        includeCallContext: { type: 'boolean', required: false, default: false },
+        includeFullCode: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
       const index = await loadIndex()
-      const limit = params.limit || 10
 
       if (index.chunks.size === 0) {
-        return { success: false, error: '索引为空，请先运行 rag_index_build' }
+        return formatError('Empty index', 'Please run rag_index_build first to create the code index')
       }
 
-      let results = searchChunks(index, params.query, limit * 2)
-
-      if (params.type) {
-        results = results.filter(r => r.type === params.type)
-      }
-      if (params.filePath) {
-        results = results.filter(r => r.filePath.includes(params.filePath))
+      if (validation.data.type && !VALID_TYPES.includes(validation.data.type)) {
+        return formatError('Invalid type', `Type must be one of: ${VALID_TYPES.join(', ')}`)
       }
 
-      results = results.slice(0, limit)
+      let results = searchChunks(index, validation.data.query, validation.data.limit * 2)
+
+      if (validation.data.type) {
+        results = results.filter(r => r.type === validation.data.type)
+      }
+      if (validation.data.filePath) {
+        results = results.filter(r => r.filePath.toLowerCase().includes(validation.data.filePath.toLowerCase()))
+      }
+
+      results = results.slice(0, validation.data.limit)
 
       const enriched = results.map(chunk => {
+        const callerIds = index.reverseCallGraph.get(chunk.id) || []
+        const calleeIds = index.callGraph.get(chunk.id) || []
+
         const result: any = {
           id: chunk.id,
           name: chunk.name,
           type: chunk.type,
-          filePath: path.relative(process.cwd(), chunk.filePath),
-          lines: `${chunk.startLine}-${chunk.endLine}`,
-          signature: chunk.signature.substring(0, 150),
-          preview: chunk.content.substring(0, 500) + (chunk.content.length > 500 ? '...' : '')
+          file: path.relative(process.cwd(), chunk.filePath),
+          lineRange: `${chunk.startLine}-${chunk.endLine}`,
+          signature: chunk.signature.substring(0, 200)
         }
 
-        if (params.includeCallers) {
-          const callerIds = index.reverseCallGraph.get(chunk.id) || []
-          result.callers = callerIds.map(id => {
+        if (validation.data.includeFullCode) {
+          result.fullSource = chunk.content
+        } else {
+          result.codePreview = chunk.content.substring(0, 600) + (chunk.content.length > 600 ? '...' : '')
+        }
+
+        if (validation.data.includeCallContext) {
+          result.callerCount = callerIds.length
+          result.calleeCount = calleeIds.length
+          result.callers = callerIds.slice(0, 5).map(id => {
             const c = index.chunks.get(id)
             return c ? `${c.name} (${path.basename(c.filePath)})` : id
           })
-          result.callerCount = callerIds.length
-        }
-
-        if (params.includeCallees) {
-          const calleeIds = index.callGraph.get(chunk.id) || []
-          result.callees = calleeIds.map(id => {
+          result.calls = calleeIds.slice(0, 5).map(id => {
             const c = index.chunks.get(id)
             return c ? c.name : id
           })
-          result.calleeCount = calleeIds.length
         }
 
         return result
       })
 
-      return {
-        success: true,
-        query: params.query,
+      return formatSuccess({
+        searchComplete: true,
+        query: validation.data.query,
         totalIndexed: index.chunks.size,
-        found: results.length,
+        resultsFound: results.length,
         results: enriched
-      }
+      })
     }
   })
 
   .addTool({
     name: 'rag_impact_analysis',
-    description: '变更影响分析 - 分析修改某个函数/类会影响哪些其他代码',
+    description: 'Change impact analysis - discover all code affected by modifying a function or class',
     parameters: {
-      symbolName: { type: 'string', description: '函数名或类名', required: true },
-      maxDepth: { type: 'number', description: '递归深度，默认3层' },
-      generateMermaid: { type: 'boolean', description: '生成Mermaid调用链图' }
+      symbolName: { type: 'string', description: 'Name of function or class to analyze', required: true },
+      maxDepth: { type: 'number', description: 'Maximum traversal depth (default: 3)', required: false },
+      generateMermaid: { type: 'boolean', description: 'Generate Mermaid graph visualization', required: false }
     },
-    execute: async (params: any) => {
-      const index = await loadIndex()
-      const maxDepth = params.maxDepth || 3
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        symbolName: { type: 'string', required: true },
+        maxDepth: { type: 'number', required: false, default: 3 },
+        generateMermaid: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
 
-      const targetChunks = searchChunks(index, params.symbolName, 5)
+      const index = await loadIndex()
+      if (index.chunks.size === 0) {
+        return formatError('Empty index', 'Please run rag_index_build first')
+      }
+
+      const targetChunks = searchChunks(index, validation.data.symbolName, 5)
       if (targetChunks.length === 0) {
-        return { success: false, error: `未找到符号: ${params.symbolName}` }
+        return formatError('Symbol not found', `No matches found for: ${validation.data.symbolName}`)
       }
 
       const target = targetChunks[0]
-      const chainIds = getImpactChain(index, target.id, maxDepth)
-
+      const chainIds = getImpactChain(index, target.id, validation.data.maxDepth)
       const impacted = chainIds.map(id => index.chunks.get(id)).filter(Boolean) as CodeChunk[]
 
-      const grouped = impacted.reduce((acc: any, chunk) => {
+      const groupedByFile = impacted.reduce((acc: any, chunk) => {
         const file = path.relative(process.cwd(), chunk.filePath)
         if (!acc[file]) acc[file] = []
         acc[file].push({
@@ -444,62 +516,86 @@ export default createMCPServer({
       }, {})
 
       let mermaid = ''
-      if (params.generateMermaid) {
-        mermaid = 'graph TD\n'
-        mermaid += `  T[${target.name}] -->|修改| RESULT\n`
+      if (validation.data.generateMermaid) {
+        mermaid = 'graph LR\n'
+        mermaid += `  style T fill:#ff6b6b,stroke:#333,stroke-width:2px\n`
+        mermaid += `  T[${target.name}\\n💥 MODIFIED] -->|impacts| RESULT\n`
+        const uniqueNodes = new Set<string>()
+        for (const id of chainIds) {
+          const chunk = index.chunks.get(id)
+          if (chunk && !uniqueNodes.has(chunk.name)) {
+            uniqueNodes.add(chunk.name)
+            mermaid += `  ${chunk.name}[${chunk.name}\\n${chunk.type}]\n`
+          }
+        }
         for (const id of chainIds) {
           const chunk = index.chunks.get(id)
           if (chunk) {
             const callers = index.reverseCallGraph.get(id) || []
             for (const callerId of callers) {
               const caller = index.chunks.get(callerId)
-              if (caller && chainIds.includes(callerId)) {
-                mermaid += `  ${caller.name} -->|调用| ${chunk.name}\n`
+              if (caller && chainIds.includes(callerId) && caller.name !== chunk.name) {
+                mermaid += `  ${caller.name} -->|calls| ${chunk.name}\n`
               }
             }
           }
         }
       }
 
-      return {
-        success: true,
-        target: {
+      const riskLevel = impacted.length > 50 ? 'HIGH' : impacted.length > 20 ? 'MEDIUM' : 'LOW'
+
+      return formatSuccess({
+        analyzed: true,
+        targetSymbol: {
           name: target.name,
           type: target.type,
           file: path.relative(process.cwd(), target.filePath),
           lines: `${target.startLine}-${target.endLine}`
         },
-        maxDepth,
-        totalImpacted: impacted.length,
-        filesAffected: Object.keys(grouped).length,
-        groupedByFile: grouped,
-        mermaid: mermaid,
-        warning: chainIds.length > 50 ? '⚠️ 影响链超过50个节点，建议谨慎修改' : '',
-        message: `修改 ${target.name} 会影响 ${impacted.length} 个代码符号，涉及 ${Object.keys(grouped).length} 个文件`
-      }
+        analysisDepth: validation.data.maxDepth,
+        totalImpactedSymbols: impacted.length,
+        filesAffected: Object.keys(groupedByFile).length,
+        riskLevel,
+        groupedByFile,
+        impactChainMermaid: mermaid,
+        warning: impacted.length > 50 ? '⚠️ HIGH RISK: This change ripples through 50+ locations - thorough testing required' : 
+                 impacted.length > 20 ? '⚠️ MEDIUM RISK: Significant impact area' : '✅ LOW RISK: Manageable change scope',
+        recommendation: `Review the ${impacted.length} affected symbols across ${Object.keys(groupedByFile).length} files`
+      })
     }
   })
 
   .addTool({
     name: 'rag_call_chain',
-    description: '完整调用链追踪 - 找到从入口到目标的完整调用路径',
+    description: 'Call chain discovery - find all paths from entry points to a target function',
     parameters: {
-      targetName: { type: 'string', description: '目标函数名', required: true },
-      entryPoints: { type: 'string', description: '入口函数名，逗号分隔' },
-      maxDepth: { type: 'number', description: '最大搜索深度，默认10' }
+      targetName: { type: 'string', description: 'Target function name', required: true },
+      entryPoints: { type: 'string', description: 'Comma-separated entry point names (e.g., handler,main)', required: false },
+      maxDepth: { type: 'number', description: 'Maximum search depth (default: 10)', required: false }
     },
-    execute: async (params: any) => {
-      const index = await loadIndex()
-      const maxDepth = params.maxDepth || 10
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        targetName: { type: 'string', required: true },
+        entryPoints: { type: 'string', required: false, default: 'handler,main,default,execute,run,start' },
+        maxDepth: { type: 'number', required: false, default: 10 }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
 
-      const targets = searchChunks(index, params.targetName, 3)
-      if (targets.length === 0) {
-        return { success: false, error: `未找到目标: ${params.targetName}` }
+      const index = await loadIndex()
+      if (index.chunks.size === 0) {
+        return formatError('Empty index', 'Please run rag_index_build first')
       }
 
-      const entryNames = params.entryPoints ? params.entryPoints.split(',') : ['handler', 'main', 'default', 'execute']
+      const targets = searchChunks(index, validation.data.targetName, 3)
+      if (targets.length === 0) {
+        return formatError('Target not found', `No symbol matching: ${validation.data.targetName}`)
+      }
+
+      const entryNames = validation.data.entryPoints.split(',').map((s: string) => s.trim())
       
       const paths: string[][] = []
+      const seenPaths = new Set<string>()
+
       for (const target of targets) {
         for (const entryName of entryNames) {
           const entries = searchChunks(index, entryName, 5)
@@ -510,8 +606,11 @@ export default createMCPServer({
 
             while (queue.length > 0) {
               const { id, path } = queue.shift()!
-              if (visited.has(id) || path.length > maxDepth) continue
+              const pathKey = path.join('→')
+              if (visited.has(id) || path.length > validation.data.maxDepth || seenPaths.has(pathKey)) continue
+              
               visited.add(id)
+              seenPaths.add(pathKey)
 
               if (id === target.id) {
                 paths.push(path)
@@ -530,45 +629,68 @@ export default createMCPServer({
         }
       }
 
-      return {
-        success: true,
-        target: params.targetName,
-        pathsFound: paths.length,
-        callChains: paths.map((p, i) => ({
-          chain: p,
+      paths.sort((a, b) => a.length - b.length)
+
+      return formatSuccess({
+        traced: true,
+        target: validation.data.targetName,
+        totalPathsFound: paths.length,
+        shortestPath: paths.length > 0 ? paths[0].join(' → ') : null,
+        longestPath: paths.length > 0 ? paths[paths.length - 1].join(' → ') : null,
+        callChains: paths.slice(0, 10).map((p, i) => ({
+          rank: i + 1,
           length: p.length,
-          readable: p.join(' → ')
+          chain: p.join(' → ')
         })),
-        shortestChain: paths.length > 0 ? paths.reduce((a, b) => a.length <= b.length ? a : b).join(' → ') : null,
-        message: paths.length > 0 ? `找到 ${paths.length} 条调用路径` : '未找到调用路径'
-      }
+        pathCountByLength: paths.length > 0 ? {
+          direct: paths.filter(p => p.length <= 3).length,
+          medium: paths.filter(p => p.length > 3 && p.length <= 6).length,
+          deep: paths.filter(p => p.length > 6).length
+        } : null,
+        message: paths.length > 0 ? `Found ${paths.length} execution paths` : 'No execution paths found between entry points and target'
+      })
     }
   })
 
   .addTool({
     name: 'rag_architecture',
-    description: '自动生成架构图 - 分析模块依赖、生成Mermaid架构图',
+    description: 'Auto-generate architecture visualization - module dependency Mermaid graphs',
     parameters: {
-      level: { type: 'string', description: '粒度: file, folder, module' },
-      outputType: { type: 'string', description: '输出格式: mermaid, text, json' },
-      includeExternal: { type: 'boolean', description: '包含外部依赖' }
+      level: { type: 'string', description: 'Granularity: file, folder, module, symbol', required: false },
+      includeExternal: { type: 'boolean', description: 'Include external dependencies', required: false },
+      minConnections: { type: 'number', description: 'Filter by minimum connections', required: false }
     },
-    execute: async (params: any) => {
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        level: { type: 'string', required: false, default: 'module' },
+        includeExternal: { type: 'boolean', required: false, default: false },
+        minConnections: { type: 'number', required: false, default: 1 }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
       const index = await loadIndex()
-      const level = params.level || 'file'
+      if (index.chunks.size === 0) {
+        return formatError('Empty index', 'Please run rag_index_build first')
+      }
 
       const modules: Map<string, Set<string>> = new Map()
-      const deps: Map<string, Set<string>> = new Map()
+      const deps: Map<string, Map<string, number>> = new Map()
 
-      for (const [id, chunk] of index.chunks) {
+      for (const [id, chunk] of Array.from(index.chunks.entries())) {
         let key: string
-        if (level === 'folder') {
-          key = path.dirname(path.relative(process.cwd(), chunk.filePath)).split(path.sep)[0] || 'root'
-        } else if (level === 'module') {
-          key = path.basename(chunk.filePath).replace(/\.[^.]+$/, '')
+        const relPath = path.relative(process.cwd(), chunk.filePath)
+        
+        if (validation.data.level === 'folder') {
+          key = relPath.split(path.sep)[0] || 'root'
+        } else if (validation.data.level === 'module') {
+          key = relPath.split(path.sep).slice(0, 2).join('/') || path.basename(relPath)
+        } else if (validation.data.level === 'symbol') {
+          key = chunk.name
         } else {
-          key = path.relative(process.cwd(), chunk.filePath)
+          key = relPath
         }
+
+        key = key.replace(/\.[^.]+$/, '')
 
         if (!modules.has(key)) modules.set(key, new Set())
         modules.get(key)!.add(chunk.name)
@@ -577,108 +699,231 @@ export default createMCPServer({
         for (const calleeId of callees) {
           const callee = index.chunks.get(calleeId)
           if (callee) {
+            const calleeRelPath = path.relative(process.cwd(), callee.filePath)
             let calleeKey: string
-            if (level === 'folder') {
-              calleeKey = path.dirname(path.relative(process.cwd(), callee.filePath)).split(path.sep)[0] || 'root'
-            } else if (level === 'module') {
-              calleeKey = path.basename(callee.filePath).replace(/\.[^.]+$/, '')
+            if (validation.data.level === 'folder') {
+              calleeKey = calleeRelPath.split(path.sep)[0] || 'root'
+            } else if (validation.data.level === 'module') {
+              calleeKey = calleeRelPath.split(path.sep).slice(0, 2).join('/') || path.basename(calleeRelPath)
+            } else if (validation.data.level === 'symbol') {
+              calleeKey = callee.name
             } else {
-              calleeKey = path.relative(process.cwd(), callee.filePath)
+              calleeKey = calleeRelPath
             }
+            calleeKey = calleeKey.replace(/\.[^.]+$/, '')
 
             if (key !== calleeKey) {
-              if (!deps.has(key)) deps.set(key, new Set())
-              deps.get(key)!.add(calleeKey)
+              if (!deps.has(key)) deps.set(key, new Map())
+              const targetMap = deps.get(key)!
+              targetMap.set(calleeKey, (targetMap.get(calleeKey) || 0) + 1)
             }
           }
         }
       }
 
-      let mermaid = 'graph TB\n'
-      for (const [module] of modules) {
-        const safeName = module.replace(/[^a-zA-Z0-9]/g, '_')
-        mermaid += `  ${safeName}["${module}"]\n`
+      for (const [source, targets] of Array.from(deps.entries())) {
+        for (const [target, count] of Array.from(targets.entries())) {
+          if (count < validation.data.minConnections) {
+            targets.delete(target)
+          }
+        }
+        if (targets.size === 0) deps.delete(source)
       }
-      for (const [from, toSet] of deps) {
-        const fromSafe = from.replace(/[^a-zA-Z0-9]/g, '_')
-        for (const to of toSet) {
-          const toSafe = to.replace(/[^a-zA-Z0-9]/g, '_')
-          mermaid += `  ${fromSafe} -->|依赖| ${toSafe}\n`
+
+      let mermaid = 'graph TB\n'
+      mermaid += '  classDef module fill:#e3f2fd,stroke:#2196f3,stroke-width:2px\n'
+      mermaid += '  classDef core fill:#c8e6c9,stroke:#4caf50,stroke-width:2px\n'
+      
+      const moduleList = Array.from(modules.keys())
+      for (const mod of moduleList.slice(0, 30)) {
+        const size = modules.get(mod)?.size || 0
+        const isCore = size > 10 ? ',stroke-width:3px' : ''
+        mermaid += `  ${mod.replace(/[^a-zA-Z0-9]/g, '_')}["${mod}\\n(${size} symbols)"]:::${isCore ? 'core' : 'module'}\n`
+      }
+
+      for (const [source, targets] of Array.from(deps.entries())) {
+        for (const [target, count] of Array.from(targets.entries())) {
+          const sourceId = source.replace(/[^a-zA-Z0-9]/g, '_')
+          const targetId = target.replace(/[^a-zA-Z0-9]/g, '_')
+          const style = count > 5 ? 'stroke-width:2px' : ''
+          mermaid += `  ${sourceId} -- "${count}" ${style} --> ${targetId}\n`
         }
       }
 
-      const moduleStats = Array.from(modules.entries()).map(([name, symbols]) => ({
-        name,
-        symbolCount: symbols.size,
-        outgoingDeps: deps.get(name)?.size || 0,
-        incomingDeps: Array.from(deps.entries()).filter(([_, v]) => v.has(name)).length
-      })).sort((a, b) => b.symbolCount - a.symbolCount)
-
-      return {
-        success: true,
-        level,
-        modulesCount: modules.size,
-        dependenciesCount: Array.from(deps.values()).reduce((a, b) => a + b.size, 0),
-        moduleStats,
-        mermaid,
-        hotspots: moduleStats.filter(m => m.incomingDeps > 5).map(m => m.name),
-        message: `架构分析完成，共 ${modules.size} 个模块，${deps.size} 条依赖关系`
+      const architectureStats = {
+        modules: modules.size,
+        connections: Array.from(deps.values()).reduce((a, m) => a + m.size, 0),
+        avgDepsPerModule: (Array.from(deps.values()).reduce((a, m) => a + m.size, 0) / modules.size).toFixed(1)
       }
+
+      return formatSuccess({
+        architectureGenerated: true,
+        granularity: validation.data.level,
+        stats: architectureStats,
+        moduleCount: modules.size,
+        dependencyConnections: architectureStats.connections,
+        mermaidDiagram: mermaid,
+        topModules: Array.from(modules.entries())
+          .sort((a, b) => b[1].size - a[1].size)
+          .slice(0, 10)
+          .map(([name, symbols]) => ({ name, symbolCount: symbols.size }))
+      })
     }
   })
 
   .addTool({
-    name: 'rag_find_definition',
-    description: '精确定义查找 - 比普通搜索更精准的定义定位',
-    parameters: {
-      symbolName: { type: 'string', description: '符号名称', required: true },
-      gotoIde: { type: 'boolean', description: '生成IDE跳转链接' }
-    },
-    execute: async (params: any) => {
+    name: 'rag_status',
+    description: 'RAG index status and statistics',
+    parameters: {},
+    execute: async () => {
       const index = await loadIndex()
-      const results = searchChunks(index, params.symbolName, 5)
-
-      if (results.length === 0) {
-        return { success: false, error: `未找到定义: ${params.symbolName}` }
+      
+      const typeBreakdown: any = {}
+      for (const type of VALID_TYPES) {
+        typeBreakdown[type] = Array.from(index.chunks.values()).filter(c => c.type === type).length
       }
 
-      const definitions = results.map(r => ({
-        name: r.name,
-        type: r.type,
-        file: path.relative(process.cwd(), r.filePath),
-        line: r.startLine,
-        signature: r.signature,
-        vscodeLink: params.gotoIde ? `vscode://file/${r.filePath}:${r.startLine}` : null
-      }))
-
-      return {
-        success: true,
-        query: params.symbolName,
-        found: definitions.length,
-        definitions
+      const fileCounts = new Map<string, number>()
+      for (const [_, chunk] of Array.from(index.chunks.entries())) {
+        const file = path.relative(process.cwd(), chunk.filePath)
+        fileCounts.set(file, (fileCounts.get(file) || 0) + 1)
       }
+
+      return formatSuccess({
+        indexVersion: index.version,
+        indexStatus: index.chunks.size > 0 ? '✅ Ready' : '⚠️ Empty',
+        lastIndexed: new Date(index.lastIndexed).toLocaleString(),
+        projectRoot: path.relative(process.cwd(), index.projectRoot) || '.',
+        totalSymbols: index.chunks.size,
+        totalFiles: fileCounts.size,
+        typeBreakdown,
+        topFiles: Array.from(fileCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([file, count]) => ({ file, symbols: count })),
+        callGraphStats: {
+          totalConnections: Array.from(index.callGraph.values()).reduce((a, b) => a + b.length, 0),
+          avgOutDegree: (Array.from(index.callGraph.values()).reduce((a, b) => a + b.length, 0) / Math.max(1, index.chunks.size)).toFixed(1)
+        },
+        storageLocation: RAG_STORAGE_DIR,
+        recommendation: index.chunks.size === 0 ? 'Run rag_index_build to analyze your codebase' :
+                        index.chunks.size < 10 ? 'Index built but small - consider larger project scope' :
+                        'Index ready for semantic search and analysis'
+      })
     }
   })
 
-  .addPrompt({
-    name: 'code-expert',
-    description: '代码专家模式 - 基于RAG索引的深度代码分析',
-    arguments: [{ name: 'question', description: '关于代码的问题', required: true }],
-    generate: async (args?: Record<string, any>) => `
-## 🧠 代码专家模式: ${args?.question}
+  .addResource({
+    name: 'code-rag-best-practices',
+    uri: 'docs://code-rag/best-practices',
+    description: 'Code RAG Best Practices Guide',
+    mimeType: 'text/markdown',
+    get: async () => `
+## 🧠 Code RAG 最佳实践指南
 
-### 执行流程
-1. 首先调用 \`rag_index_build\` 确保索引是最新的
-2. 使用 \`rag_search\` 搜索相关代码符号
-3. 使用 \`rag_impact_analysis\` 分析影响链
-4. 使用 \`rag_call_chain\` 追踪调用路径
-5. 结合所有信息给出完整回答
+### 📋 典型工作流
 
-### 提示
-- 询问"修改支付流程有什么风险？" → 自动进行影响分析
-- 询问"登录流程是怎样的？" → 自动追踪调用链
-- 询问"项目架构是怎样的？" → 自动生成架构图
+1. **构建索引**
+\`\`\`
+rag_index_build
+  incremental: true
+  maxFiles: 1000
+\`\`\`
+
+2. **探索代码库**
+\`\`\`
+rag_search
+  query: "authentication"
+  type: "function"
+  includeCallContext: true
+\`\`\`
+
+3. **修改前影响分析**
+\`\`\`
+rag_impact_analysis
+  symbolName: "validateUser"
+  maxDepth: 4
+  generateMermaid: true
+\`\`\`
+
+4. **架构可视化**
+\`\`\`
+rag_architecture
+  level: "module"
+  minConnections: 2
+\`\`\`
+
+---
+
+### 💡 高级技巧
+
+#### 重构前必备
+1. 先运行 **rag_impact_analysis** 理解改动范围
+2. 用 **rag_call_chain** 找出所有测试入口
+3. 用 **rag_architecture** 记录重构前架构
+
+#### Code Review 辅助
+1. rag_search 找类似实现做对比
+2. rag_impact_analysis 评估 PR 影响范围
+3. call_chain 验证数据流正确性
+
+#### 新人上手
+1. rag_architecture 快速理解系统结构
+2. rag_call_chain 追踪关键数据流
+3. 按文件重要性排序阅读
+
+---
+
+### ⚠️ 常见陷阱
+- 忘了重新索引 → 分析过时代码
+- 深度设太大 → 爆炸的结果
+- 只用关键词搜索 → 错过语义相关代码
+- 不看调用上下文 → 理解不完整
     `.trim()
   })
 
+  .addPrompt({
+    name: 'code-rag-assistant',
+    description: 'AI Assistant prompt with RAG-enhanced code understanding',
+    arguments: [],
+    generate: async () => `
+## 🧠 Code RAG 增强型 AI 助手
+
+### ⚙️ 系统指令
+
+你现在拥有代码库的语义理解能力。按以下流程回答问题：
+
+---
+
+### 📌 执行流程
+
+1. **需要理解代码时，先调用 rag_search:**
+\`\`\`
+rag_search
+  query: "用户想了解的功能关键词"
+  includeCallContext: true
+  limit: 10
+\`\`\`
+
+2. **遇到修改建议，先调用 rag_impact_analysis:**
+评估改动会影响多少代码
+
+3. **架构相关问题，调用 rag_architecture:**
+生成可视化的模块依赖图
+
+4. **调试数据流，调用 rag_call_chain:**
+找出从输入到输出的完整路径
+
+---
+
+### 💡 回答要求
+
+1. **准确**: 基于实际索引到的代码，不要瞎编
+2. **具体**: 引用函数名和文件路径
+3. **有深度**: 分析调用关系，而不只是表面
+4. **可执行**: 给出具体的下一步建议
+
+⚠️ 如果索引为空，请先让用户运行 rag_index_build
+    `.trim()
+  })
   .build()

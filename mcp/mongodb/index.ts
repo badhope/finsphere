@@ -1,13 +1,5 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
-
-async function safeExec(cmd: string): Promise<string> {
-  try { const { stdout } = await execAsync(cmd, { timeout: 30000 }); return stdout.trim() }
-  catch (e: any) { return e.stdout || e.message }
-}
+import { validateParams, formatSuccess, formatError, sanitizePath, safeExec } from '../../packages/core/shared/utils'
 
 let mongoConfig: any = {
   host: 'localhost',
@@ -16,298 +8,486 @@ let mongoConfig: any = {
 }
 
 function buildMongoUri(): string {
-  const auth = mongoConfig.username && mongoConfig.password 
-    ? `${mongoConfig.username}:${encodeURIComponent(mongoConfig.password)}@` 
+  if (mongoConfig.connectionString) return mongoConfig.connectionString
+  const auth = mongoConfig.username && mongoConfig.password
+    ? `${mongoConfig.username}:${encodeURIComponent(mongoConfig.password)}@`
     : ''
-  const uri = `mongodb://${auth}${mongoConfig.host}:${mongoConfig.port}/${mongoConfig.database}`
-  return uri
+  return `mongodb://${auth}${mongoConfig.host}:${mongoConfig.port}/${mongoConfig.database}`
+}
+
+function sanitizeMongoPath(path: string): string {
+  return path.replace(/"/g, '\\"').replace(/\$/g, '\\$')
 }
 
 export default createMCPServer({
   name: 'mongodb',
-  version: '1.0.0',
-  description: 'MongoDB toolkit - Connect, query, and manage NoSQL databases with mongosh',
+  version: '2.0.0',
+  description: 'Enterprise MongoDB Toolkit - Connect, query, aggregate, index and manage NoSQL databases',
   icon: '🍃',
-  author: 'Trae Official'
+  author: 'Trae Professional'
 })
   .forTrae({
-    categories: ['Database', 'Development'],
+    categories: ['Database', 'Development', 'Enterprise'],
     rating: 'intermediate',
-    features: ['CRUD Operations', 'Aggregation Pipeline', 'Index Management', 'Schema Analysis']
+    features: ['CRUD Operations', 'Aggregation Pipeline', 'Index Management', 'Schema Analysis', 'Backup/Restore', 'Diagnostics']
   })
+  
   .addTool({
     name: 'mongo_configure',
-    description: 'Configure MongoDB connection parameters',
+    description: 'Configure MongoDB connection with validation',
     parameters: {
-      host: { type: 'string', description: 'MongoDB host' },
-      port: { type: 'number', description: 'MongoDB port' },
-      database: { type: 'string', description: 'Database name' },
-      username: { type: 'string', description: 'Username for authentication' },
-      password: { type: 'string', description: 'Password for authentication' },
-      connectionString: { type: 'string', description: 'Full MongoDB connection string (overrides other params)' }
+      host: { type: 'string', description: 'MongoDB host', required: false },
+      port: { type: 'number', description: 'MongoDB port', required: false },
+      database: { type: 'string', description: 'Database name', required: false },
+      username: { type: 'string', description: 'Username for authentication', required: false },
+      password: { type: 'string', description: 'Password for authentication', required: false },
+      connectionString: { type: 'string', description: 'Full MongoDB connection string (overrides other params)', required: false }
     },
-    execute: async (args: any) => {
-      if (args.connectionString) {
-        mongoConfig.connectionString = args.connectionString
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        host: { type: 'string', required: false, default: 'localhost' },
+        port: { type: 'number', required: false, default: 27017 },
+        database: { type: 'string', required: false, default: 'test' },
+        username: { type: 'string', required: false },
+        password: { type: 'string', required: false },
+        connectionString: { type: 'string', required: false }
+      })
+      if (!validation.valid) return formatError('Invalid configuration', validation.errors)
+
+      if (validation.data.connectionString) {
+        mongoConfig.connectionString = validation.data.connectionString
+        mongoConfig.type = 'connection_string'
       } else {
-        mongoConfig = { ...mongoConfig, ...args }
+        mongoConfig = { ...mongoConfig, ...validation.data }
       }
-      return {
-        success: true,
+
+      return formatSuccess({
         message: 'MongoDB configuration updated',
-        connection: args.connectionString || buildMongoUri().replace(/:([^@]+)@/, ':***@')
-      }
+        connection: validation.data.connectionString
+          ? '*** (connection string provided)'
+          : buildMongoUri().replace(/:([^@/]+)@/, ':***@')
+      })
     }
   })
   .addTool({
     name: 'mongo_ping',
-    description: 'Test MongoDB connection',
+    description: 'Test MongoDB connection and latency',
     parameters: {},
     execute: async () => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "db.adminCommand('ping').ok" 2>&1`)
+      const uri = buildMongoUri()
+      const startTime = Date.now()
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "db.adminCommand('ping').ok" 2>&1`, 15000)
+      const latency = Date.now() - startTime
       const connected = result.includes('1')
-      return {
+
+      return formatSuccess({
         connected,
+        latency: `${latency}ms`,
         message: connected ? 'Connection successful' : 'Connection failed',
         raw: result.substring(0, 500)
+      })
+    }
+  })
+  .addTool({
+    name: 'mongo_server_status',
+    description: 'Get MongoDB server status and metrics',
+    parameters: {},
+    execute: async () => {
+      const uri = buildMongoUri()
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "
+        const status = db.adminCommand('serverStatus')
+        JSON.stringify({
+          version: status.version,
+          uptime: status.uptime,
+          connections: status.connections,
+          network: status.network,
+          opcounters: status.opcounters,
+          mem: status.mem
+        })
+      " 2>&1`, 30000)
+
+      try {
+        const status = JSON.parse(result)
+        return formatSuccess({
+          version: status.version,
+          uptime: `${Math.round(status.uptime / 3600)} hours`,
+          connections: status.connections,
+          opcounters: status.opcounters,
+          memory: status.mem,
+          network: status.network
+        })
+      } catch {
+        return formatSuccess({ raw: result.substring(0, 3000) })
       }
     }
   })
   .addTool({
     name: 'mongo_list_databases',
-    description: 'List all databases on the server',
+    description: 'List all databases on the server with sizes',
     parameters: {},
     execute: async () => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "JSON.stringify(db.adminCommand('listDatabases').databases)" 2>&1`)
+      const uri = buildMongoUri()
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "JSON.stringify(db.adminCommand('listDatabases').databases)" 2>&1`, 15000)
       try {
         const dbs = JSON.parse(result)
-        return {
+        return formatSuccess({
           count: dbs.length,
           databases: dbs.map((db: any) => ({
             name: db.name,
-            sizeOnDisk: db.sizeOnDisk,
+            sizeOnDiskMB: Math.round(db.sizeOnDisk / 1024 / 1024),
             empty: db.empty
           }))
-        }
+        })
       } catch {
-        return { error: 'Failed to parse database list', raw: result }
+        return formatError('Failed to parse database list', result.substring(0, 500))
       }
     }
   })
   .addTool({
     name: 'mongo_list_collections',
-    description: 'List all collections in current database',
+    description: 'List all collections with stats in current database',
     parameters: {},
     execute: async () => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "JSON.stringify(db.getCollectionNames())" 2>&1`)
+      const uri = buildMongoUri()
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "
+        const cols = db.getCollectionNames()
+        const stats = cols.map((c: string) => {
+          try {
+            const s = db.getCollection(c).stats()
+            return { name: c, count: s.count, size: s.size }
+          } catch { return { name: c } }
+        })
+        JSON.stringify(stats)
+      " 2>&1`, 15000)
       try {
         const collections = JSON.parse(result)
-        return {
+        return formatSuccess({
           count: collections.length,
           collections
-        }
+        })
       } catch {
-        return { error: 'Failed to parse collection list', raw: result }
+        return formatError('Failed to parse collection list', result.substring(0, 500))
       }
     }
   })
   .addTool({
     name: 'mongo_find',
-    description: 'Execute find query on a collection',
+    description: 'Execute find query with filtering, projection, sorting, and limits',
     parameters: {
-      collection: { type: 'string', description: 'Collection name' },
-      query: { type: 'string', description: 'Query filter as JSON (e.g., \'{"status": "active"}\')' },
-      projection: { type: 'string', description: 'Projection as JSON' },
-      sort: { type: 'string', description: 'Sort specification as JSON' },
-      limit: { type: 'number', description: 'Limit results' },
-      skip: { type: 'number', description: 'Skip results' },
-      pretty: { type: 'boolean', description: 'Pretty print output' }
+      collection: { type: 'string', description: 'Collection name', required: true },
+      query: { type: 'string', description: 'Query filter as JSON e.g. {"status": "active"}', required: false },
+      projection: { type: 'string', description: 'Projection as JSON e.g. {"name": 1, "_id": 0}', required: false },
+      sort: { type: 'string', description: 'Sort specification as JSON e.g. {"createdAt": -1}', required: false },
+      limit: { type: 'number', description: 'Limit results', required: false },
+      skip: { type: 'number', description: 'Skip results for pagination', required: false },
+      explain: { type: 'boolean', description: 'Explain query execution plan', required: false }
     },
-    execute: async (args: any) => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const query = args.query || '{}'
-      const projection = args.projection || '{}'
-      const sort = args.sort || '{}'
-      const limit = args.limit || 50
-      const skip = args.skip || 0
-      const jsCmd = `JSON.stringify(db.getCollection('${args.collection}').find(${query}, ${projection}).sort(${sort}).skip(${skip}).limit(${limit}).toArray())`
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`)
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        collection: { type: 'string', required: true },
+        query: { type: 'string', required: false, default: '{}' },
+        projection: { type: 'string', required: false, default: '{}' },
+        sort: { type: 'string', required: false, default: '{}' },
+        limit: { type: 'number', required: false, default: 50 },
+        skip: { type: 'number', required: false, default: 0 },
+        explain: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const uri = buildMongoUri()
+      const { collection, query, projection, sort, limit, skip, explain } = validation.data
+
+      try {
+        JSON.parse(query)
+        JSON.parse(projection)
+        JSON.parse(sort)
+      } catch {
+        return formatError('Invalid JSON in parameters', 'Ensure query, projection, and sort are valid JSON')
+      }
+
+      const explainCmd = explain ? '.explain("executionStats")' : ''
+      const jsCmd = `JSON.stringify(db.getCollection('${sanitizeMongoPath(collection)}').find(${query}, ${projection}).sort(${sort}).skip(${skip}).limit(${limit})${explainCmd}.toArray())`
+
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`, 60000)
+
       try {
         const docs = JSON.parse(result)
-        return {
+        return formatSuccess({
+          collection,
+          query: JSON.parse(query),
           count: docs.length,
-          documents: args.pretty ? docs : JSON.stringify(docs)
-        }
+          limit,
+          documents: docs
+        })
       } catch {
-        return { error: 'Query execution failed', raw: result.substring(0, 1000) }
+        return formatError('Query execution failed', result.substring(0, 1000))
       }
     }
   })
   .addTool({
     name: 'mongo_insert_one',
-    description: 'Insert a single document into a collection',
+    description: 'Insert single document into collection',
     parameters: {
-      collection: { type: 'string', description: 'Collection name' },
-      document: { type: 'string', description: 'Document to insert as JSON' }
+      collection: { type: 'string', description: 'Collection name', required: true },
+      document: { type: 'string', description: 'Document as JSON string', required: true }
     },
-    execute: async (args: any) => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const docEscaped = args.document.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-      const jsCmd = `JSON.stringify(db.getCollection('${args.collection}').insertOne(JSON.parse("${docEscaped}")))`
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`)
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        collection: { type: 'string', required: true },
+        document: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const uri = buildMongoUri()
+      const { collection, document } = validation.data
+
       try {
-        const opResult = JSON.parse(result)
-        return {
-          success: opResult.acknowledged,
-          insertedId: opResult.insertedId,
-          raw: result
-        }
+        JSON.parse(document)
       } catch {
-        return { error: 'Insert failed', raw: result.substring(0, 500) }
+        return formatError('Invalid document JSON', document.substring(0, 200))
+      }
+
+      const safeCollection = sanitizeMongoPath(collection)
+      const safeDoc = document.replace(/"/g, '\\"')
+
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "JSON.stringify(db.getCollection('${safeCollection}').insertOne(${safeDoc}))" 2>&1`, 30000)
+
+      try {
+        const insertResult = JSON.parse(result)
+        return formatSuccess({
+          collection,
+          insertedId: insertResult.insertedId,
+          acknowledged: insertResult.acknowledged,
+          success: true
+        })
+      } catch {
+        return formatError('Insert failed', result.substring(0, 500))
       }
     }
   })
   .addTool({
     name: 'mongo_update_one',
-    description: 'Update a single document in a collection',
+    description: 'Update single document in collection',
     parameters: {
-      collection: { type: 'string', description: 'Collection name' },
-      filter: { type: 'string', description: 'Filter criteria as JSON' },
-      update: { type: 'string', description: 'Update operations as JSON ($set, $inc, etc.)' }
+      collection: { type: 'string', description: 'Collection name', required: true },
+      filter: { type: 'string', description: 'Query filter as JSON', required: true },
+      update: { type: 'string', description: 'Update operations as JSON e.g. {"$set": {"status": "done"}}', required: true },
+      upsert: { type: 'boolean', description: 'Create document if not found', required: false }
     },
-    execute: async (args: any) => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const jsCmd = `JSON.stringify(db.getCollection('${args.collection}').updateOne(${args.filter}, ${args.update}))`
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`)
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        collection: { type: 'string', required: true },
+        filter: { type: 'string', required: true },
+        update: { type: 'string', required: true },
+        upsert: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const uri = buildMongoUri()
+      const { collection, filter, update, upsert } = validation.data
+
       try {
-        const opResult = JSON.parse(result)
-        return {
-          success: opResult.acknowledged,
-          matchedCount: opResult.matchedCount,
-          modifiedCount: opResult.modifiedCount,
-          raw: result
-        }
+        JSON.parse(filter)
+        JSON.parse(update)
       } catch {
-        return { error: 'Update failed', raw: result.substring(0, 500) }
+        return formatError('Invalid JSON in parameters', 'Ensure filter and update are valid JSON')
+      }
+
+      const safeCollection = sanitizeMongoPath(collection)
+      const options = `{ upsert: ${upsert} }`
+
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "JSON.stringify(db.getCollection('${safeCollection}').updateOne(${filter}, ${update}, ${options}))" 2>&1`, 30000)
+
+      try {
+        const updateResult = JSON.parse(result)
+        return formatSuccess({
+          collection,
+          matchedCount: updateResult.matchedCount,
+          modifiedCount: updateResult.modifiedCount,
+          upsertedCount: updateResult.upsertedCount,
+          upsertedId: updateResult.upsertedId,
+          success: true
+        })
+      } catch {
+        return formatError('Update failed', result.substring(0, 500))
       }
     }
   })
   .addTool({
-    name: 'mongo_delete_one',
-    description: 'Delete a single document from a collection',
+    name: 'mongo_delete',
+    description: 'Delete documents from collection',
     parameters: {
-      collection: { type: 'string', description: 'Collection name' },
-      filter: { type: 'string', description: 'Filter criteria as JSON' }
+      collection: { type: 'string', description: 'Collection name', required: true },
+      filter: { type: 'string', description: 'Query filter as JSON', required: true },
+      many: { type: 'boolean', description: 'Delete all matching documents (deleteMany)', required: false }
     },
-    execute: async (args: any) => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const jsCmd = `JSON.stringify(db.getCollection('${args.collection}').deleteOne(${args.filter}))`
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`)
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        collection: { type: 'string', required: true },
+        filter: { type: 'string', required: true },
+        many: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const uri = buildMongoUri()
+      const { collection, filter, many } = validation.data
+
       try {
-        const opResult = JSON.parse(result)
-        return {
-          success: opResult.acknowledged,
-          deletedCount: opResult.deletedCount,
-          raw: result
-        }
+        JSON.parse(filter)
       } catch {
-        return { error: 'Delete failed', raw: result.substring(0, 500) }
+        return formatError('Invalid filter JSON', filter)
+      }
+
+      const safeCollection = sanitizeMongoPath(collection)
+      const method = many ? 'deleteMany' : 'deleteOne'
+
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "JSON.stringify(db.getCollection('${safeCollection}').${method}(${filter}))" 2>&1`, 30000)
+
+      try {
+        const deleteResult = JSON.parse(result)
+        return formatSuccess({
+          collection,
+          deletedCount: deleteResult.deletedCount,
+          method,
+          success: true,
+          warning: !many && deleteResult.deletedCount > 1 ? 'WARNING: More than one document matched filter' : undefined
+        })
+      } catch {
+        return formatError('Delete failed', result.substring(0, 500))
       }
     }
   })
   .addTool({
     name: 'mongo_aggregate',
-    description: 'Execute aggregation pipeline on a collection',
+    description: 'Execute aggregation pipeline',
     parameters: {
-      collection: { type: 'string', description: 'Collection name' },
-      pipeline: { type: 'string', description: 'Aggregation pipeline as JSON array' }
+      collection: { type: 'string', description: 'Collection name', required: true },
+      pipeline: { type: 'string', description: 'Aggregation pipeline as JSON array', required: true },
+      explain: { type: 'boolean', description: 'Explain execution', required: false }
     },
-    execute: async (args: any) => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const jsCmd = `JSON.stringify(db.getCollection('${args.collection}').aggregate(${args.pipeline}).toArray())`
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`)
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        collection: { type: 'string', required: true },
+        pipeline: { type: 'string', required: true },
+        explain: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const uri = buildMongoUri()
+      const { collection, pipeline, explain } = validation.data
+
       try {
-        const docs = JSON.parse(result)
-        return {
-          count: docs.length,
-          results: docs
-        }
+        const parsed = JSON.parse(pipeline)
+        if (!Array.isArray(parsed)) throw new Error('Pipeline must be array')
       } catch {
-        return { error: 'Aggregation failed', raw: result.substring(0, 1000) }
+        return formatError('Invalid pipeline JSON', 'Pipeline must be a valid JSON array of stages')
       }
-    }
-  })
-  .addTool({
-    name: 'mongo_count',
-    description: 'Count documents in a collection with optional filter',
-    parameters: {
-      collection: { type: 'string', description: 'Collection name' },
-      query: { type: 'string', description: 'Query filter as JSON' }
-    },
-    execute: async (args: any) => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const query = args.query || '{}'
-      const jsCmd = `db.getCollection('${args.collection}').countDocuments(${query})`
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`)
-      const count = parseInt(result)
-      return {
-        count: isNaN(count) ? 0 : count,
-        raw: result
+
+      const safeCollection = sanitizeMongoPath(collection)
+      const explainCmd = explain ? '.explain()' : ''
+
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "JSON.stringify(db.getCollection('${safeCollection}').aggregate(${pipeline})${explainCmd}.toArray())" 2>&1`, 120000)
+
+      try {
+        const aggResult = JSON.parse(result)
+        return formatSuccess({
+          collection,
+          stageCount: JSON.parse(pipeline).length,
+          resultCount: aggResult.length,
+          results: aggResult
+        })
+      } catch {
+        return formatError('Aggregation failed', result.substring(0, 1000))
       }
     }
   })
   .addTool({
     name: 'mongo_create_index',
-    description: 'Create an index on a collection',
+    description: 'Create index on collection with options',
     parameters: {
-      collection: { type: 'string', description: 'Collection name' },
-      keys: { type: 'string', description: 'Index keys as JSON (e.g., \'{"createdAt": -1}\')' },
-      name: { type: 'string', description: 'Index name' },
-      unique: { type: 'boolean', description: 'Create unique index' },
-      background: { type: 'boolean', description: 'Build in background' }
+      collection: { type: 'string', description: 'Collection name', required: true },
+      keys: { type: 'string', description: 'Index keys as JSON e.g. {"userId": 1, "createdAt": -1}', required: true },
+      name: { type: 'string', description: 'Index name (auto-generated if not provided)', required: false },
+      unique: { type: 'boolean', description: 'Create unique index', required: false },
+      background: { type: 'boolean', description: 'Build index in background', required: false },
+      sparse: { type: 'boolean', description: 'Create sparse index', required: false },
+      expireAfterSeconds: { type: 'number', description: 'TTL index expiration in seconds', required: false }
     },
-    execute: async (args: any) => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const options = JSON.stringify({
-        name: args.name,
-        unique: args.unique,
-        background: args.background
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        collection: { type: 'string', required: true },
+        keys: { type: 'string', required: true },
+        name: { type: 'string', required: false },
+        unique: { type: 'boolean', required: false, default: false },
+        background: { type: 'boolean', required: false, default: true },
+        sparse: { type: 'boolean', required: false, default: false },
+        expireAfterSeconds: { type: 'number', required: false }
       })
-      const jsCmd = `JSON.stringify(db.getCollection('${args.collection}').createIndex(${args.keys}, ${options}))`
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`)
-      return {
-        indexName: result.replace(/"/g, '').trim(),
-        raw: result
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const uri = buildMongoUri()
+      const { collection, keys, name, unique, background, sparse, expireAfterSeconds } = validation.data
+
+      try {
+        JSON.parse(keys)
+      } catch {
+        return formatError('Invalid keys JSON', keys)
       }
+
+      const options: Record<string, any> = { unique, background, sparse }
+      if (name) options.name = name
+      if (expireAfterSeconds) options.expireAfterSeconds = expireAfterSeconds
+
+      const safeCollection = sanitizeMongoPath(collection)
+      const optionsStr = JSON.stringify(options)
+
+      const result = await safeExec(`mongosh "${uri}" --quiet --eval "JSON.stringify(db.getCollection('${safeCollection}').createIndex(${keys}, ${optionsStr}))" 2>&1`, 120000)
+
+      return formatSuccess({
+        collection,
+        keys: JSON.parse(keys),
+        options,
+        result: result.substring(0, 500)
+      })
     }
   })
   .addTool({
-    name: 'mongo_list_indexes',
-    description: 'List all indexes on a collection',
+    name: 'mongo_dump',
+    description: 'Backup database or collection with mongodump',
     parameters: {
-      collection: { type: 'string', description: 'Collection name' }
+      database: { type: 'string', description: 'Database name to backup', required: false },
+      collection: { type: 'string', description: 'Specific collection to backup', required: false },
+      outputDir: { type: 'string', description: 'Output directory', required: true },
+      gzip: { type: 'boolean', description: 'Compress with gzip', required: false }
     },
-    execute: async (args: any) => {
-      const uri = mongoConfig.connectionString || buildMongoUri()
-      const jsCmd = `JSON.stringify(db.getCollection('${args.collection}').getIndexes())`
-      const result = await safeExec(`mongosh "${uri}" --quiet --eval "${jsCmd}" 2>&1`)
-      try {
-        const indexes = JSON.parse(result)
-        return {
-          count: indexes.length,
-          indexes: indexes.map((idx: any) => ({
-            name: idx.name,
-            key: idx.key,
-            unique: idx.unique,
-            sparse: idx.sparse
-          }))
-        }
-      } catch {
-        return { error: 'Failed to list indexes', raw: result.substring(0, 500) }
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        database: { type: 'string', required: false },
+        collection: { type: 'string', required: false },
+        outputDir: { type: 'string', required: true },
+        gzip: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const uri = buildMongoUri()
+      const { database, collection, outputDir, gzip } = validation.data
+      const safeOutput = sanitizePath(outputDir)
+
+      const dbFlag = database ? `--db ${database}` : ''
+      const collFlag = collection ? `--collection ${collection}` : ''
+      const gzipFlag = gzip ? '--gzip' : ''
+
+      const result = await safeExec(`mongodump --uri "${uri}" ${dbFlag} ${collFlag} --out "${safeOutput}" ${gzipFlag} 2>&1`, 300000)
+
+      const hasError = result.includes('error') || result.includes('Failed')
+      return formatSuccess({
+        success: !hasError,
+        outputDir: safeOutput,
+        database,
+        collection,
+        gzip,
+        raw: result.substring(0, 1000)
+      })
     }
   })
   .build()

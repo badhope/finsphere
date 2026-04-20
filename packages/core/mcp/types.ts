@@ -98,7 +98,7 @@ export interface MCPServerConfig {
   trae?: {
     categories?: string[]
     visibility?: 'public' | 'private'
-    rating?: 'beginner' | 'intermediate' | 'advanced'
+    rating?: 'beginner' | 'intermediate' | 'advanced' | 'professional'
     features?: string[]
   }
   cache?: CacheStrategy

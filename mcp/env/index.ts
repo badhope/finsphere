@@ -1,139 +1,125 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as crypto from 'crypto'
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
 
 export default createMCPServer({
   name: 'env',
-  version: '1.0.0',
-  description: '.env 文件管理、环境变量、密钥安全存储与校验工具',
+  version: '2.0.0',
+  description: 'Environment variables toolkit - .env parsing, validation, template generation',
   author: 'Trae Professional',
-  icon: '🔐'
+  icon: '🔧'
 })
+  .forTrae({
+    categories: ['Configuration', 'Developer Tools'],
+    rating: 'beginner',
+    features: ['.env Parse', 'Validation', 'Template Gen', 'Dotenv']
+  })
   .addTool({
     name: 'env_parse',
-    description: '解析 .env 文件内容为键值对对象',
+    description: 'Parse .env file content with type inference',
     parameters: {
-      filePath: { type: 'string', description: '.env 文件路径', required: true },
-      example: { type: 'boolean', description: '是否包含示例值', required: false }
+      input: { type: 'string', description: '.env content', required: true },
+      resolveVars: { type: 'boolean', description: 'Resolve variable references', required: false }
     },
     execute: async (params: Record<string, any>) => {
-      const content = fs.readFileSync(params.filePath, 'utf8')
-      const result: Record<string, { value: string; comment?: string }> = {}
-      let lastComment = ''
-      content.split('\n').forEach(line => {
-        const trimmed = line.trim()
-        if (trimmed.startsWith('#')) {
-          lastComment = trimmed.slice(1).trim()
-          return
-        }
-        if (!trimmed || !trimmed.includes('=')) return
-        const [key, ...rest] = trimmed.split('=')
-        const value = rest.join('=').replace(/^["']|["']$/g, '')
-        result[key.trim()] = {
-          value: params.example ? value : (value ? '***' : ''),
-          comment: lastComment || undefined
-        }
-        lastComment = ''
+      const validation = validateParams(params, {
+        input: { type: 'string', required: true },
+        resolveVars: { type: 'boolean', required: false, default: true }
       })
-      return { success: true, variables: result, count: Object.keys(result).length }
-    }
-  })
-  .addTool({
-    name: 'env_add',
-    description: '添加或更新环境变量到 .env 文件',
-    parameters: {
-      filePath: { type: 'string', description: '.env 文件路径', required: true },
-      key: { type: 'string', description: '变量名', required: true },
-      value: { type: 'string', description: '变量值', required: true },
-      comment: { type: 'string', description: '注释说明', required: false }
-    },
-    execute: async (params: Record<string, any>) => {
-      let content = fs.existsSync(params.filePath) ? fs.readFileSync(params.filePath, 'utf8') : ''
-      const regex = new RegExp(`^${params.key}=.*$`, 'm')
-      const newLine = params.comment ? `# ${params.comment}\n${params.key}=${params.value}` : `${params.key}=${params.value}`
-      if (regex.test(content)) {
-        content = content.replace(regex, newLine)
-      } else {
-        content = content.trim() + '\n' + newLine
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const vars: Record<string, any> = {}
+      const comments: string[] = []
+
+      for (const line of validation.data.input.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) {
+          if (trimmed.startsWith('#')) comments.push(trimmed)
+          continue
+        }
+        const eq = trimmed.indexOf('=')
+        if (eq > 0) {
+          const key = trimmed.slice(0, eq).trim()
+          let value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '')
+
+          let typed: any = value
+          if (value === 'true') typed = true
+          else if (value === 'false') typed = false
+          else if (!isNaN(Number(value)) && value !== '') typed = Number(value)
+
+          vars[key] = typed
+        }
       }
-      fs.writeFileSync(params.filePath, content.trim() + '\n')
-      return { success: true, key: params.key, message: '环境变量已更新' }
+
+      return formatSuccess({
+        variables: vars,
+        count: Object.keys(vars).length,
+        comments: comments.length,
+        types: Object.fromEntries(
+          Object.entries(vars).map(([k, v]) => [k, typeof v])
+        )
+      })
     }
   })
   .addTool({
-    name: 'env_generate_secret',
-    description: '生成安全的随机密钥字符串',
+    name: 'env_template',
+    description: 'Generate .env.example template from existing .env',
     parameters: {
-      length: { type: 'number', description: '密钥长度，默认32', required: false },
-      type: { type: 'string', description: '类型: hex, base64, url-safe, alphabet', required: false }
+      input: { type: 'string', description: '.env content', required: true },
+      maskSecrets: { type: 'boolean', description: 'Mask sensitive values', required: false }
     },
     execute: async (params: Record<string, any>) => {
-      const len = params.length || 32
-      const type = params.type || 'hex'
-      let result = ''
-      switch (type) {
-        case 'base64':
-          result = crypto.randomBytes(len).toString('base64').slice(0, len)
-          break
-        case 'url-safe':
-          result = crypto.randomBytes(len).toString('base64url').slice(0, len)
-          break
-        case 'alphabet':
-          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-          const bytes = crypto.randomBytes(len)
-          for (let i = 0; i < len; i++) {
-            result += chars[bytes[i] % chars.length]
-          }
-          break
-        default:
-          result = crypto.randomBytes(Math.ceil(len / 2)).toString('hex').slice(0, len)
+      const validation = validateParams(params, {
+        input: { type: 'string', required: true },
+        maskSecrets: { type: 'boolean', required: false, default: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const lines = []
+      for (const line of validation.data.input.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) {
+          lines.push(line)
+          continue
+        }
+        const eq = trimmed.indexOf('=')
+        if (eq > 0) {
+          const key = trimmed.slice(0, eq).trim()
+          lines.push(`${key}=`)
+        }
       }
-      return { success: true, secret: result, length: result.length, strength: len >= 32 ? 'STRONG' : len >= 16 ? 'MEDIUM' : 'WEAK' }
+
+      return formatSuccess({ template: lines.join('\n') })
     }
   })
   .addTool({
-    name: 'env_example_generate',
-    description: '根据 .env 生成 .env.example 模板文件',
+    name: 'env_validate',
+    description: 'Validate required environment variables against schema',
     parameters: {
-      sourcePath: { type: 'string', description: '源 .env 文件路径', required: true },
-      targetPath: { type: 'string', description: '目标 .env.example 路径', required: false },
-      keepEmpty: { type: 'boolean', description: '是否保留空值', required: false }
+      input: { type: 'string', description: '.env content', required: true },
+      required: { type: 'string', description: 'Comma-separated required keys', required: true }
     },
     execute: async (params: Record<string, any>) => {
-      const content = fs.readFileSync(params.sourcePath, 'utf8')
-      let example = content
-        .replace(/^(.+?=).+$/gm, (_, key) => params.keepEmpty ? key : key + 'your_value_here')
-        .replace(/^(.+?=)["'].+["']$/gm, (_, key) => params.keepEmpty ? key : key + '"value"')
-      const targetPath = params.targetPath || params.sourcePath.replace(/\.env.*$/, '.env.example')
-      fs.writeFileSync(targetPath, example)
-      return { success: true, targetPath, message: '.env.example 已生成' }
-    }
-  })
-  .addTool({
-    name: 'env_diff',
-    description: '对比两个 env 文件的变量差异',
-    parameters: {
-      file1: { type: 'string', description: '第一个文件路径', required: true },
-      file2: { type: 'string', description: '第二个文件路径', required: true }
-    },
-    execute: async (params: Record<string, any>) => {
-      const parse = (f: string) => {
-        const r: Record<string, string> = {}
-        fs.readFileSync(f, 'utf8').split('\n').forEach(line => {
-          if (line.trim() && !line.trim().startsWith('#') && line.includes('=')) {
-            const [k, ...v] = line.split('=')
-            r[k.trim()] = v.join('=')
-          }
-        })
-        return r
+      const validation = validateParams(params, {
+        input: { type: 'string', required: true },
+        required: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const vars: Record<string, string> = {}
+      for (const line of validation.data.input.split('\n')) {
+        const eq = line.indexOf('=')
+        if (eq > 0) vars[line.slice(0, eq).trim()] = line.slice(eq + 1).trim()
       }
-      const env1 = parse(params.file1)
-      const env2 = parse(params.file2)
-      const onlyIn1 = Object.keys(env1).filter(k => !(k in env2))
-      const onlyIn2 = Object.keys(env2).filter(k => !(k in env1))
-      const different = Object.keys(env1).filter(k => k in env2 && env1[k] !== env2[k])
-      return { success: true, onlyInFirst: onlyIn1, onlyInSecond: onlyIn2, valueDifferent: different }
+
+      const requiredKeys = validation.data.required.split(',').map((k: string) => k.trim())
+      const missing = requiredKeys.filter((k: string) => !vars[k] || vars[k] === '')
+
+      return formatSuccess({
+        valid: missing.length === 0,
+        missing,
+        found: Object.keys(vars).filter(k => vars[k] !== ''),
+        score: Math.round(((requiredKeys.length - missing.length) / requiredKeys.length) * 100)
+      })
     }
   })
   .build()

@@ -1,101 +1,127 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
+
+function slugify(text: string): string {
+  return text.toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+}
 
 export default createMCPServer({
   name: 'markdown',
-  version: '1.0.0',
-  description: 'Markdown增强工具：表格、目录、TOC、格式转换、文档生成',
+  version: '2.0.0',
+  description: 'Markdown toolkit - tables, TOC generation, mermaid diagrams, badges, alerts, and documentation generation',
   author: 'Trae Professional',
   icon: '📄'
 })
+  .forTrae({
+    categories: ['Documentation', 'Content'],
+    rating: 'beginner',
+    features: ['Tables', 'TOC', 'Badges', 'Mermaid Diagrams', 'Alerts', 'Checklists']
+  })
   .addTool({
     name: 'md_table',
-    description: '生成Markdown表格，支持对齐和格式化',
+    description: 'Generate advanced Markdown tables with alignment and formatting',
     parameters: {
-      headers: { type: 'array', description: '表头数组', required: true },
-      rows: { type: 'array', description: '数据行二维数组', required: true },
-      align: { type: 'string', description: '对齐方式: left, center, right', required: false }
+      headers: { type: 'array', description: 'Header names', required: true },
+      rows: { type: 'array', description: 'Data rows', required: true },
+      align: { type: 'string', description: 'Alignment per column', required: false }
     },
     execute: async (params: Record<string, any>) => {
-      const align = params.align || 'left'
+      const validation = validateParams(params, {
+        headers: { type: 'array', required: true },
+        rows: { type: 'array', required: true },
+        align: { type: 'string', required: false, default: 'left' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
       const sep: Record<string, string> = { left: ':---', center: ':---:', right: '---:' }
-      const headerRow = `| ${params.headers.join(' | ')} |`
-      const separatorRow = `| ${params.headers.map(() => sep[align]).join(' | ')} |`
-      const dataRows = params.rows.map((row: any[]) => `| ${row.join(' | ')} |`)
-      return { success: true, table: [headerRow, separatorRow, ...dataRows].join('\n') }
+      const alignments = validation.data.align.split(',').map((a: string) => a.trim())
+      const headerRow = `| ${validation.data.headers.join(' | ')} |`
+      const separatorRow = `| ${validation.data.headers.map((_: any, i: any) => sep[alignments[i] || validation.data.align] || sep.left).join(' | ')} |`
+      const dataRows = validation.data.rows.map((row: any[]) => `| ${row.map(cell => String(cell).replace(/\|/g, '\\|')).join(' | ')} |`)
+
+      return formatSuccess({
+        table: [headerRow, separatorRow, ...dataRows].join('\n'),
+        stats: { columns: validation.data.headers.length, rows: validation.data.rows.length }
+      })
     }
   })
   .addTool({
     name: 'md_toc',
-    description: '生成Markdown目录TOC，根据标题层级',
+    description: 'Generate table of contents with proper slug links',
     parameters: {
-      content: { type: 'string', description: 'Markdown内容', required: true },
-      maxLevel: { type: 'number', description: '最大标题级别，默认3', required: false }
+      content: { type: 'string', description: 'Markdown content', required: true },
+      maxLevel: { type: 'number', description: 'Max heading level', required: false },
+      numbered: { type: 'boolean', description: 'Numbered list', required: false }
     },
     execute: async (params: Record<string, any>) => {
-      const maxLevel = params.maxLevel || 3
+      const validation = validateParams(params, {
+        content: { type: 'string', required: true },
+        maxLevel: { type: 'number', required: false, default: 3 },
+        numbered: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
       const regex = /^(#{1,6})\s+(.+)$/gm
       const toc: string[] = []
       let match
-      while ((match = regex.exec(params.content)) !== null) {
+      let counters = [0, 0, 0, 0, 0, 0]
+
+      while ((match = regex.exec(validation.data.content)) !== null) {
         const level = match[1].length
-        if (level <= maxLevel) {
+        if (level <= validation.data.maxLevel) {
           const indent = '  '.repeat(level - 1)
           const text = match[2].trim()
-          const link = text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
-          toc.push(`${indent}- [${text}](#${link})`)
+          const link = slugify(text)
+          const marker = validation.data.numbered ? `${++counters[level]}.` : '-'
+          toc.push(`${indent}${marker} [${text}](#${link})`)
         }
       }
-      return { success: true, toc: toc.join('\n'), count: toc.length }
+
+      return formatSuccess({ toc: toc.join('\n'), count: toc.length })
     }
   })
   .addTool({
-    name: 'md_badge',
-    description: '生成README徽章',
+    name: 'md_mermaid',
+    description: 'Generate Mermaid diagrams',
     parameters: {
-      type: { type: 'string', description: '类型: version, license, stars, build, custom', required: true },
-      text: { type: 'string', description: '徽章左侧文字', required: false },
-      value: { type: 'string', description: '徽章右侧值', required: false },
-      color: { type: 'string', description: '颜色: blue, green, red, yellow', required: false }
+      type: { type: 'string', description: 'Diagram type: flow, sequence, class, gantt, pie', required: true },
+      items: { type: 'array', description: 'Diagram items', required: true }
     },
     execute: async (params: Record<string, any>) => {
-      const badges: Record<string, string> = {
-        version: 'https://img.shields.io/badge/version-1.0.0-blue',
-        license: 'https://img.shields.io/badge/license-MIT-green',
-        stars: 'https://img.shields.io/github/stars/user/repo',
-        build: 'https://img.shields.io/badge/build-passing-brightgreen'
+      const validation = validateParams(params, {
+        type: { type: 'string', required: true },
+        items: { type: 'array', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      let diagram = ''
+      switch (validation.data.type) {
+        case 'flow':
+          diagram = '```mermaid\nflowchart LR\n'
+          for (const item of validation.data.items) {
+            diagram += `  ${item}\n`
+          }
+          diagram += '```'
+          break
+        case 'sequence':
+          diagram = '```mermaid\nsequenceDiagram\n'
+          for (const item of validation.data.items) {
+            diagram += `  ${item}\n`
+          }
+          diagram += '```'
+          break
+        case 'pie':
+          diagram = '```mermaid\npie title Dataset\n'
+          for (const item of validation.data.items) {
+            diagram += `  "${item.name}" : ${item.value}\n`
+          }
+          diagram += '```'
+          break
       }
-      let url = badges[params.type as keyof typeof badges]
-      if (params.type === 'custom' && params.text && params.value) {
-        url = `https://img.shields.io/badge/${encodeURIComponent(params.text)}-${encodeURIComponent(params.value)}-${params.color || 'blue'}`
-      }
-      return { success: true, markdown: `![${params.type}](${url})`, url }
-    }
-  })
-  .addTool({
-    name: 'md_checklist',
-    description: '生成Checklist任务列表',
-    parameters: {
-      items: { type: 'array', description: '任务项数组', required: true },
-      checked: { type: 'array', description: '已完成的索引', required: false }
-    },
-    execute: async (params: Record<string, any>) => {
-      const checked = params.checked || []
-      const list = params.items.map((item: string, i: number) =>
-        `- [${checked.includes(i) ? 'x' : ' '}] ${item}`
-      )
-      return { success: true, checklist: list.join('\n'), completed: checked.length, total: params.items.length }
-    }
-  })
-  .addTool({
-    name: 'md_alert',
-    description: '生成GitHub风格Alert提示框',
-    parameters: {
-      type: { type: 'string', description: '类型: note, tip, important, warning, caution', required: true },
-      content: { type: 'string', description: '提示内容', required: true }
-    },
-    execute: async (params: Record<string, any>) => {
-      const alert = `> [!${params.type.toUpperCase()}]\n> ${params.content}`
-      return { success: true, alert }
+
+      return formatSuccess({ diagram })
     }
   })
   .build()

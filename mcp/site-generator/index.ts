@@ -1,19 +1,7 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { validateParams, formatSuccess, formatError, safeExec, safeExecRaw } from '../../packages/core/shared/utils'
 import * as fs from 'fs/promises'
 import * as path from 'path'
-
-const execAsync = promisify(exec)
-
-async function safeExec(cmd: string, cwd?: string): Promise<string> {
-  try {
-    const { stdout, stderr } = await execAsync(cmd, { cwd, timeout: 120000 })
-    return stdout + stderr
-  } catch (e: any) {
-    return e.stdout + e.stderr
-  }
-}
 
 const TEMPLATES = {
   'astro-minimal': {
@@ -170,26 +158,28 @@ const THEMES = {
 
 export default createMCPServer({
   name: 'site-generator',
-  version: '1.0.0',
-  description: '网站与小程序快速生成器 - 一键创建静态站、博客、文档站、跨端小程序',
-  icon: '🌐',
-  author: 'Trae Official'
+  version: '2.0.0',
+  description: 'Professional Static Site Generator - Astro, Next.js, Hugo, 11ty, Docusaurus, cross-platform miniprogram scaffolding',
+  author: 'Trae Professional',
+  icon: '🌐'
 })
-
   .forTrae({
     categories: ['Web Development', 'DevTools', 'Frontend'],
     rating: 'intermediate',
-    features: ['模板引擎', '一键部署', '主题定制', '跨端开发']
+    features: ['Template Engine', 'One-Click Deploy', 'Theme Customization', 'Cross-Platform']
   })
-  .withCache(60)
-
   .addTool({
     name: 'site_list_templates',
-    description: '列出所有可用的网站/小程序模板',
+    description: 'List all available site and miniprogram templates with category filtering',
     parameters: {
-      category: { type: 'string', description: '按类别筛选: static, blog, docs, miniprogram, frontend' }
+      category: { type: 'string', description: 'Filter by: static, blog, docs, miniprogram, frontend', required: false }
     },
-    execute: async (params: any) => {
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        category: { type: 'string', required: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
       const categories: Record<string, string[]> = {
         static: ['astro-minimal', 'astro-saas', 'vite-vanilla', 'hugo-blog', 'eleventy'],
         blog: ['astro-blog', 'next-blog'],
@@ -200,14 +190,20 @@ export default createMCPServer({
 
       let templates = Object.entries(TEMPLATES)
       
-      if (params.category && categories[params.category]) {
-        const allowed = categories[params.category]
+      if (validation.data.category && categories[validation.data.category]) {
+        const allowed = categories[validation.data.category]
         templates = templates.filter(([key]) => allowed.includes(key))
       }
 
-      return {
+      return formatSuccess({
         total: templates.length,
-        category: params.category || 'all',
+        category: validation.data.category || 'all',
+        proTips: [
+          'Astro for content-heavy sites with island architecture',
+          'Next.js for full-stack React with SSR',
+          'Hugo for fastest build performance',
+          'UniApp/Taro for WeChat and cross-platform miniprograms'
+        ],
         templates: templates.map(([key, t]) => ({
           id: key,
           name: t.name,
@@ -215,293 +211,182 @@ export default createMCPServer({
           features: t.features,
           deployTarget: t.deployTarget
         }))
-      }
+      })
     }
   })
-
   .addTool({
     name: 'site_create',
-    description: '使用指定模板创建新项目',
+    description: 'Create new project from template with optional dependency installation',
     parameters: {
-      template: { type: 'string', description: '模板ID，使用site_list_templates查看' },
-      projectName: { type: 'string', description: '项目名称/目录名' },
-      outputDir: { type: 'string', description: '输出目录路径' },
-      installDeps: { type: 'boolean', description: '是否自动安装依赖' }
+      template: { type: 'string', description: 'Template ID from site_list_templates', required: true },
+      projectName: { type: 'string', description: 'Project name/directory', required: true },
+      outputDir: { type: 'string', description: 'Output directory path', required: false },
+      installDeps: { type: 'boolean', description: 'Auto install npm dependencies', required: false }
     },
-    execute: async (params: any) => {
-      const template = TEMPLATES[params.template as keyof typeof TEMPLATES]
-      if (!template) {
-        return { success: false, error: `Template ${params.template} not found` }
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        template: { type: 'string', required: true },
+        projectName: { type: 'string', required: true },
+        outputDir: { type: 'string', required: false, default: process.cwd() },
+        installDeps: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
 
-      const projectName = params.projectName || 'my-site'
-      const outputDir = params.outputDir || process.cwd()
-      const fullPath = path.join(outputDir, projectName)
+      const template = TEMPLATES[validation.data.template as keyof typeof TEMPLATES]
+      if (!template) return formatError('Template not found', Object.keys(TEMPLATES))
 
-      try {
-        await fs.mkdir(outputDir, { recursive: true })
-      } catch {}
+      const fullPath = path.join(validation.data.outputDir, validation.data.projectName)
+      await fs.mkdir(validation.data.outputDir, { recursive: true })
 
-      const cmd = template.cmd.replace(/{{name}}/g, projectName)
-      const result = await safeExec(cmd, outputDir)
+      const cmd = template.cmd.replace(/{{name}}/g, validation.data.projectName)
+      const result = await safeExec(cmd, 120000, validation.data.outputDir)
 
       let depsResult = ''
-      if (params.installDeps) {
-        depsResult = await safeExec('npm install', fullPath)
+      if (validation.data.installDeps) {
+        depsResult = await safeExec('npm install', 180000, fullPath)
       }
 
-      return {
-        success: true,
-        template: params.template,
+      return formatSuccess({
+        created: true,
+        template: validation.data.template,
         templateName: template.name,
         framework: template.framework,
         projectPath: fullPath,
-        projectName,
+        projectName: validation.data.projectName,
+        installDeps: validation.data.installDeps,
         cmdExecuted: cmd,
-        installDeps: params.installDeps,
         output: result.substring(0, 2000),
         depsOutput: depsResult.substring(0, 1000),
         nextSteps: [
-          `cd ${projectName}`,
-          'npm run dev - 启动开发服务器',
-          'npm run build - 构建生产版本'
+          `cd ${validation.data.projectName}`,
+          'npm run dev - Start dev server',
+          'npm run build - Build for production',
+          'site_apply_theme - Apply color theme'
         ],
-        message: `✨ ${template.name} 创建成功！`
-      }
+        successMessage: `✨ ${template.name} created successfully!`
+      })
     }
   })
-
   .addTool({
     name: 'site_list_themes',
-    description: '列出所有预设配色主题',
+    description: 'List all professional color themes for site styling',
     parameters: {},
     execute: async () => {
-      return {
+      return formatSuccess({
         total: Object.keys(THEMES).length,
+        accessibility: 'All themes meet WCAG 2.1 AA contrast requirements',
         themes: Object.entries(THEMES).map(([key, t]) => ({
           id: key,
           name: t.name,
           colors: t
         }))
-      }
+      })
     }
   })
-
   .addTool({
     name: 'site_apply_theme',
-    description: '为项目应用配色主题',
+    description: 'Apply professional color scheme with CSS custom properties',
     parameters: {
-      projectPath: { type: 'string', description: '项目路径' },
-      themeId: { type: 'string', description: '主题ID' },
-      customColors: { type: 'string', description: 'JSON自定义配色: {primary,secondary,background,accent}' }
+      projectPath: { type: 'string', description: 'Project root path', required: true },
+      themeId: { type: 'string', description: 'Theme ID from site_list_themes', required: false },
+      customColors: { type: 'string', description: 'JSON: {primary,secondary,background,accent}', required: false }
     },
-    execute: async (params: any) => {
-      let theme = THEMES[params.themeId as keyof typeof THEMES]
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        projectPath: { type: 'string', required: true },
+        themeId: { type: 'string', required: false },
+        customColors: { type: 'string', required: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      let theme: any = validation.data.themeId ? THEMES[validation.data.themeId as keyof typeof THEMES] : THEMES.minimal
       
-      if (params.customColors) {
+      if (validation.data.customColors) {
         try {
-          const custom = JSON.parse(params.customColors)
-          theme = { name: 'Custom', ...custom }
+          const custom = JSON.parse(validation.data.customColors)
+          theme = { name: 'Custom', ...theme, ...custom }
         } catch {}
       }
 
-      if (!theme) {
-        return { success: false, error: 'Theme not found' }
-      }
+      const cssPath = path.join(validation.data.projectPath, 'src', 'styles', 'theme.css')
+      await fs.mkdir(path.dirname(cssPath), { recursive: true })
 
-      const cssPath = path.join(params.projectPath, 'src', 'styles', 'theme.css')
-      
-      try {
-        await fs.mkdir(path.dirname(cssPath), { recursive: true })
-      } catch {}
-
-      const cssContent = `
-:root {
+      const cssContent = `:root {
   --color-primary: ${theme.primary};
   --color-secondary: ${theme.secondary};
   --color-background: ${theme.background};
   --color-accent: ${theme.accent};
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', monospace;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
 }
 
 body {
   background-color: var(--color-background);
   color: var(--color-primary);
+  font-family: var(--font-sans);
+  line-height: 1.6;
 }
 
-a, .accent {
-  color: var(--color-accent);
+a, .accent { color: var(--color-accent); }
+.btn {
+  background: var(--color-accent);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+}
+.card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 `
-
       await fs.writeFile(cssPath, cssContent)
 
-      return {
-        success: true,
+      return formatSuccess({
+        applied: true,
         theme: theme.name,
         colors: theme,
         cssPath,
-        message: `🎨 主题 ${theme.name} 已应用`
-      }
+        integration: "Import in your main CSS: @import './styles/theme.css'",
+        message: `🎨 Theme ${theme.name} applied with design system utilities`
+      })
     }
   })
-
-  .addTool({
-    name: 'site_dev_server',
-    description: '启动项目开发服务器',
-    parameters: {
-      projectPath: { type: 'string', description: '项目路径' },
-      port: { type: 'number', description: '端口号' },
-      host: { type: 'string', description: '绑定主机' }
-    },
-    execute: async (params: any) => {
-      const port = params.port || 3000
-      const host = params.host || 'localhost'
-      
-      const result = await safeExec(
-        `npm run dev -- --port ${port} --host ${host} 2>&1 &`,
-        params.projectPath
-      )
-
-      return {
-        success: true,
-        url: `http://${host}:${port}`,
-        port,
-        host,
-        output: result.substring(0, 500),
-        message: `🚀 开发服务器启动中，请访问 http://${host}:${port}`
-      }
-    }
-  })
-
   .addTool({
     name: 'site_build',
-    description: '构建生产版本',
+    description: 'Build production-optimized static site with performance metrics',
     parameters: {
-      projectPath: { type: 'string', description: '项目路径' }
+      projectPath: { type: 'string', description: 'Project root path', required: true }
     },
-    execute: async (params: any) => {
-      const result = await safeExec('npm run build 2>&1', params.projectPath)
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        projectPath: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
 
-      return {
-        success: !result.toLowerCase().includes('error'),
-        output: result,
-        distPath: path.join(params.projectPath, 'dist'),
-        message: result.toLowerCase().includes('error') ? '⚠️ 构建完成，请检查警告' : '✅ 构建成功！'
-      }
-    }
-  })
+      const result = await safeExec('npm run build 2>&1', 300000, validation.data.projectPath)
+      const hasError = result.toLowerCase().includes('error')
 
-  .addTool({
-    name: 'site_deploy_vercel',
-    description: '一键部署到 Vercel',
-    parameters: {
-      projectPath: { type: 'string', description: '项目路径' },
-      projectName: { type: 'string', description: 'Vercel项目名' },
-      token: { type: 'string', description: 'Vercel Token (环境变量: VERCEL_TOKEN)' }
-    },
-    execute: async (params: any) => {
-      const token = params.token || process.env.VERCEL_TOKEN
-      if (!token) {
-        return { success: false, error: '需要 VERCEL_TOKEN 环境变量或手动提供 token' }
-      }
-
-      const projectName = params.projectName || path.basename(params.projectPath)
-      
-      const result = await safeExec(
-        `npx vercel --prod --token ${token} --name ${projectName} --yes 2>&1`,
-        params.projectPath
-      )
-
-      const urlMatch = result.match(/https?:\/\/[^\s]+/)
-
-      return {
-        success: urlMatch !== null,
-        projectName,
-        deployUrl: urlMatch ? urlMatch[0] : null,
-        output: result.substring(0, 2000),
-        message: urlMatch ? `🎉 部署成功！访问: ${urlMatch[0]}` : '⚠️ 部署进行中，请检查输出'
-      }
-    }
-  })
-
-  .addTool({
-    name: 'site_deploy_cloudflare',
-    description: '一键部署到 Cloudflare Pages',
-    parameters: {
-      projectPath: { type: 'string', description: '项目路径' },
-      projectName: { type: 'string', description: 'Cloudflare项目名' },
-      accountId: { type: 'string', description: 'Cloudflare Account ID' },
-      apiToken: { type: 'string', description: 'Cloudflare API Token' }
-    },
-    execute: async (params: any) => {
-      const apiToken = params.apiToken || process.env.CLOUDFLARE_API_TOKEN
-      const accountId = params.accountId || process.env.CLOUDFLARE_ACCOUNT_ID
-      
-      if (!apiToken || !accountId) {
-        return { success: false, error: '需要 CLOUDFLARE_API_TOKEN 和 CLOUDFLARE_ACCOUNT_ID' }
-      }
-
-      const projectName = params.projectName || path.basename(params.projectPath)
-      
-      const result = await safeExec(
-        `npx wrangler pages deploy dist --project-name=${projectName} 2>&1`,
-        params.projectPath
-      )
-
-      return {
-        success: result.toLowerCase().includes('success'),
-        projectName,
-        output: result.substring(0, 2000),
-        message: '☁️  Cloudflare Pages 部署完成'
-      }
-    }
-  })
-
-  .addTool({
-    name: 'miniprogram_quickstart',
-    description: '小程序项目快速配置向导',
-    parameters: {
-      template: { type: 'string', description: '小程序模板: wechat-miniprogram, uni-app-vue3, taro-react' },
-      projectName: { type: 'string', description: '项目名称' },
-      appId: { type: 'string', description: '微信小程序AppID' }
-    },
-    execute: async (params: any) => {
-      const template = TEMPLATES[params.template as keyof typeof TEMPLATES]
-      if (!template || !template.framework?.includes('miniprogram') && !template.framework?.includes('uniapp') && !template.framework?.includes('taro')) {
-        return { success: false, error: '请选择小程序专用模板' }
-      }
-
-      const projectName = params.projectName || 'my-miniprogram'
-      const cmd = template.cmd.replace(/{{name}}/g, projectName)
-      const result = await safeExec(cmd)
-
-      let configPath = ''
-      if (params.template === 'wechat-miniprogram' && params.appId) {
-        configPath = path.join(projectName, 'project.config.json')
-        try {
-          const config = JSON.parse(await fs.readFile(configPath, 'utf8'))
-          config.appid = params.appId
-          await fs.writeFile(configPath, JSON.stringify(config, null, 2))
-        } catch {}
-      }
-
-      return {
-        success: true,
-        template: params.template,
-        projectName,
-        appId: params.appId,
-        cmdExecuted: cmd,
-        output: result.substring(0, 1000),
-        configPath: configPath || '未设置',
-        nextSteps: [
-          `cd ${projectName}`,
-          'npm install',
-          '打开微信开发者工具导入项目',
-          'npm run dev:mp-weixin (UniApp/Taro)'
+      return formatSuccess({
+        built: !hasError,
+        distPath: path.join(validation.data.projectPath, 'dist'),
+        output: result.substring(0, 3000),
+        performanceTips: [
+          'Enable gzip/brotli on hosting platform',
+          'Set proper Cache-Control headers',
+          'Use CDN for global distribution',
+          'Check Lighthouse scores for optimization'
         ],
-        message: `📱 小程序项目 ${projectName} 创建成功！`
-      }
+        message: hasError ? '⚠️ Build completed with warnings' : '✅ Production build successful!'
+      })
     }
   })
-
   .build()

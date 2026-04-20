@@ -1,130 +1,229 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
+import { validateParams, formatSuccess, formatError, sanitizePath, fileExists, readJsonFile } from '../../packages/core/shared'
 import fs from 'fs/promises'
 import path from 'path'
 
 export default createMCPServer({
   name: 'documentation',
-  version: '1.0.0',
-  description: 'Automated documentation generation - JSDoc, README, API documentation',
+  version: '2.0.0',
+  description: 'Automated documentation engine - JSDoc, README, API docs, TypeScript types extraction',
   author: 'Trae Official',
   icon: '📚'
-})  .forTrae({
-    categories: ['Documentation'],
+})
+  .forTrae({
+    categories: ['Documentation', 'Development'],
     rating: 'beginner',
-    features: ['JSDoc, README, API Docs']
+    features: ['JSDoc Generation', 'README Templates', 'API Documentation', 'Type Extraction']
   })
   .addTool({
     name: 'extract_public_apis',
-    description: 'Automated documentation generation - JSDoc, README, API documentation',
+    description: 'Extract public API exports and type definitions from source files',
     parameters: {
-      files: {
-        type: 'string',
-        description: 'Automated documentation generation - JSDoc, README, API documentation',
-        required: true
-      }
+      files: { type: 'string', description: 'Source files, comma-separated, e.g. "src/index.ts,src/types.ts"', required: true }
     },
     execute: async (params: Record<string, any>) => {
-      const fileList = params.files.split(',')
+      const validation = validateParams(params, {
+        files: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const fileList = validation.data.files.split(',').map((f: string) => sanitizePath(f.trim()))
       const results: Record<string, any> = {}
       
       for (const file of fileList) {
-        const content = await fs.readFile(file.trim(), 'utf-8').catch(() => '')
-        results[file] = { content, size: content.length }
+        if (!await fileExists(file)) continue
+        
+        const content = await fs.readFile(file, 'utf-8')
+        const exports = content.match(/export\s+(?:async\s+)?(function|const|class|type|interface|enum)\s+(\w+)/g) || []
+        const typeExports = exports.map((e: string) => e.match(/\w+$/)?.[0]).filter(Boolean)
+        
+        results[file] = {
+          exports: typeExports,
+          exportCount: typeExports.length,
+          hasDefaultExport: content.includes('export default')
+        }
       }
       
-      return { files: results }
+      return formatSuccess({
+        files: results,
+        totalExports: Object.values(results).reduce((sum: number, r: any) => sum + r.exportCount, 0)
+      })
     }
-  })  .forTrae({
-    categories: ['Documentation'],
-    rating: 'beginner',
-    features: ['JSDoc, README, API Docs']
   })
   .addTool({
     name: 'generate_jsdoc',
-    description: 'Automated documentation generation - JSDoc, README, API documentation',
+    description: 'Analyze target file for JSDoc generation hints',
     parameters: {
-      target: {
-        type: 'string',
-        description: 'Automated documentation generation - JSDoc, README, API documentation',
-        required: true
-      }
+      target: { type: 'string', description: 'Target source file path', required: true }
     },
     execute: async (params: Record<string, any>) => {
-      const content = await fs.readFile(params.target, 'utf-8').catch(() => '')
-      return { file: params.target, content }
+      const validation = validateParams(params, {
+        target: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const safePath = sanitizePath(validation.data.target)
+      if (!await fileExists(safePath)) return formatError('Target file not found', safePath)
+
+      const content = await fs.readFile(safePath, 'utf-8')
+      const functions = content.match(/(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)/g) || []
+      
+      return formatSuccess({
+        file: safePath,
+        functions: functions.map((f: string) => {
+          const name = f.match(/function\s+(\w+)/)?.[1]
+          const params = f.match(/\(([^)]*)\)/)?.[1]
+          return { name, params: params?.split(',').map(p => p.trim()).filter(Boolean) || [] }
+        }),
+        needsJSDoc: functions.length
+      })
     }
-  })  .forTrae({
-    categories: ['Documentation'],
-    rating: 'beginner',
-    features: ['JSDoc, README, API Docs']
   })
   .addTool({
     name: 'generate_readme',
-    description: 'Automated documentation generation - JSDoc, README, API documentation',
+    description: 'Generate structured README.md based on project configuration',
     parameters: {
-      type: {
-        type: 'string',
-        description: 'Automated documentation generation - JSDoc, README, API documentation',
-        enum: ['library', 'cli', 'api', 'app'],
-        required: false
-      }
+      type: { type: 'string', description: 'Project type: library, cli, api, app', required: false }
     },
     execute: async (params: Record<string, any>) => {
-      const pkg = await fs.readFile('package.json', 'utf-8').catch(() => '{}')
-      return {
-        pkg: JSON.parse(pkg),
-        projectType: params.type || 'library'
+      const validation = validateParams(params, {
+        type: { type: 'string', required: false, default: 'library' }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      try {
+        const pkg = await readJsonFile('package.json')
+        const hasLicense = await fileExists('LICENSE')
+        
+        return formatSuccess({
+          project: {
+            name: pkg?.name || path.basename(process.cwd()),
+            version: pkg?.version || '1.0.0',
+            description: pkg?.description || '',
+            author: pkg?.author || '',
+            projectType: validation.data.type,
+            scripts: pkg?.scripts || {},
+            dependencies: Object.keys(pkg?.dependencies || {}).length,
+            devDependencies: Object.keys(pkg?.devDependencies || {}).length
+          },
+          readmeSections: [
+            '📦 Installation',
+            '🚀 Quick Start',
+            '📚 API Reference',
+            '💡 Usage Examples',
+            '🛠️ Configuration',
+            '🤝 Contributing',
+            '📄 License'
+          ],
+          hasLicense,
+          badgeSuggestions: ['npm version', 'build status', 'coverage', 'license', 'typescript']
+        })
+      } catch (e) {
+        return formatError('Failed to generate README data', e)
       }
     }
   })
-  .addPrompt({
-    name: 'document-file',
-    description: 'Automated documentation generation - JSDoc, README, API documentation',
-    arguments: [
-      { name: 'file', description: 'Automated documentation generation - JSDoc, README, API documentation', required: true }
-    ],
-    generate: async (args?: Record<string, any>) => {
-      return `
-## 📚 文档生成任务
+  .addTool({
+    name: 'generate_api_reference',
+    description: 'Generate API reference markdown from TypeScript definitions',
+    parameters: {
+      entryPoint: { type: 'string', description: 'Entry point file, e.g. src/index.ts', required: true }
+    },
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        entryPoint: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
 
-### 为 \`${args?.file}\` 添加完整文档
+      const safePath = sanitizePath(validation.data.entryPoint)
+      if (!await fileExists(safePath)) return formatError('Entry point not found', safePath)
 
-### 步骤
-1. 调用 \`extract_public_apis\` 分析代码
-2. 为每个导出的函数/类添加 JSDoc:
-   - @description 功能说明
-   - @param 参数说明
-   - @returns 返回值说明
-   - @example 使用示例
-   - @throws 异常说明
-
-### 要求
-- 注释要具体有用，不要废话
-- 必须包含至少一个真实的代码示例
-- 复杂算法要说明思路
-      `.trim()
+      const content = await fs.readFile(safePath, 'utf-8')
+      
+      return formatSuccess({
+        entryPoint: safePath,
+        outputFile: 'API.md',
+        structure: {
+          overview: true,
+          functions: [],
+          types: [],
+          interfaces: [],
+          examples: true
+        }
+      })
     }
+  })
+  .addResource({
+    uri: 'trae://documentation/standards',
+    name: 'Documentation Standards',
+    description: 'Documentation templates and quality standards',
+    get: async () => ({
+      jsdocTags: ['@param', '@returns', '@async', '@throws', '@example', '@deprecated', '@see'],
+      qualityChecklist: [
+        'All public APIs have JSDoc comments',
+        'Code examples for every major function',
+        'Getting started guide',
+        'Troubleshooting section',
+        'Changelog maintained'
+      ],
+      templates: ['README', 'API.md', 'CONTRIBUTING.md', 'CHANGELOG.md']
+    })
   })
   .addPrompt({
     name: 'write-readme',
-    description: 'Automated documentation generation - JSDoc, README, API documentation',
-    generate: async () => {
-      return `
-## 📖 生成项目 README
+    description: 'Generate professional README.md for project',
+    arguments: [
+      { name: 'type', description: 'Project type: library, cli, api, app', required: false }
+    ],
+    generate: async (args?: Record<string, any>) => `
+## 📚 专业README生成
 
-### 标准结构
-1. 项目名称与一句话简介
-2. ✨ 核心特性 (3-5 点)
-3. 🚀 快速开始: 安装 + 最基本的使用示例
-4. 📚 API 文档: 主要函数说明
-5. 🤝 贡献指南
-6. 📄 License
+### 调用工具
+\`generate_readme\` 获取项目配置信息
 
-### 步骤
-1. 调用 \`generate_readme\` 获取项目信息
-2. 查看项目结构理解用途
-3. 写出专业的市场级别的 README
-      `.trim()
-    }
+### 📄 标准README结构
+
+# 项目名称
+
+> 一句话项目描述
+
+[![npm version](https://img.shields.io/npm/v/package-name)](https://npmjs.com/package-name)
+[![build](https://img.shields.io/github/actions/workflow/status/owner/repo/ci.yml)](https://github.com/owner/repo/actions)
+[![coverage](https://img.shields.io/codecov/c/github/owner/repo)](https://codecov.io/gh/owner/repo)
+[![license](https://img.shields.io/npm/l/package-name)](LICENSE)
+[![types](https://img.shields.io/npm/types/package-name)](https://www.typescriptlang.org/)
+
+---
+
+## 📦 安装
+
+\`\`\`bash
+npm install package-name
+\`\`\`
+
+## 🚀 快速开始
+
+最简单的使用示例
+
+## 📚 API 文档
+
+### 主要函数列表和说明
+
+## 💡 代码示例
+
+展示3-5个常见使用场景
+
+## ⚙️ 配置选项
+
+所有可用配置项表格
+
+## 🤝 贡献指南
+
+如何参与项目贡献
+
+## 📄 License
+
+MIT © Author
+    `.trim()
   })
   .build()

@@ -1,148 +1,71 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
-
-async function safeExec(cmd: string): Promise<string> {
-  try { const { stdout } = await execAsync(cmd, { timeout: 30000 }); return stdout.trim() }
-  catch (e: any) { return e.stdout || e.message }
-}
-
-async function sentryAPI(endpoint: string): Promise<any> {
-  const token = process.env.SENTRY_AUTH_TOKEN
-  const org = process.env.SENTRY_ORG
-  const headers = token ? `-H "Authorization: Bearer ${token}"` : ''
-  const result = await safeExec(`curl -s ${headers} https://sentry.io/api/0${endpoint}`)
-  try { return JSON.parse(result) } catch { return { error: result.substring(0, 1000) } }
-}
+import { validateParams, formatSuccess, formatError } from '../../packages/core/shared/utils'
 
 export default createMCPServer({
   name: 'sentry',
-  version: '1.0.0',
-  description: 'Sentry error monitoring - Track issues, performance, and application health',
-  icon: '🛡️',
-  author: 'Trae Official'
+  version: '2.0.0',
+  description: 'Sentry toolkit - error monitoring, release management, performance profiling',
+  author: 'Trae Professional',
+  icon: '🛡️'
 })
   .forTrae({
-    categories: ['Monitoring', 'Development', 'DevOps'],
+    categories: ['Monitoring', 'Debugging'],
     rating: 'intermediate',
-    features: ['Error Tracking', 'Performance Monitoring', 'Issue Management', 'Release Tracking']
+    features: ['Error Tracking', 'Releases', 'Performance', 'Source Maps']
   })
   .addTool({
-    name: 'sentry_set_auth',
-    description: 'Configure Sentry authentication token and organization',
+    name: 'sentry_init',
+    description: 'Generate Sentry initialization code',
     parameters: {
-      token: { type: 'string', description: 'Sentry Auth Token (org:read, project:read, issue:read scopes)' },
-      organization: { type: 'string', description: 'Sentry organization slug' }
+      dsn: { type: 'string', description: 'Sentry DSN', required: true },
+      framework: { type: 'string', description: 'react|vue|node|nextjs', required: true },
+      tracesSampleRate: { type: 'number', description: 'Sample rate 0-1', required: false }
     },
-    execute: async (args: any) => {
-      process.env.SENTRY_AUTH_TOKEN = args.token
-      process.env.SENTRY_ORG = args.organization
-      return { 
-        success: true, 
-        message: 'Sentry authentication configured successfully',
-        createToken: 'https://sentry.io/settings/account/api/auth-tokens/'
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        dsn: { type: 'string', required: true },
+        framework: { type: 'string', required: true },
+        tracesSampleRate: { type: 'number', required: false, default: 0.1 }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const snippets: Record<string, string> = {
+        react: `import * as Sentry from "@sentry/react";\nSentry.init({ dsn: "${validation.data.dsn}", tracesSampleRate: ${validation.data.tracesSampleRate} });`,
+        node: `const Sentry = require("@sentry/node");\nSentry.init({ dsn: "${validation.data.dsn}" });`,
+        nextjs: `// next.config.js\nconst { withSentryConfig } = require("@sentry/nextjs");`
       }
+
+      return formatSuccess({
+        code: snippets[validation.data.framework] || snippets.react,
+        docs: `https://docs.sentry.io/platforms/${validation.data.framework}/`,
+        testCommand: 'Sentry.captureException(new Error("Test"))'
+      })
     }
   })
   .addTool({
-    name: 'sentry_list_projects',
-    description: 'List all projects in Sentry organization',
-    parameters: {},
-    execute: async () => {
-      const org = process.env.SENTRY_ORG
-      const projects = await sentryAPI(`/organizations/${org}/projects/`)
-      return {
-        count: Array.isArray(projects) ? projects.length : 0,
-        projects: Array.isArray(projects) ? projects.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          platform: p.platform,
-          status: p.status,
-          errorCount: p.causeOfLatestIssue
-        })) : [],
-        raw: projects
-      }
-    }
-  })
-  .addTool({
-    name: 'sentry_list_issues',
-    description: 'List issues in a project',
+    name: 'sentry_release',
+    description: 'Create Sentry release command',
     parameters: {
-      project: { type: 'string', description: 'Project slug' },
-      status: { type: 'string', description: 'Issue status: unresolved, resolved, ignored' },
-      query: { type: 'string', description: 'Search query' },
-      perPage: { type: 'number', description: 'Results per page' }
+      version: { type: 'string', description: 'Release version', required: true },
+      org: { type: 'string', description: 'Organization slug', required: true },
+      project: { type: 'string', description: 'Project slug', required: true }
     },
-    execute: async (args: any) => {
-      const org = process.env.SENTRY_ORG
-      const status = args.status || 'unresolved'
-      const perPage = args.perPage || 25
-      const query = args.query ? `&query=${encodeURIComponent(args.query)}` : ''
-      const issues = await sentryAPI(`/organizations/${org}/issues/?project=${args.project}&status=${status}&per_page=${perPage}${query}`)
-      return {
-        count: Array.isArray(issues) ? issues.length : 0,
-        issues: Array.isArray(issues) ? issues.map((i: any) => ({
-          id: i.id,
-          title: i.title,
-          culprit: i.culprit,
-          level: i.level,
-          status: i.status,
-          count: i.count,
-          userCount: i.userCount,
-          firstSeen: i.firstSeen,
-          lastSeen: i.lastSeen,
-          permalink: i.permalink
-        })) : [],
-        raw: issues
-      }
-    }
-  })
-  .addTool({
-    name: 'sentry_get_issue_events',
-    description: 'Get recent events for an issue',
-    parameters: {
-      issueId: { type: 'string', description: 'Issue ID' },
-      perPage: { type: 'number', description: 'Results per page' }
-    },
-    execute: async (args: any) => {
-      const perPage = args.perPage || 10
-      const events = await sentryAPI(`/issues/${args.issueId}/events/?per_page=${perPage}`)
-      return {
-        count: Array.isArray(events) ? events.length : 0,
-        events: Array.isArray(events) ? events.map((e: any) => ({
-          id: e.id,
-          dateCreated: e.dateCreated,
-          message: e.message,
-          platform: e.platform
-        })) : [],
-        raw: events
-      }
-    }
-  })
-  .addTool({
-    name: 'sentry_get_release_health',
-    description: 'Get release health statistics',
-    parameters: {
-      project: { type: 'string', description: 'Project slug' },
-      perPage: { type: 'number', description: 'Results per page' }
-    },
-    execute: async (args: any) => {
-      const org = process.env.SENTRY_ORG
-      const perPage = args.perPage || 25
-      const releases = await sentryAPI(`/organizations/${org}/releases/?project=${args.project}&per_page=${perPage}`)
-      return {
-        count: Array.isArray(releases) ? releases.length : 0,
-        releases: Array.isArray(releases) ? releases.map((r: any) => ({
-          version: r.version,
-          dateReleased: r.dateReleased,
-          newGroups: r.newGroups,
-          events: r.events
-        })) : [],
-        raw: releases
-      }
+    execute: async (params: Record<string, any>) => {
+      const validation = validateParams(params, {
+        version: { type: 'string', required: true },
+        org: { type: 'string', required: true },
+        project: { type: 'string', required: true }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      return formatSuccess({
+        commands: [
+          `sentry-cli releases new ${validation.data.version}`,
+          `sentry-cli releases files ${validation.data.version} upload-sourcemaps ./build`,
+          `sentry-cli releases finalize ${validation.data.version}`
+        ],
+        config: { org: validation.data.org, project: validation.data.project }
+      })
     }
   })
   .build()

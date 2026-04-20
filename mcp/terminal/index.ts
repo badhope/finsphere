@@ -1,198 +1,215 @@
 import { createMCPServer } from '../../packages/core/mcp/builder'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
-
-async function runCommand(command: string, timeout: number = 30000): Promise<{
-  stdout: string
-  stderr: string
-  exitCode: number
-}> {
-  try {
-    const { stdout, stderr } = await execAsync(command, { 
-      timeout,
-      maxBuffer: 10 * 1024 * 1024
-    })
-    return {
-      stdout: stdout.trim(),
-      stderr: stderr.trim(),
-      exitCode: 0
-    }
-  } catch (e: any) {
-    return {
-      stdout: e.stdout?.trim() || '',
-      stderr: e.stderr?.trim() || e.message,
-      exitCode: e.code || 1
-    }
-  }
-}
+import { safeExec, safeExecRaw, validateParams, formatSuccess, formatError, sanitizePath } from '../../packages/core/shared'
 
 export default createMCPServer({
   name: 'terminal',
-  version: '1.0.0',
-  description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+  version: '2.0.0',
+  description: 'Secure sandboxed terminal execution with validation, timeout, and proper error handling',
   author: 'Trae Official',
   icon: '💻'
-})  .forTrae({
-    categories: ['Core, System'],
+})
+  .forTrae({
+    categories: ['Core', 'System'],
     rating: 'advanced',
-    features: ['Command Execution, Script Runner, Package Manager']
+    features: ['Command Execution', 'Script Runner', 'Package Manager', 'Security']
   })
   .addTool({
     name: 'run_shell',
-    description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+    description: 'Execute shell commands with timeout and proper error handling',
     parameters: {
       command: {
         type: 'string',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+        description: 'Shell command to execute, e.g. "ls -la" or "echo hello"',
         required: true
       },
       cwd: {
         type: 'string',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+        description: 'Working directory for command execution',
         required: false
       },
       timeout: {
         type: 'number',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+        description: 'Command timeout in milliseconds, default 30000',
         required: false
       }
     },
     execute: async (params: Record<string, any>) => {
-      return runCommand(
-        params.command,
-        params.timeout
-      )
+      const validation = validateParams(params, {
+        command: { type: 'string', required: true },
+        cwd: { type: 'string', required: false },
+        timeout: { type: 'number', required: false, default: 30000 }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const safeCwd = validation.data.cwd ? sanitizePath(validation.data.cwd) : undefined
+      const result = await safeExecRaw(validation.data.command, validation.data.timeout, safeCwd)
+      
+      return result.exitCode === 0
+        ? formatSuccess({ stdout: result.stdout, stderr: result.stderr })
+        : formatError('Command execution failed', { stderr: result.stderr, exitCode: result.exitCode })
     }
-  })  .forTrae({
-    categories: ['Core, System'],
-    rating: 'advanced',
-    features: ['Command Execution, Script Runner, Package Manager']
   })
   .addTool({
     name: 'npm_run',
-    description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+    description: 'Run npm scripts with proper error handling',
     parameters: {
       script: {
         type: 'string',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+        description: 'npm script name, e.g. "build" or "dev"',
         required: true
       },
       args: {
         type: 'string',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+        description: 'Additional arguments for npm script',
+        required: false
+      },
+      cwd: {
+        type: 'string',
+        description: 'Working directory',
         required: false
       }
     },
     execute: async (params: Record<string, any>) => {
-      const cmd = `npm run ${params.script} ${params.args || ''}`.trim()
-      return runCommand(cmd)
+      const validation = validateParams(params, {
+        script: { type: 'string', required: true },
+        args: { type: 'string', required: false, default: '' },
+        cwd: { type: 'string', required: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const cmd = `npm run ${validation.data.script} ${validation.data.args}`.trim()
+      const safeCwd = validation.data.cwd ? sanitizePath(validation.data.cwd) : undefined
+      const result = await safeExecRaw(cmd, 60000, safeCwd)
+      
+      return result.exitCode === 0
+        ? formatSuccess({ stdout: result.stdout, stderr: result.stderr })
+        : formatError('npm script failed', { stderr: result.stderr, exitCode: result.exitCode })
     }
-  })  .forTrae({
-    categories: ['Core, System'],
-    rating: 'advanced',
-    features: ['Command Execution, Script Runner, Package Manager']
   })
   .addTool({
     name: 'run_tests',
-    description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+    description: 'Run project tests with result formatting',
     parameters: {
       file: {
         type: 'string',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+        description: 'Specific test file path',
         required: false
       },
-      watch: {
+      coverage: {
         type: 'boolean',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+        description: 'Enable coverage reporting',
         required: false
       }
     },
     execute: async (params: Record<string, any>) => {
-      const file = params.file ? ` ${params.file}` : ''
-      return runCommand(`npm test${file}`)
+      const validation = validateParams(params, {
+        file: { type: 'string', required: false },
+        coverage: { type: 'boolean', required: false, default: false }
+      })
+      if (!validation.valid) return formatError('Invalid parameters', validation.errors)
+
+      const args: string[] = []
+      if (validation.data.coverage) args.push('--coverage')
+      if (validation.data.file) args.push(validation.data.file)
+      
+      const result = await safeExecRaw(`npm test ${args.join(' ')}`.trim(), 120000)
+      
+      return formatSuccess({
+        success: result.exitCode === 0,
+        output: result.stdout,
+        errors: result.stderr,
+        exitCode: result.exitCode
+      })
     }
-  })  .forTrae({
-    categories: ['Core, System'],
-    rating: 'advanced',
-    features: ['Command Execution, Script Runner, Package Manager']
   })
   .addTool({
-    name: 'install_deps',
-    description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
-    parameters: {
-      packages: {
-        type: 'string',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
-        required: false
-      },
-      dev: {
-        type: 'boolean',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
-        required: false
-      }
-    },
-    execute: async (params: Record<string, any>) => {
-      if (!params.packages) {
-        return runCommand('npm install')
-      }
-      const devFlag = params.dev ? ' -D' : ''
-      return runCommand(`npm install ${params.packages}${devFlag}`)
+    name: 'check_node_version',
+    description: 'Check Node.js and npm versions',
+    parameters: {},
+    execute: async () => {
+      const [nodeResult, npmResult] = await Promise.all([
+        safeExecRaw('node --version'),
+        safeExecRaw('npm --version')
+      ])
+      
+      return formatSuccess({
+        node: nodeResult.stdout || 'Unknown',
+        npm: npmResult.stdout || 'Unknown'
+      })
     }
   })
-  .addPrompt({
-    name: 'fix-error',
-    description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
-    arguments: [
-      {
-        name: 'command',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
-        required: true
-      },
-      {
-        name: 'error_output',
-        description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
-        required: true
+  .addTool({
+    name: 'list_scripts',
+    description: 'List all available npm scripts in package.json',
+    parameters: {},
+    execute: async () => {
+      const fs = await import('fs/promises')
+      try {
+        const pkg = JSON.parse(await fs.readFile('package.json', 'utf8'))
+        return formatSuccess({
+          scripts: pkg.scripts || {},
+          count: Object.keys(pkg.scripts || {}).length
+        })
+      } catch (e) {
+        return formatError('Failed to read package.json', e)
       }
-    ],
-    generate: async (args?: Record<string, any>) => {
-      return `
-## 🛠️ 错误修复任务
-
-### 执行失败的命令:
-\`\`\`bash
-${args?.command || ''}
-\`\`\`
-
-### 错误输出:
-\`\`\`
-${args?.error_output || ''}
-\`\`\`
-
-### 任务要求:
-1. 分析错误根因
-2. 列出 2-3 个可能的解决方案
-3. 选择最佳方案并自动执行
-4. 验证修复结果
-
-请系统性地诊断和修复这个问题！
-      `.trim()
     }
   })
   .addResource({
-    uri: 'trae://terminal/project-info',
-    name: '项目信息摘要',
-    description: 'Secure sandboxed terminal execution - shell commands, package management, script runner',
+    uri: 'trae://terminal/system-info',
+    name: 'System Information',
+    description: 'Current working directory and environment information',
     get: async () => {
-      const pkg = await runCommand('cat package.json 2>/dev/null || echo "{}"')
-      const files = await runCommand('ls -la | head -20')
-      
+      const [cwd, nodeVer, npmVer] = await Promise.all([
+        Promise.resolve(process.cwd()),
+        safeExecRaw('node --version'),
+        safeExecRaw('npm --version')
+      ])
       return {
-        packageJson: JSON.parse(pkg.stdout || '{}'),
-        directoryListing: files.stdout,
-        timestamp: new Date().toISOString()
+        cwd,
+        platform: process.platform,
+        arch: process.arch,
+        nodeVersion: nodeVer.stdout,
+        npmVersion: npmVer.stdout,
+        env: {
+          NODE_ENV: process.env.NODE_ENV || 'development'
+        }
       }
     }
+  })
+  .addPrompt({
+    name: 'debug-command',
+    description: 'Debug a failing shell command',
+    arguments: [
+      { name: 'command', description: 'The failing command', required: true },
+      { name: 'error', description: 'Error message received', required: true }
+    ],
+    generate: async (args?: Record<string, any>) => `
+## 🔧 Shell Command Debugging
+
+### Failing Command:
+\`\`\`bash
+${args?.command || '(no command provided)'}
+\`\`\`
+
+### Error Message:
+\`\`\`
+${args?.error || '(no error message)'}
+\`\`\`
+
+### Task
+Please analyze this command failure and provide:
+1. 🔍 Root cause analysis
+2. 🛠️ Step-by-step debugging instructions
+3. ✅ Corrected command if applicable
+4. 💡 Best practices for similar commands
+
+Consider:
+- Command syntax issues
+- Missing dependencies
+- Environment differences
+- Permission issues
+- Path problems
+    `.trim()
   })
   .build()
