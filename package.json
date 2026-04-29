@@ -1,8 +1,8 @@
 {
-  "name": "@badhope/trae-skills",
-  "version": "1.1.0",
+  "name": "skills",
+  "version": "3.0.0",
   "type": "module",
-  "description": "Trae IDE Official Skills Marketplace - The Extension Marketplace for AI-Powered Development",
+  "description": "MCP Mega-Agent Platform - 11 Expert Engines + 80+ Professional Tools for ALL LLMs",
   "main": "./dist/packages/core/index.js",
   "types": "./dist/packages/core/index.d.ts",
   "exports": {
@@ -20,7 +20,7 @@
     }
   },
   "bin": {
-    "trae-skill": "./packages/cli/index.js"
+    "skills": "./packages/cli/index.js"
   },
   "files": [
     "dist/",
@@ -35,23 +35,29 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/badhope/trae-skills.git"
+    "url": "https://github.com/badhope/skills.git"
   },
   "keywords": [
-    "trae",
-    "trae-extension",
-    "trae-skill",
     "mcp",
     "model-context-protocol",
-    "ide",
     "skills",
     "ai",
     "llm",
-    "agent"
+    "agent",
+    "claude",
+    "cursor",
+    "windsurf",
+    "cline",
+    "trae",
+    "mega-agent",
+    "expert-system",
+    "ide"
   ],
+  "author": "badhope",
+  "license": "MIT",
   "trae": {
     "type": "mcp-skill",
-    "version": "1.1.0",
+    "version": "3.0.0",
     "entrypoint": "packages/cli/index.js",
     "marketplace": {
       "categories": [
@@ -62,28 +68,12 @@
         "Productivity"
       ],
       "featured": true,
-      "official": true,
       "badges": [
-        "Editor's Pick",
+        "MCP Standard",
+        "Multi-Platform",
         "Productivity"
       ]
     },
-    "skills": [
-      "agent-autonomous",
-      "agent-multi",
-      "agent-reflection",
-      "website-builder",
-      "web-search",
-      "memory-system",
-      "thinking-chain",
-      "code-review",
-      "bug-fixer",
-      "test-generator",
-      "explain-this",
-      "refactor-this",
-      "doc-generator",
-      "architect"
-    ],
     "mcpServers": {
       "git": "mcp/git/index.ts",
       "terminal": "mcp/terminal/index.ts",
@@ -98,86 +88,45 @@
       "docker": "mcp/docker/index.ts",
       "security-auditor": "mcp/security-auditor/index.ts",
       "performance-optimizer": "mcp/performance-optimizer/index.ts",
-      "coding-workflow": "mcp/coding-workflow/index.ts",
-      "debugging-workflow": "mcp/debugging-workflow/index.ts",
-      "refactoring-workflow": "mcp/refactoring-workflow/index.ts",
-      "github": "mcp/github/index.ts",
-      "gitlab": "mcp/gitlab/index.ts",
-      "openai": "mcp/openai/index.ts",
       "filesystem": "mcp/filesystem/index.ts",
-      "database": "mcp/database/index.ts",
-      "pdf": "mcp/pdf/index.ts",
-      "word": "mcp/word/index.ts",
-      "powerpoint": "mcp/powerpoint/index.ts",
-      "spreadsheet": "mcp/spreadsheet/index.ts",
-      "images": "mcp/images/index.ts",
-      "cloudflare": "mcp/cloudflare/index.ts",
-      "vercel": "mcp/vercel/index.ts",
-      "gitee": "mcp/gitee/index.ts",
-      "bitbucket": "mcp/bitbucket/index.ts",
-      "jira": "mcp/jira/index.ts",
-      "mongodb": "mcp/mongodb/index.ts",
-      "redis": "mcp/redis/index.ts",
-      "sentry": "mcp/sentry/index.ts",
-      "puppeteer": "mcp/puppeteer/index.ts",
-      "aliyun": "mcp/aliyun/index.ts",
-      "kubernetes": "mcp/kubernetes/index.ts",
-      "aws": "mcp/aws/index.ts",
-      "ssh": "mcp/ssh/index.ts",
-      "npm": "mcp/npm/index.ts",
-      "memory": "mcp/memory/index.ts",
-      "vector": "mcp/vector/index.ts",
-      "prompt": "mcp/prompt/index.ts",
-      "agent": "mcp/agent/index.ts",
-      "agent-autonomous": "mcp/agent-autonomous/index.ts",
-      "agent-multi": "mcp/agent-multi/index.ts",
-      "agent-reflection": "mcp/agent-reflection/index.ts",
-      "website-builder": "mcp/website-builder/index.ts",
       "web-search": "mcp/web-search/index.ts",
-      "thinking": "mcp/thinking/index.ts",
-      "llm": "mcp/llm/index.ts",
-      "site-generator": "mcp/site-generator/index.ts",
       "browser-automation": "mcp/browser-automation/index.ts",
       "web-crawler": "mcp/web-crawler/index.ts",
-      "code-rag": "mcp/code-rag/index.ts",
-      "colors": "mcp/colors/index.ts",
+      "database": "mcp/database/index.ts",
+      "mongodb": "mcp/mongodb/index.ts",
+      "kubernetes": "mcp/kubernetes/index.ts",
+      "aws": "mcp/aws/index.ts",
+      "github": "mcp/github/index.ts",
+      "pdf": "mcp/pdf/index.ts",
+      "markdown": "mcp/markdown/index.ts",
+      "all-in-one-dev": "mcp/all-in-one-dev/index.ts",
+      "core-dev-kit": "mcp/core-dev-kit/index.ts",
+      "debugging-workflow": "mcp/debugging-workflow/index.ts",
+      "template": "mcp/template/index.ts",
+      "library-manager": "mcp/library-manager/index.ts",
+      "jira": "mcp/jira/index.ts",
+      "ssh": "mcp/ssh/index.ts",
+      "vercel": "mcp/vercel/index.ts",
+      "cloudflare": "mcp/cloudflare/index.ts",
+      "aliyun": "mcp/aliyun/index.ts",
+      "sentry": "mcp/sentry/index.ts",
+      "system-admin": "mcp/system-admin/index.ts",
+      "network": "mcp/network/index.ts",
+      "observability-mq": "mcp/observability-mq/index.ts",
+      "site-generator": "mcp/site-generator/index.ts",
+      "game-dev-toolkit": "mcp/game-dev-toolkit/index.ts",
+      "fun": "mcp/fun/index.ts",
+      "search-tools": "mcp/search-tools/index.ts",
+      "search-pdf-advanced": "mcp/search-pdf-advanced/index.ts",
+      "datetime": "mcp/datetime/index.ts",
+      "math": "mcp/math/index.ts",
+      "regex": "mcp/regex/index.ts",
+      "random": "mcp/random/index.ts",
       "compression": "mcp/compression/index.ts",
       "csv": "mcp/csv/index.ts",
-      "datetime": "mcp/datetime/index.ts",
-      "diff": "mcp/diff/index.ts",
-      "encoding": "mcp/encoding/index.ts",
-      "env": "mcp/env/index.ts",
-      "fun": "mcp/fun/index.ts",
-      "json": "mcp/json/index.ts",
-      "markdown": "mcp/markdown/index.ts",
-      "math": "mcp/math/index.ts",
-      "network": "mcp/network/index.ts",
-      "random": "mcp/random/index.ts",
-      "regex": "mcp/regex/index.ts",
-      "yaml": "mcp/yaml/index.ts"
+      "spreadsheet": "mcp/spreadsheet/index.ts",
+      "images": "mcp/images/index.ts",
+      "redis": "mcp/redis/index.ts"
     }
-  },
-  "author": "Trae Skills Team",
-  "license": "Apache-2.0",
-  "homepage": "https://skills.trae.dev",
-  "dependencies": {
-    "chalk": "^5.3.0",
-    "commander": "^12.0.0",
-    "yaml": "^2.4.1",
-    "zod": "^3.22.4"
-  },
-  "devDependencies": {
-    "@types/node": "^20.19.39",
-    "@typescript-eslint/parser": "^7.6.0",
-    "eslint": "^8.57.0",
-    "typescript": "^5.4.0",
-    "vite": "^5.2.0",
-    "vitest": "^1.5.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

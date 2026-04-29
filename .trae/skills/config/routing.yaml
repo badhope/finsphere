@@ -1,662 +1,304 @@
-# Routing Configuration
-# Defines how tasks are routed to appropriate skills
-# Version 3.0 - With Dispatcher and Learning Layers
+# Routing Configuration - Mega-Agent Architecture v3.0
+# 12 Super Agents vs 72 micro-skills - 83% compression
 
 version: "3.0"
-description: "Task routing configuration for Enhanced Hierarchical Collaborative Skill Architecture (6 Layers)"
+description: "Mega-Agent Architecture - 12 Production-Grade Engines"
 
-# Default routing behavior
 defaults:
   meta_skill: task-planner
-  dispatcher: model-router
-  workflow: coding-workflow
-  action: code-generator
-  bypass_meta_threshold: 3
-  enable_learning: true
   enable_reflection: true
+  enable_orchestration: true
+  fallback_engine: fullstack-engine
 
-# Layer execution order
 layer_order:
-  - learning
   - meta
-  - dispatcher
-  - workflow
-  - action
-  - domain
+  - engine
+  - execution
 
-# Routing rules evaluated in order
+# 12 Production-Grade Engine Routing
 routing_rules:
-  # Learning layer tasks
-  - name: "learning_task"
+  # Meta Layer - Internal Coordination
+  - name: "skill_crafting_task"
     priority: 200
     condition:
-      keywords: ["learn", "学习", "improve capability", "增强能力", "evolve", "进化"]
+      keywords: ["create skill", "make skill", "skill creation", "build agent", "智能体", "技能创建"]
     route:
-      layer: learning
-      meta_skill: strategy-learner
+      meta_skill: skill-crafter
+      bypass_orchestration: true
+      
+  - name: "planning_task"
+    priority: 190
+    condition:
+      keywords: ["plan", "roadmap", "decompose", "breakdown", "规划", "分解"]
+    route:
+      meta_skill: task-planner
       
   - name: "reflection_task"
-    priority: 199
+    priority: 180
     condition:
-      keywords: ["reflect", "反思", "analyze execution", "分析执行", "post-mortem"]
+      keywords: ["reflect", "post-mortem", "analyze execution", "反思", "复盘"]
     route:
-      layer: learning
       meta_skill: reflector
       
-  - name: "knowledge_task"
-    priority: 198
+  - name: "orchestration_task"
+    priority: 170
     condition:
-      keywords: ["remember", "记忆", "retrieve knowledge", "检索知识", "knowledge base"]
+      keywords: ["coordinate", "multi-agent", "orchestrate", "协调", "多智能体"]
     route:
-      layer: learning
-      meta_skill: knowledge-base
-      
-  - name: "self_enhancement_task"
-    priority: 197
-    condition:
-      keywords: ["self-improve", "自我改进", "enhance capability", "增强能力", "optimize prompt"]
-    route:
-      layer: learning
-      meta_skill: self-enhancer
+      meta_skill: orchestrator
 
-  # Meta layer tasks - Task decomposition
-  - name: "decomposition_task"
-    priority: 150
-    condition:
-      keywords: ["decompose", "分解", "breakdown task", "拆解任务", "subtask"]
-    route:
-      layer: meta
-      meta_skill: decomposition-planner
-      
-  - name: "task_registry_task"
-    priority: 149
-    condition:
-      keywords: ["task status", "任务状态", "task history", "任务历史", "track task"]
-    route:
-      layer: meta
-      meta_skill: task-registry
-
-  # Dispatcher layer tasks - Model routing
-  - name: "model_routing_task"
-    priority: 140
-    condition:
-      keywords: ["route model", "路由模型", "select model", "选择模型", "cost optimize"]
-    route:
-      layer: dispatcher
-      meta_skill: model-router
-      
-  - name: "concurrency_task"
-    priority: 139
-    condition:
-      keywords: ["concurrent", "并发", "parallel", "并行", "rate limit", "限流"]
-    route:
-      layer: dispatcher
-      meta_skill: concurrency-manager
-
-  # Workflow layer tasks - Aggregation
-  - name: "aggregation_task"
-    priority: 130
-    condition:
-      keywords: ["aggregate", "聚合", "merge results", "合并结果", "consolidate"]
-    route:
-      layer: workflow
-      meta_skill: aggregation-processor
-
-  # AI/LLM tasks
-  - name: "ai_llm_task"
-    priority: 110
-    condition:
-      keywords: ["langchain", "rag", "llm", "prompt", "embedding", "vector"]
-    route:
-      workflow: coding-workflow
-      domain_skill: langchain
-      
-  - name: "prompt_engineering_task"
-    priority: 109
-    condition:
-      keywords: ["prompt", "few-shot", "chain of thought", "cot", "提示词"]
-    route:
-      domain_skill: prompt-engineering
-      bypass_meta: true
-
-  - name: "claude_api_task"
-    priority: 108
-    condition:
-      keywords: ["claude", "anthropic", "claude api", "claude-3"]
-    route:
-      domain_skill: claude-api
-      bypass_meta: true
-
-  - name: "agent_development_task"
-    priority: 107
-    condition:
-      keywords: ["agent", "autonomous", "multi-agent", "智能体", "代理"]
-    route:
-      workflow: coding-workflow
-      domain_skill: agent-development
-
-  - name: "llm_evaluation_task"
-    priority: 106
-    condition:
-      keywords: ["evaluate", "evaluation", "benchmark", "ragas", "deepeval", "评估"]
-    route:
-      domain_skill: llm-evaluation
-      bypass_meta: true
-      
-  # Mobile development
-  - name: "mobile_task"
-    priority: 108
-    condition:
-      keywords: ["react native", "flutter", "mobile", "ios", "android", "移动"]
-    route:
-      workflow: coding-workflow
-      domain_skill: react-native
-      
-  # Testing tasks
-  - name: "testing_task"
-    priority: 105
-    condition:
-      keywords: ["test", "testing", "测试", "unit test", "e2e", "integration"]
-    route:
-      workflow: coding-workflow
-      domain_skill: unit-test
-      
-  # Complex coding tasks
-  - name: "complex_coding_task"
+  # Engine 1: Full-Stack Production Engineer
+  - name: "fullstack_general"
     priority: 100
     condition:
-      keywords: ["implement", "develop", "build", "create", "实现", "开发", "构建"]
-      complexity_threshold: 5
-      or_conditions:
-        - has_multiple_files: true
-        - has_multiple_steps: true
-    route:
-      meta_skill: task-planner
-      dispatcher: model-router
-      workflow: coding-workflow
-      
-  # Simple code fixes
-  - name: "simple_code_fix"
-    priority: 90
-    condition:
-      keywords: ["fix", "修复", "change", "修改"]
-      complexity_threshold: 3
-      and_conditions:
-        - single_file: true
-    route:
-      workflow: coding-workflow
-      bypass_meta: true
-      
-  # Debugging tasks
-  - name: "debugging_task"
-    priority: 95
-    condition:
-      keywords: ["debug", "error", "bug", "issue", "调试", "错误", "问题"]
-      or_conditions:
-        - has_error_trace: true
-        - has_stack_trace: true
-    route:
-      meta_skill: task-planner
-      workflow: debugging-workflow
-      
-  # Research tasks
-  - name: "research_task"
-    priority: 85
-    condition:
-      keywords: ["research", "analyze", "investigate", "研究", "分析", "调查"]
-    route:
-      meta_skill: task-planner
-      workflow: research-workflow
-      
-  # Refactoring tasks
-  - name: "refactoring_task"
-    priority: 80
-    condition:
-      keywords: ["refactor", "improve", "optimize", "重构", "优化"]
+      keywords: ["implement", "build", "create", "develop", "app", "application", "开发", "构建", "应用"]
       complexity_threshold: 4
     route:
-      meta_skill: task-planner
-      workflow: refactoring-workflow
+      engine: fullstack-engine
       
-  # Documentation tasks
-  - name: "documentation_task"
-    priority: 75
+  # Engine 2: Bug Hunting Specialist
+  - name: "debugging_task"
+    priority: 160
     condition:
-      keywords: ["document", "doc", "readme", "文档", "说明", "api doc"]
+      keywords: ["debug", "bug", "error", "issue", "fix", "调试", "错误", "问题", "修复"]
+      or_conditions:
+        - has_stack_trace: true
+        - has_error_trace: true
     route:
-      action: documentation
-      bypass_meta: true
-      
-  # Search tasks
-  - name: "search_task"
-    priority: 74
-    condition:
-      keywords: ["find", "search", "locate", "where", "查找", "搜索"]
-    route:
-      action: code-search
-      bypass_meta: true
-      
-  # Database tasks
-  - name: "database_task"
-    priority: 88
-    condition:
-      keywords: ["database", "sql", "mongodb", "redis", "migration", "数据库"]
-    route:
-      workflow: coding-workflow
-      domain_skill: database-migration
-      
-  # DevOps tasks
-  - name: "devops_task"
-    priority: 87
-    condition:
-      keywords: ["docker", "kubernetes", "k8s", "ci/cd", "deploy", "部署"]
-    route:
-      workflow: coding-workflow
-      domain_skill: docker
-      
-  # Security-related tasks
+      engine: bug-hunter
+
+  # Engine 3: Security Auditor General
   - name: "security_task"
-    priority: 99
+    priority: 159
     condition:
-      keywords: ["security", "vulnerability", "安全", "漏洞"]
+      keywords: ["security", "vulnerability", "audit", "penetration", "hack", "安全", "漏洞", "审计"]
     route:
-      meta_skill: task-planner
-      workflow: security-workflow
-
+      engine: security-auditor
+      
   - name: "prompt_injection_task"
-    priority: 98
+    priority: 158
     condition:
-      keywords: ["prompt injection", "injection attack", "jailbreak", "注入攻击"]
+      keywords: ["prompt injection", "jailbreak", "injection attack", "注入攻击"]
     route:
-      domain_skill: prompt-injection-defense
-      bypass_meta: true
-      
-  # Performance tasks
-  - name: "performance_task"
-    priority: 85
+      engine: security-auditor
+
+  # Engine 4: DevOps Platform Engineer
+  - name: "devops_task"
+    priority: 157
     condition:
-      keywords: ["performance", "slow", "optimize", "性能", "优化"]
+      keywords: ["docker", "kubernetes", "k8s", "ci/cd", "deploy", "terraform", "cloud", "部署", "云"]
     route:
-      meta_skill: task-planner
-      workflow: performance-workflow
-      
-  # GraphQL tasks
-  - name: "graphql_task"
-    priority: 86
+      engine: devops-engineer
+
+  # Engine 5: Code Quality Expert
+  - name: "refactoring_task"
+    priority: 156
     condition:
-      keywords: ["graphql", "apollo", "schema", "resolver"]
+      keywords: ["refactor", "improve code", "clean code", "quality", "重构", "代码质量"]
     route:
-      workflow: coding-workflow
-      domain_skill: graphql
+      engine: code-quality-expert
       
-  # TypeScript tasks
-  - name: "typescript_task"
-    priority: 84
+  - name: "code_review_task"
+    priority: 155
     condition:
-      keywords: ["typescript", "types", "interface", "generic", "类型"]
+      keywords: ["code review", "pr review", "pull request", "代码审查", "评审"]
     route:
-      workflow: coding-workflow
-      domain_skill: typescript
-      
-  # Go tasks
-  - name: "go_task"
-    priority: 83
+      engine: code-quality-expert
+
+  # Engine 6: AI Agent Architect
+  - name: "ai_agent_task"
+    priority: 154
     condition:
-      keywords: ["golang", "go语言", "goroutine", "gin", "echo", "fiber"]
+      keywords: ["agent", "llm", "langchain", "rag", "prompt", "embedding", "智能体", "大模型", "提示词"]
     route:
-      workflow: coding-workflow
-      domain_skill: go
+      engine: ai-agent-architect
       
-  # Rust tasks
-  - name: "rust_task"
-    priority: 83
+  - name: "mcp_development"
+    priority: 153
     condition:
-      keywords: ["rust", "cargo", "tokio", "actix", "axum", "rust开发"]
+      keywords: ["mcp", "tool server", "mcp server", "tool development"]
     route:
-      workflow: coding-workflow
-      domain_skill: rust
-      
-  # Next.js tasks
-  - name: "nextjs_task"
-    priority: 83
+      engine: ai-agent-architect
+
+  # Engine 7: Documentation & Writing Suite
+  - name: "documentation_writing_task"
+    priority: 152
     condition:
-      keywords: ["nextjs", "next.js", "ssr", "ssg", "app router"]
+      keywords: ["document", "documentation", "readme", "doc", "api doc", "文档", "说明"]
+      or_conditions:
+        - file_type: ".md"
+        - file_type: ".rst"
+        - file_type: ".tex"
     route:
-      workflow: coding-workflow
-      domain_skill: nextjs
-
-  # Tailwind CSS tasks
-  - name: "tailwind_task"
-    priority: 82
+      engine: documentation-suite
+      
+  - name: "academic_writing_task"
+    priority: 151
     condition:
-      keywords: ["tailwind", "tailwind css", "utility-first", "样式"]
+      keywords: ["paper", "thesis", "research", "citation", "bibtex", "论文", "学术", "引用"]
     route:
-      domain_skill: css-tailwind
-      bypass_meta: true
-
-  # Accessibility tasks
-  - name: "accessibility_task"
-    priority: 81
+      engine: documentation-suite
+      
+  - name: "technical_design_task"
+    priority: 150
     condition:
-      keywords: ["accessibility", "a11y", "wcag", "aria", "无障碍"]
+      keywords: ["adr", "architecture decision", "technical design", "架构设计", "技术方案"]
     route:
-      domain_skill: accessibility
-      bypass_meta: true
+      engine: documentation-suite
 
-  # i18n tasks
-  - name: "i18n_task"
-    priority: 80
+  # Engine 8: Frontend Master
+  - name: "frontend_task"
+    priority: 149
     condition:
-      keywords: ["i18n", "l10n", "internationalization", "localization", "国际化", "多语言"]
+      keywords: ["react", "vue", "nextjs", "tailwind", "css", "ui", "component", "前端", "组件", "样式"]
+      or_conditions:
+        - file_type: ".tsx"
+        - file_type: ".jsx"
+        - file_type: ".vue"
+        - file_type: ".css"
     route:
-      domain_skill: i18n
-      bypass_meta: true
+      engine: frontend-master
       
-  # ETL/Data tasks
-  - name: "etl_task"
-    priority: 82
+  - name: "ui_design_task"
+    priority: 148
     condition:
-      keywords: ["etl", "pipeline", "data pipeline", "数据管道"]
+      keywords: ["ui design", "design system", "figma", "responsive", "accessible"]
     route:
-      workflow: coding-workflow
-      domain_skill: etl
+      engine: frontend-master
 
-# Fallback chains for each workflow type
-fallbacks:
-  coding-workflow:
-    - coding-workflow-lite
-    - manual-code-template
-    - request-human-help
-    
-  debugging-workflow:
-    - simple-debug-workflow
-    - log-analysis-only
-    - report-and-escalate
-    
-  research-workflow:
-    - quick-research
-    - web-search-only
-    - report-limitations
-    
-  learning-workflow:
-    - strategy-learner
-    - reflector
-    - knowledge-base
+  # Engine 9: Backend Master
+  - name: "backend_task"
+    priority: 147
+    condition:
+      keywords: ["api", "backend", "server", "nodejs", "python", "go", "rust", "graphql", "rest", "后端", "接口"]
+      or_conditions:
+        - file_type: ".go"
+        - file_type: ".rs"
+        - file_type: ".py"
+    route:
+      engine: backend-master
+      
+  - name: "microservices_task"
+    priority: 146
+    condition:
+      keywords: ["microservice", "kafka", "rabbitmq", "grpc", "微服务", "消息队列"]
+    route:
+      engine: backend-master
+      
+  - name: "authentication_task"
+    priority: 145
+    condition:
+      keywords: ["auth", "jwt", "oauth", "rbac", "permission", "认证", "权限"]
+    route:
+      engine: backend-master
 
-# Skill capability mapping - Enhanced
-capabilities:
-  # Learning Layer
-  reflector:
-    can_handle:
-      - execution_analysis
-      - issue_identification
-      - insight_generation
-    triggers_after: ["task_completed", "task_failed"]
-    
-  strategy-learner:
-    can_handle:
-      - strategy_optimization
-      - pattern_recognition
-      - feedback_learning
-    schedule: "0 */6 * * *"
-    
-  self-enhancer:
-    can_handle:
-      - capability_enhancement
-      - skill_evolution
-      - prompt_optimization
-    schedule: "0 0 * * 0"
-    
-  knowledge-base:
-    can_handle:
-      - knowledge_storage
-      - semantic_search
-      - knowledge_graph
-    max_items: 100000
-    
-  # Meta Layer
-  task-planner:
-    can_handle:
-      - task_decomposition
-      - complexity_assessment
-      - execution_planning
-    max_complexity: 10
-    
-  decomposition-planner:
-    can_handle:
-      - task_decomposition
-      - dependency_analysis
-      - execution_planning
-    max_subtasks: 20
-    
-  task-registry:
-    can_handle:
-      - task_tracking
-      - dependency_management
-      - history_persistence
-    max_tasks: 100000
-    
-  # Dispatcher Layer
-  model-router:
-    can_handle:
-      - complexity_assessment
-      - model_selection
-      - cost_optimization
-    models_available:
-      - gpt-3.5-turbo
-      - gpt-4o-mini
-      - gpt-4o
-      - claude-3-opus
-      - claude-3-sonnet
+  # Engine 10: Database Specialist
+  - name: "database_task"
+    priority: 144
+    condition:
+      keywords: ["database", "sql", "mysql", "postgres", "mongodb", "redis", "migration", "数据库", "迁移"]
+    route:
+      engine: database-specialist
       
-  concurrency-manager:
-    can_handle:
-      - rate_limiting
-      - request_queuing
-      - parallel_execution
-    max_concurrent: 100
-    
-  # Workflow Layer
-  orchestrator:
-    can_handle:
-      - workflow_coordination
-      - state_management
-      - error_recovery
-    max_parallel_workflows: 5
-    
-  coding-workflow:
-    can_handle:
-      - code_generation
-      - testing
-      - review
-    max_files_per_task: 20
-    
-  debugging-workflow:
-    can_handle:
-      - error_analysis
-      - root_cause_identification
-      - fix_implementation
-    max_investigation_depth: 5
-    
-  aggregation-processor:
-    can_handle:
-      - result_aggregation
-      - conflict_detection
-      - conflict_resolution
-      - consistency_checking
-    max_sources: 50
+  - name: "query_optimization_task"
+    priority: 143
+    condition:
+      keywords: ["index", "query optimization", "slow query", "索引", "查询优化"]
+    route:
+      engine: database-specialist
 
-# Domain skill routing
-domain_routing:
-  ai:
-    default: langchain
-    keywords:
-      langchain: ["chain", "agent", "memory", "tool"]
-      prompt-engineering: ["prompt", "few-shot", "cot"]
-      rag-system: ["rag", "retrieval", "vector", "embedding"]
-      openai: ["openai", "gpt", "chatgpt"]
-      claude-api: ["claude", "anthropic"]
-      agent-development: ["agent", "autonomous", "multi-agent"]
-      llm-evaluation: ["evaluate", "benchmark", "ragas"]
+  # Engine 11: Testing Master
+  - name: "testing_task"
+    priority: 142
+    condition:
+      keywords: ["test", "testing", "unit test", "e2e", "integration", "jest", "vitest", "playwright", "测试"]
+    route:
+      engine: testing-master
+      
+  - name: "performance_testing_task"
+    priority: 141
+    condition:
+      keywords: ["load test", "stress test", "benchmark", "k6", "压测", "性能测试"]
+    route:
+      engine: testing-master
 
-  security:
-    default: prompt-injection-defense
-    keywords:
-      prompt-injection-defense: ["prompt injection", "jailbreak", "injection"]
-
-  monitoring:
-    default: monitoring
-    keywords:
-      monitoring: ["monitoring", "alerting", "prometheus", "grafana"]
-      
-  backend:
-    default: python
-    keywords:
-      python: ["python", "fastapi", "django", "flask"]
-      nodejs: ["node", "express", "nestjs", "javascript"]
-      go: ["go", "golang", "gin", "echo"]
-      rust: ["rust", "cargo", "tokio", "actix", "axum"]
-      graphql: ["graphql", "apollo", "schema"]
-      typescript: ["typescript", "types", "interface"]
-      
-  frontend:
-    default: react
-    keywords:
-      react: ["react", "jsx", "hooks"]
-      nextjs: ["nextjs", "ssr", "ssg"]
-      vue: ["vue", "vuex", "pinia", "composition"]
-      css-tailwind: ["tailwind", "css", "styling"]
-      accessibility: ["a11y", "wcag", "aria", "accessibility"]
-      i18n: ["i18n", "l10n", "internationalization", "localization"]
-      
-  mobile:
-    default: react-native
-    keywords:
-      react-native: ["react native", "expo", "mobile"]
-      flutter: ["flutter", "dart", "widget"]
-      
-  testing:
-    default: unit-test
-    keywords:
-      unit-test: ["unit test", "jest", "pytest"]
-      integration-test: ["integration", "api test"]
-      e2e-test: ["e2e", "playwright", "cypress"]
-      
-  database:
-    default: sql-optimization
-    keywords:
-      mongodb: ["mongodb", "mongoose", "nosql"]
-      redis-caching: ["redis", "cache", "caching"]
-      sql-optimization: ["sql", "query", "index"]
-      database-migration: ["migration", "migrate", "schema"]
-      
-  data:
-    default: etl
-    keywords:
-      etl: ["etl", "pipeline", "airflow", "spark"]
-      data-validation: ["validation", "schema", "quality"]
-      
-  devops:
-    default: docker
-    keywords:
-      docker: ["docker", "container", "dockerfile"]
-      kubernetes: ["kubernetes", "k8s", "helm", "deployment"]
-      ci-cd-pipeline: ["ci", "cd", "pipeline", "github actions"]
-
-# Model routing configuration
-model_routing:
-  complexity_thresholds:
-    LOW: 3
-    MEDIUM: 7
-    HIGH: 12
-    CRITICAL: 999
+# Engine Capability Mapping
+engine_capabilities:
+  fullstack-engine:
+    - frontend
+    - backend
+    - database
+    - devops
+    - git
     
-  routing_matrix:
-    LOW:
-      primary: "gpt-3.5-turbo"
-      fallback: "gpt-4o-mini"
-      max_tokens: 4000
-    MEDIUM:
-      primary: "gpt-4o-mini"
-      fallback: "gpt-4o"
-      max_tokens: 8000
-    HIGH:
-      primary: "gpt-4o"
-      fallback: "claude-3-opus"
-      max_tokens: 16000
-    CRITICAL:
-      primary: "claude-3-opus"
-      fallback: "gpt-4-turbo"
-      max_tokens: 32000
-      
-  rate_limits:
-    gpt-4o:
-      rpm: 500
-      tpm: 30000
-    claude-3-opus:
-      rpm: 100
-      tpm: 20000
-
-# Time and resource thresholds
-thresholds:
-  max_execution_time: "30m"
-  max_tokens_per_task: 50000
-  max_retries: 3
-  timeout_warning_threshold: 0.8
-  
-# Quality gates
-quality_gates:
-  implementation:
-    - no_syntax_errors
-    - type_check_passes
-    - lint_check_passes
+  bug-hunter:
+    - debugging
+    - root-cause
+    - error-analysis
+    - reproduction
     
-  testing:
-    - all_tests_pass
-    - coverage_gte_80
+  security-auditor:
+    - sast
+    - sca
+    - configuration
+    - penetration
     
-  review:
-    - quality_score_gte_7
-    - no_security_vulnerabilities
-    - no_performance_issues
+  devops-engineer:
+    - docker
+    - kubernetes
+    - ci/cd
+    - cloud
+    - monitoring
     
-  learning:
-    - feedback_collected
-    - insights_generated
-    - knowledge_updated
-
-# Escalation rules
-escalation:
-  triggers:
-    - max_retries_exceeded
-    - critical_error
-    - resource_exhausted
-    - user_request
+  code-quality-expert:
+    - refactoring
+    - design-patterns
+    - linting
+    - code-review
     
-  actions:
-    - notify_user
-    - request_human_intervention
-    - create_issue
-
-# Learning configuration
-learning:
-  enabled: true
-  reflection:
-    enabled: true
-    triggers: ["task_completed", "task_failed"]
-    schedule: "0 0 * * *"
+  ai-agent-architect:
+    - llm
+    - agents
+    - mcp
+    - rag
+    - prompt-engineering
     
-  strategy_optimization:
-    enabled: true
-    schedule: "0 */6 * * *"
-    min_samples: 10
+  documentation-suite:
+    - technical-writing
+    - academic-writing
+    - api-docs
+    - markdown
+    - latex
     
-  self_enhancement:
-    enabled: true
-    schedule: "0 0 * * 0"
-    max_enhancements_per_cycle: 5
+  frontend-master:
+    - react
+    - vue
+    - nextjs
+    - tailwind
+    - accessibility
+    - performance
     
-  knowledge_base:
-    enabled: true
-    auto_index: true
-    embedding_model: "text-embedding-3-small"
+  backend-master:
+    - nodejs
+    - python
+    - go
+    - rust
+    - apis
+    - microservices
+    - auth
+    
+  database-specialist:
+    - sql
+    - nosql
+    - modeling
+    - optimization
+    - caching
+    - migration
+    
+  testing-master:
+    - unit-test
+    - integration-test
+    - e2e-test
+    - coverage
+    - mutation-testing
+    - performance-testing

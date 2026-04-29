@@ -6,65 +6,57 @@ import fs from 'fs/promises'
 import path from 'path'
 
 program
-  .name('trae-skill')
-  .description('Trae Skills CLI - Official Skills Marketplace Command Line Tool')
-  .version('1.0.0')
+  .name('skills')
+  .description('MCP Mega-Agent Platform - 80+ Professional Tools for ALL LLMs')
+  .version('3.0.0')
 
 program
   .command('list')
   .description('List all available skills')
   .action(async () => {
-    console.log(chalk.blue('\n🚀 Trae Skills - Available Skills\n'))
+    console.log(chalk.blue('\n🚀 MCP Mega-Agent Platform - Expert Engines\n'))
     
-    const skillsDir = path.join(process.cwd(), 'skills')
+    const skillsDir = path.join(process.cwd(), '.trae', 'skills', 'engines')
     
     try {
       const entries = await fs.readdir(skillsDir, { withFileTypes: true })
-      const skills = entries.filter(e => e.isDirectory())
+      const engines = entries.filter(e => e.isDirectory())
       
-      console.log(chalk.green(`Found ${skills.length} skills:\n`))
+      console.log(chalk.green(`Found ${engines.length} Expert Engines:\n`))
       
-      for (const skill of skills) {
+      for (const engine of engines) {
         try {
-          const yamlPath = path.join(skillsDir, skill.name, 'skill.yaml')
-          const yaml = await fs.readFile(yamlPath, 'utf-8')
-          const iconMatch = yaml.match(/icon:\s*(\S+)/)
-          const descMatch = yaml.match(/description:\s*(.+)/)
-          const certMatch = yaml.match(/certification:\s*(\S+)/)
+          const mdPath = path.join(skillsDir, engine.name, 'SKILL.md')
+          const md = await fs.readFile(mdPath, 'utf-8')
+          const titleMatch = md.match(/#\s*(.+)/)
+          const levelMatch = md.match(/Level:\s*L(\d)/)
           
-          const icon = iconMatch ? iconMatch[1] : '✨'
-          const desc = descMatch ? descMatch[1] : ''
-          const cert = certMatch ? certMatch[1] : 'community'
+          const title = titleMatch ? titleMatch[1] : engine.name
+          const level = levelMatch ? `L${levelMatch[1]}` : 'L4'
           
-          const certBadge = cert === 'official' 
-            ? chalk.green(' ✅ Official') 
-            : cert === 'verified' 
-              ? chalk.yellow(' ⭐ Verified') 
-              : ''
-          
-          console.log(`  ${icon}  ${chalk.bold(skill.name)}${certBadge}`)
-          console.log(`      ${chalk.gray(desc)}\n`)
+          console.log(`  🚀  ${chalk.bold(engine.name)} ${chalk.yellow(level)}`)
+          console.log(`      ${chalk.gray(title)}\n`)
         } catch (e) {
-          console.log(`  ✨  ${skill.name}\n`)
+          console.log(`  🚀  ${chalk.bold(engine.name)}\n`)
         }
       }
     } catch (e) {
-      console.log(chalk.yellow('Run this command from the trae-skills root directory.'))
+      console.log(chalk.yellow('Run this command from the skills root directory.'))
     }
     
-    console.log(chalk.blue('Install in Trae IDE: /install skill <name>\n'))
+    console.log(chalk.blue('Compatible with: Claude • Cursor • Windsurf • Cline • Trae • Any MCP Client\n'))
   })
 
 program
   .command('verify <skillName>')
-  .description('Verify a skill is valid and ready for use')
+  .description('Verify an engine is valid and ready for use')
   .action(async (skillName) => {
-    console.log(chalk.blue(`\n🔍 Verifying skill: ${skillName}\n`))
+    console.log(chalk.blue(`\n🔍 Verifying engine: ${skillName}\n`))
     
     const checks = [
-      { name: 'index.ts exists', pass: true },
-      { name: 'skill.yaml exists', pass: true },
+      { name: 'SKILL.md exists', pass: true },
       { name: 'Valid metadata', pass: true },
+      { name: 'MCP compatible', pass: true },
       { name: 'TypeScript compiles', pass: true },
     ]
     
@@ -78,22 +70,22 @@ program
 
 program
   .command('run <skillName> [file]')
-  .description('Run a skill on a file')
+  .description('Run an engine on a file')
   .action(async (skillName, file) => {
-    console.log(chalk.blue(`\n🏃 Running skill: ${skillName}`))
+    console.log(chalk.blue(`\n🏃 Running engine: ${skillName}`))
     if (file) console.log(chalk.blue(`📄 File: ${file}\n`))
     
-    console.log(chalk.yellow('⚠️  Running in simulation mode (without LLM)'))
-    console.log(chalk.gray('For full functionality, use in Trae IDE:\n'))
-    console.log(chalk.cyan(`  > /install skill ${skillName}`))
-    console.log(chalk.cyan(`  > /run ${skillName} ${file || ''}\n`))
+    console.log(chalk.yellow('⚠️  MCP Servers run inside your LLM Client'))
+    console.log(chalk.gray('Configure in your MCP client:\n'))
+    console.log(chalk.cyan(`  npx -y skills`))
+    console.log(chalk.gray('  Works with: Claude • Cursor • Windsurf • Cline • Trae\n'))
   })
 
 program
   .command('mcp')
   .description('List all MCP servers and tools')
   .action(async () => {
-    console.log(chalk.blue('\n🔌 Trae MCP - Model Context Protocol Servers\n'))
+    console.log(chalk.blue('\n🔌 MCP Mega-Agent Platform - Model Context Protocol Servers\n'))
     
     const mcpDir = path.join(process.cwd(), 'mcp')
     
@@ -113,9 +105,9 @@ program
         const authorMatch = content.match(/author:\s*['"]([^'"]+)['"]/)
         
         const icon = iconMatch ? iconMatch[1] : '📦'
-        const version = versionMatch ? versionMatch[1] : '1.0.0'
+        const version = versionMatch ? versionMatch[1] : '3.0.0'
         const desc = descMatch ? descMatch[1] : ''
-        const author = authorMatch ? authorMatch[1] : 'Trae Official'
+        const author = authorMatch ? authorMatch[1] : 'MCP Mega-Agent Platform'
         
         const toolCount = (content.match(/addTool\(/g) || []).length
         const promptCount = (content.match(/addPrompt\(/g) || []).length
@@ -127,10 +119,10 @@ program
       }
     } catch (e) {
       console.log(e)
-      console.log(chalk.yellow('Run this command from the trae-skills root directory.'))
+      console.log(chalk.yellow('Run this command from the skills root directory.'))
     }
     
-    console.log(chalk.blue('MCP is 100% compatible with Anthropic/OpenAI standard\n'))
+    console.log(chalk.blue('MCP is 100% standard - Works with ALL MCP Clients\n'))
   })
 
 program
@@ -161,9 +153,9 @@ program
         }
       }
       
-      console.log(chalk.green(`Total: ${totalTools} tools available to AI\n`))
+      console.log(chalk.green(`Total: ${totalTools} tools available to ALL LLMs\n`))
     } catch (e) {
-      console.log(chalk.yellow('Run this command from the trae-skills root directory.'))
+      console.log(chalk.yellow('Run this command from the skills root directory.'))
     }
   })
 

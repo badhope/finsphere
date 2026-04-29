@@ -98,23 +98,30 @@ export function listAvailableModules() {
 
 export function getModuleCategories() {
   return {
-    core: ['core-dev-kit', 'template', 'all-in-one-dev'],
-    ai: ['agent-autonomous', 'agent-multi', 'agent-reflection', 'thinking', 'memory', 'openai'],
-    frontend: ['frontend-dev-kit', 'react', 'typescript', 'ui-design-kit', 'library-manager', 'colors'],
-    backend: ['backend-dev-kit', 'api-dev', 'database', 'mongodb', 'redis', 'json', 'yaml'],
-    devops: [
-      'docker', 'kubernetes', 'git', 'github', 'gitlab', 'gitee', 'bitbucket',
-      'aws', 'aws-dev', 'aliyun', 'cloudflare', 'vercel', 'sentry', 'observability-mq',
-      'ssh', 'terminal', 'system-admin', 'network'
+    engines: {
+      'fullstack-engine': ['core-dev-kit', 'all-in-one-dev', 'template', 'code-generator', 'diff', 'library-manager'],
+      'bug-hunter': ['debugging-workflow', 'dependency-analyzer'],
+      'security-auditor': ['security-auditor', 'code-review'],
+      'devops-engineer': [
+        'docker', 'kubernetes', 'git', 'github', 'gitlab', 'gitee', 'bitbucket',
+        'aws', 'aws-dev', 'aliyun', 'cloudflare', 'vercel', 'sentry', 'observability-mq',
+        'ssh', 'terminal', 'system-admin', 'network'
+      ],
+      'code-quality-expert': ['refactoring-workflow', 'coding-workflow', 'code-rag'],
+      'ai-agent-architect': ['agent-autonomous', 'agent-multi', 'agent-reflection', 'thinking', 'memory', 'openai'],
+      'documentation-suite': ['documentation', 'markdown', 'pdf', 'academic-writing'],
+      'frontend-master': ['frontend-dev-kit', 'react', 'typescript', 'ui-design-kit', 'colors'],
+      'backend-master': ['backend-dev-kit', 'api-dev', 'database', 'mongodb', 'redis', 'json', 'yaml', 'env', 'encoding'],
+      'database-specialist': ['database', 'mongodb', 'redis'],
+      'testing-master': ['qa-dev-kit', 'testing-toolkit', 'test-generator', 'performance-optimizer']
+    },
+    foundation: [
+      'filesystem', 'terminal', 'search', 'web-search', 'search-tools', 'search-pdf-advanced',
+      'datetime', 'math', 'regex', 'random', 'compression', 'csv', 'spreadsheet', 'images'
     ],
-    qa: ['qa-dev-kit', 'testing-toolkit', 'test-generator', 'code-review', 'security-auditor', 'performance-optimizer'],
-    workflows: ['coding-workflow', 'debugging-workflow', 'refactoring-workflow', 'documentation', 'code-rag'],
-    tools: [
-      'code-generator', 'dependency-analyzer', 'diff', 'encoding', 'env', 'filesystem',
-      'compression', 'csv', 'spreadsheet', 'datetime', 'math', 'markdown', 'pdf',
-      'search', 'search-pdf-advanced', 'search-tools', 'web-search', 'regex',
-      'random', 'puppeteer', 'browser-automation', 'web-crawler', 'images',
-      'academic-writing', 'game-dev-toolkit', 'site-generator', 'website-builder', 'fun', 'jira'
+    integrations: [
+      'puppeteer', 'browser-automation', 'web-crawler', 'site-generator', 'website-builder',
+      'game-dev-toolkit', 'jira', 'fun'
     ]
   }
 }
@@ -122,11 +129,20 @@ export function getModuleCategories() {
 if (require.main === module) {
   const moduleName = process.argv[2]
   if (moduleName === 'list') {
-    console.log('📦 Available MCP Modules (80):')
+    console.log('📦 Available MCP Modules (80+):')
     const categories = getModuleCategories()
     for (const [category, mods] of Object.entries(categories)) {
-      console.log(`\n${category.toUpperCase()} (${mods.length}):`)
-      mods.forEach(m => console.log(`  - ${m}`))
+      if (Array.isArray(mods)) {
+        console.log(`\n${category.toUpperCase()} (${mods.length}):`)
+        mods.forEach((m: string) => console.log(`  - ${m}`))
+      } else {
+        const engineCount = Object.keys(mods).length
+        console.log(`\n${category.toUpperCase()} (${engineCount} engines):`)
+        for (const [engine, tools] of Object.entries(mods)) {
+          const toolList = tools as string[]
+          console.log(`  - ${engine}: ${toolList.length} tools`)
+        }
+      }
     }
   } else if (moduleName && modules[moduleName]) {
     loadMCPModule(moduleName).catch(console.error)
