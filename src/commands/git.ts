@@ -330,3 +330,56 @@ gitCommand
     printInfo(`提交前缀: ${chalk.cyan(currentConfig.commitPrefix)}`);
     printInfo(`AI 作者: ${chalk.dim(`${currentConfig.authorName} <${currentConfig.authorEmail}>`)}`);
   });
+
+// ─── git push ─────────────────────────────────────────────
+gitCommand
+  .command('push')
+  .description('推送到远程仓库')
+  .option('-r, --remote <remote>', '远程仓库名', 'origin')
+  .option('-b, --branch <branch>', '分支名')
+  .action(async (options) => {
+    printHeader();
+    const git = new GitManager();
+
+    if (!(await git.isRepo())) {
+      printError('当前目录不是 Git 仓库');
+      return;
+    }
+
+    try {
+      const result = await git.push(options.remote, options.branch);
+      if (result.success) {
+        printSuccess(result.message);
+      } else {
+        printError(result.message);
+      }
+    } catch (error: any) {
+      printError(`推送失败: ${error.message}`);
+    }
+  });
+
+// ─── git pr ───────────────────────────────────────────────
+gitCommand
+  .command('pr')
+  .description('创建 Pull Request')
+  .argument('[title]', 'PR 标题')
+  .option('--body <body>', 'PR 描述')
+  .option('--base <base>', '目标分支')
+  .action(async (title, options) => {
+    printHeader();
+    const git = new GitManager();
+
+    if (!(await git.isRepo())) {
+      printError('当前目录不是 Git 仓库');
+      return;
+    }
+
+    try {
+      const prTitle = title || await git.getCurrentBranch();
+      printInfo(`正在创建 PR: ${chalk.cyan(prTitle)}`);
+      const result = await git.createPR(prTitle, options.body, options.base);
+      printSuccess(`PR 创建成功: ${result}`);
+    } catch (error: any) {
+      printError(`PR 创建失败: ${error.message}`);
+    }
+  });

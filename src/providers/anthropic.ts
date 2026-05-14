@@ -1,5 +1,5 @@
 import { BaseProvider } from '../base.js';
-import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message } from '../types.js';
+import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message, ImageContent, TextContent } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
 
 interface AnthropicResponse {
@@ -220,17 +220,55 @@ export class AnthropicProvider extends BaseProvider {
     }
   }
 
-  private convertMessages(messages: Message[]): { system?: string; messages: Array<{ role: string; content: string }> } {
-    const result: Array<{ role: string; content: string }> = [];
+  private convertMessages(messages: Message[]): { system?: string; messages: Array<{ role: string; content: any }> } {
+    const result: Array<{ role: string; content: any }> = [];
     let systemMessage: string | undefined;
 
     for (const msg of messages) {
       if (msg.role === 'system') {
-        systemMessage = msg.content;
+        systemMessage = typeof msg.content === 'string' ? msg.content : String(msg.content);
+      } else if (Array.isArray(msg.content)) {
+        // 处理多模态内容
+        const hasImage = msg.content.some(c => typeof c === 'object' && c.type === 'image_url');
+        if (hasImage) {
+          const content = msg.content.map(c => {
+            if (typeof c === 'object' && c.type === 'text') {
+              return { type: 'text', text: (c as TextContent).text };
+            } else if (typeof c === 'object' && c.type === 'image_url') {
+              const url = (c as ImageContent).image_url.url;
+              // Anthropic 需要 base64 格式
+              if (url.startsWith('data:')) {
+                const matches = url.match(/^data:(.+);base64,(.+)$/);
+                if (matches) {
+                  return {
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: matches[1],
+                      data: matches[2]
+                    }
+                  };
+                }
+              }
+              return { type: 'text', text: '[图片]' };
+            }
+            return c;
+          });
+          result.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content });
+        } else {
+          // 纯文本数组，合并为单个字符串
+          const text = msg.content
+            .map(c => typeof c === 'object' && c.type === 'text' ? (c as TextContent).text : '')
+            .join('');
+          result.push({
+            role: msg.role === 'assistant' ? 'assistant' : 'user',
+            content: text,
+          });
+        }
       } else {
         result.push({
           role: msg.role === 'assistant' ? 'assistant' : 'user',
-          content: msg.content,
+          content: typeof msg.content === 'string' ? msg.content : String(msg.content),
         });
       }
     }

@@ -1,5 +1,5 @@
 import { BaseProvider } from '../base.js';
-import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig } from '../types.js';
+import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message, ImageContent, TextContent } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
 
 interface OpenAIResponse {
@@ -44,10 +44,11 @@ export class OpenAIProvider extends BaseProvider {
 
   async chat(params: ChatParams): Promise<ChatResponse> {
     const model = params.model || this.getDefaultModel();
-    
+    const convertedMessages = this.convertMessages(params.messages);
+
     const body = {
       model,
-      messages: params.messages,
+      messages: convertedMessages,
       temperature: params.temperature ?? 0.7,
       max_tokens: params.maxTokens ?? 4096,
       stream: false,
@@ -83,10 +84,11 @@ export class OpenAIProvider extends BaseProvider {
 
   async *stream(params: ChatParams): AsyncGenerator<StreamChunk> {
     const model = params.model || this.getDefaultModel();
-    
+    const convertedMessages = this.convertMessages(params.messages);
+
     const body = {
       model,
-      messages: params.messages,
+      messages: convertedMessages,
       temperature: params.temperature ?? 0.7,
       max_tokens: params.maxTokens ?? 4096,
       stream: true,
@@ -181,6 +183,38 @@ export class OpenAIProvider extends BaseProvider {
     } catch {
       return false;
     }
+  }
+
+  private convertMessages(messages: Message[]): Array<{role: string; content: any}> {
+    return messages.map(msg => {
+      // 处理多模态内容
+      if (Array.isArray(msg.content)) {
+        const hasImage = msg.content.some(c => typeof c === 'object' && c.type === 'image_url');
+        if (hasImage) {
+          return {
+            role: msg.role,
+            content: msg.content.map(c => {
+              if (typeof c === 'object' && c.type === 'text') {
+                return { type: 'text', text: (c as TextContent).text };
+              } else if (typeof c === 'object' && c.type === 'image_url') {
+                return { type: 'image_url', image_url: (c as ImageContent).image_url };
+              }
+              return c;
+            })
+          };
+        }
+        // 纯文本数组，合并为单个字符串
+        return {
+          role: msg.role,
+          content: msg.content.map(c => typeof c === 'object' && c.type === 'text' ? (c as TextContent).text : '').join('')
+        };
+      }
+      // 字符串内容
+      return {
+        role: msg.role,
+        content: typeof msg.content === 'string' ? msg.content : String(msg.content)
+      };
+    });
   }
 
   private mapFinishReason(reason: string | null): 'stop' | 'length' | 'content_filter' | undefined {

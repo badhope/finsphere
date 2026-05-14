@@ -62,9 +62,27 @@ export interface ChatParams {
   maxTokens?: number;
 }
 
+export interface ImageContent {
+  type: 'image_url';
+  image_url: {
+    url: string;  // base64 data URL 或 http URL
+    detail?: 'auto' | 'low' | 'high';
+  };
+}
+
+export interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+export type MessageContent = string | TextContent | ImageContent;
+
 export interface Message {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: MessageContent | MessageContent[];
+  timestamp?: string;
+  provider?: string;
+  model?: string;
 }
 
 export interface ChatResponse {

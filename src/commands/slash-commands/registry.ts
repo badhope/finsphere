@@ -83,6 +83,13 @@ const helpCommand: SlashCommand = {
     output += '  /diff         查看变更\n';
     output += '  /checkpoint   创建检查点\n';
     output += '\n';
+    output += chalk.bold('🖼️ 媒体:\n');
+    output += '  /image, /img  附加图片到对话\n';
+    output += '\n';
+    output += chalk.bold('快捷操作:\n');
+    output += '  !<命令>       直接执行 shell 命令\n';
+    output += '  /image <路径>  附加图片到对话\n';
+    output += '\n';
     return { handled: true, message: output };
   },
 };
@@ -389,6 +396,52 @@ const historyCommand: SlashCommand = {
   },
 };
 
+// /image — 附加图片到对话
+const imageCommand: SlashCommand = {
+  name: 'image',
+  aliases: ['img'],
+  description: '附加图片到对话 (/image <文件路径>)',
+  args: { name: '文件路径', description: '图片文件路径 (png, jpg, gif, webp)', required: true },
+  execute: async (ctx) => {
+    const imagePath = ctx.args.trim();
+    if (!imagePath) {
+      return {
+        handled: true,
+        message: chalk.yellow('用法: /image <文件路径>\n  支持的格式: png, jpg, gif, webp'),
+      };
+    }
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const fullPath = path.resolve(imagePath);
+      const ext = path.extname(fullPath).slice(1).toLowerCase();
+      const mediaType = ext === 'jpg' ? 'jpeg' : ext === 'svg' ? 'svg+xml' : ext;
+      const imageBuffer = await fs.readFile(fullPath);
+      const base64 = imageBuffer.toString('base64');
+      const imageUrl = `data:image/${mediaType};base64,${base64}`;
+
+      // 将图片添加到消息中
+      ctx.messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: '[用户附加了一张图片]' },
+          { type: 'image_url', image_url: { url: imageUrl, detail: 'auto' } }
+        ],
+        timestamp: new Date().toISOString(),
+      });
+      return {
+        handled: true,
+        message: chalk.green(`✓ 已附加图片: ${imagePath} (${(imageBuffer.length / 1024).toFixed(1)} KB)`),
+      };
+    } catch (err: any) {
+      return {
+        handled: true,
+        message: chalk.red(`✗ 图片读取失败: ${err.message}`),
+      };
+    }
+  },
+};
+
 // ═══════════════════════════════════════════════════════════
 // 命令注册表初始化
 // ═══════════════════════════════════════════════════════════
@@ -411,6 +464,7 @@ registerCommandToRegistry(COMMAND_REGISTRY, planCommand);
 registerCommandToRegistry(COMMAND_REGISTRY, compactCommand);
 registerCommandToRegistry(COMMAND_REGISTRY, copyCommand);
 registerCommandToRegistry(COMMAND_REGISTRY, historyCommand);
+registerCommandToRegistry(COMMAND_REGISTRY, imageCommand);
 
 /** 导出所有内置命令 */
 export const BUILT_IN_COMMANDS: SlashCommand[] = [
@@ -428,4 +482,5 @@ export const BUILT_IN_COMMANDS: SlashCommand[] = [
   compactCommand,
   copyCommand,
   historyCommand,
+  imageCommand,
 ];

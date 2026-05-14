@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { configManager } from '../../config/manager.js';
 import { PROVIDER_INFO, PROVIDER_TYPE_LIST, type ProviderType } from '../../types.js';
 import { printHeader, printSection, printSuccess, printError, printInfo } from '../../ui/logo.js';
@@ -11,6 +13,8 @@ import { executeSlashCommand } from '../slash-commands.js';
 import { PersonalityManager } from '../../agent/personality.js';
 import { EmotionalStateManager } from '../../agent/emotional-state.js';
 import { setCurrentSession } from '../../cli.js';
+
+const execFileAsync = promisify(execFile);
 
 export interface StartChatOptions {
   provider?: string;
@@ -93,7 +97,7 @@ export async function startInteractiveChat(options: StartChatOptions = {}): Prom
   }
 
   printSuccess(`使用 ${info.displayName} / ${modelId}`);
-  console.log(chalk.gray('  提示: 输入 /help 查看命令，Ctrl+C 退出（自动保存）\n'));
+  console.log(chalk.gray('  提示: 输入 /help 查看命令，! 执行 shell 命令，Ctrl+C 退出（自动保存）\n'));
 
   const provider = createProviderInstance(providerType);
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = options.resumeMessages || [];
@@ -159,6 +163,44 @@ export async function startInteractiveChat(options: StartChatOptions = {}): Prom
           }
           continue;
         }
+      }
+
+      // Bash 模式：! 开头直接执行 shell 命令
+      if (userInput.startsWith('!')) {
+        const command = userInput.slice(1).trim();
+        if (!command) {
+          console.log(chalk.dim('用法: !<shell命令>  例如: !ls -la'));
+          continue;
+        }
+
+        try {
+          // 解析命令
+          const parts = command.split(/\s+/);
+          const cmd = parts[0];
+          const args = parts.slice(1);
+
+          const { stdout, stderr } = await execFileAsync(cmd, args, {
+            cwd: process.cwd(),
+            timeout: 30000,
+            maxBuffer: 10 * 1024 * 1024,
+          });
+
+          if (stdout) console.log(stdout);
+          if (stderr) console.log(chalk.dim(stderr));
+
+          // 将命令和结果记录到对话中
+          messages.push({
+            role: 'user',
+            content: `![bash] ${command}`,
+          });
+          messages.push({
+            role: 'assistant',
+            content: `[命令执行结果]\n${stdout || '(无输出)'}${stderr ? '\n' + stderr : ''}`,
+          });
+        } catch (error: any) {
+          console.log(chalk.red(`命令执行失败: ${error.message}`));
+        }
+        continue;
       }
 
       // 从记忆中召回相关内容，注入 system prompt（需要配置开启）

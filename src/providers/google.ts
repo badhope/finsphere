@@ -223,11 +223,13 @@ export class GoogleProvider extends BaseProvider {
 
     for (const msg of messages) {
       if (msg.role === 'system') {
-        systemInstruction = { parts: [{ text: msg.content }] };
+        const textContent = typeof msg.content === 'string' ? msg.content : String(msg.content);
+        systemInstruction = { parts: [{ text: textContent }] };
       } else {
+        const textContent = typeof msg.content === 'string' ? msg.content : String(msg.content);
         contents.push({
           role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }],
+          parts: [{ text: textContent }],
         });
       }
     }

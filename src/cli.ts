@@ -14,6 +14,7 @@ import { toolsCommand } from './commands/tools.js';
 import { memoryCommand } from './commands/memory.js';
 import { agentCommand } from './commands/agent.js';
 import { gitCommand } from './commands/git.js';
+import { testCommand } from './commands/test-cmd.js';
 import { dataCommand } from './commands/data.js';
 import { configManager } from './config/manager.js';
 import { printHeader, printSuccess, printError, printInfo, printWarning } from './ui/logo.js';
@@ -115,6 +116,7 @@ program.addCommand(toolsCommand);
 program.addCommand(memoryCommand);
 program.addCommand(agentCommand);
 program.addCommand(gitCommand);
+program.addCommand(testCommand);
 program.addCommand(dataCommand);
 
 // 快捷命令：devflow ask（等同于 devflow chat ask）

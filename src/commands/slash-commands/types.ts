@@ -4,8 +4,11 @@
 
 /** 消息类型 */
 export type Message = {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | any;
+  timestamp?: string;
+  provider?: string;
+  model?: string;
 };
 
 /** 斜杠命令定义 */

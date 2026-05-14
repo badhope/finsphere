@@ -599,7 +599,13 @@ export class AgentExecutor {
    * 避免被 addToolResult 截断。
    */
   private getContextWithBuiltContext(): string[] {
-    const previousContext = this.contextManager.getContext().map(m => m.content);
+    const previousContext = this.contextManager.getContext().map(m => {
+      if (typeof m.content === 'string') return m.content;
+      if (Array.isArray(m.content)) {
+        return m.content.map(c => typeof c === 'string' ? c : (c as any).text || '').join('');
+      }
+      return String(m.content);
+    });
     const parts: string[] = [];
 
     // 注入人格描述

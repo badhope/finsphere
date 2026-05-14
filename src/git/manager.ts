@@ -249,4 +249,52 @@ export class GitManager {
         return { file, status, additions, deletions };
       });
   }
+
+  /**
+   * 推送到远程仓库
+   */
+  async push(remote = 'origin', branch?: string): Promise<GitResult> {
+    const branchName = branch || await this.getCurrentBranch();
+    gitLogger.debug({ remote, branch: branchName }, 'Pushing to remote');
+    const { stdout, stderr } = await this.exec(`push ${remote} ${branchName}`);
+    if (stderr && !stdout) {
+      gitLogger.error({ remote, branch: branchName, error: stderr }, 'Push failed');
+      return { success: false, message: stderr };
+    }
+    gitLogger.info({ remote, branch: branchName }, 'Push successful');
+    return { success: true, message: stdout || `已推送到 ${remote}/${branchName}` };
+  }
+
+  /**
+   * 获取远程仓库 URL
+   */
+  async getRemoteUrl(remote = 'origin'): Promise<string> {
+    const { stdout } = await this.exec(`remote get-url ${remote}`);
+    return stdout;
+  }
+
+  /**
+   * 创建 Pull Request（通过 gh CLI）
+   */
+  async createPR(title: string, body?: string, base?: string): Promise<string> {
+    const args = ['pr', 'create', '--title', title];
+    if (body) args.push('--body', body);
+    if (base) args.push('--base', base);
+    args.push('--fill');
+
+    try {
+      const { stdout } = await execFileAsync('gh', args, {
+        cwd: this.cwd,
+        maxBuffer: 1024 * 1024,
+      });
+      gitLogger.info({ title }, 'PR created successfully');
+      return stdout.trim();
+    } catch (error: any) {
+      if (error.message?.includes('gh: command not found')) {
+        throw new Error('需要安装 GitHub CLI (gh): https://cli.github.com/');
+      }
+      gitLogger.error({ title, error: error.stderr || error.message }, 'PR creation failed');
+      throw error;
+    }
+  }
 }
