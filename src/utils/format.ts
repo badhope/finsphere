@@ -17,3 +17,13 @@ export function formatContext(tokens: number): string {
   if (tokens >= 1000) return `${(tokens / 1000).toFixed(0)}K`;
   return String(tokens);
 }
+
+/**
+ * 格式化持续时间为人类可读字符串
+ */
+export function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
+  return `${(ms / 1000).toFixed(1)}s`;
+}

@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// 必须先导入 reflect-metadata 以支持 TSyringe 装饰器
+import 'reflect-metadata';
+
 import { Command } from 'commander';
 import { aiCommand } from './commands/ai.js';
 import { configCommand } from './commands/config.js';
@@ -15,6 +18,10 @@ import { configManager } from './config/manager.js';
 import { printHeader, printSuccess, printError, printInfo } from './ui/logo.js';
 import { showMainMenu } from './ui/menu.js';
 import { handleMenuChoice } from './ui/menu-handler.js';
+
+// 注册 DI 容器服务（可选，用于未来的依赖注入迁移）
+import { registerCoreServices } from './di/index.js';
+registerCoreServices();
 
 const program = new Command();
 

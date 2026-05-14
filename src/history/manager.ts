@@ -1,9 +1,16 @@
+import 'reflect-metadata';
+import { injectable } from 'tsyringe';
 import { v4 as uuidv4 } from 'uuid';
 import { historyStorage } from './storage.js';
 import type { Session, Message, SessionSummary, HistoryConfig } from './types.js';
 import { DEFAULT_HISTORY_CONFIG } from './types.js';
 import { configManager } from '../config/manager.js';
 
+/**
+ * 历史记录管理器
+ * 管理对话会话的历史记录
+ */
+@injectable()
 export class HistoryManager {
   private config: HistoryConfig;
   private currentSession: Session | null = null;

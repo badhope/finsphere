@@ -1,0 +1,532 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for DevFlow-Agent/src/base.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">DevFlow-Agent/src</a> base.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/149</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/149</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import type {<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
+<span class="cstat-no" title="statement not covered" >  ProviderType,</span>
+<span class="cstat-no" title="statement not covered" >  ChatParams,</span>
+<span class="cstat-no" title="statement not covered" >  ChatResponse,</span>
+<span class="cstat-no" title="statement not covered" >  StreamChunk,</span>
+<span class="cstat-no" title="statement not covered" >  ProviderConfig,</span>
+<span class="cstat-no" title="statement not covered" >  ModelInfo,</span>
+<span class="cstat-no" title="statement not covered" >  TokenUsage,</span>
+<span class="cstat-no" title="statement not covered" >  CostInfo,</span>
+<span class="cstat-no" title="statement not covered" >  PROVIDER_INFO</span>
+<span class="cstat-no" title="statement not covered" >} from './types.js';</span>
+<span class="cstat-no" title="statement not covered" >import { classifyError, shouldRetry, retryWithBackoff, retryStreamWithBackoff, type RetryConfig } from './utils/retry.js';</span>
+<span class="cstat-no" title="statement not covered" >import { calculateCost } from './utils/cost.js';</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >export type { ErrorCategory } from './utils/retry.js';</span>
+<span class="cstat-no" title="statement not covered" >export type { RetryConfig } from './utils/retry.js';</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >export abstract class BaseProvider {</span>
+<span class="cstat-no" title="statement not covered" >  protected config: ProviderConfig;</span>
+<span class="cstat-no" title="statement not covered" >  protected providerType: ProviderType;</span>
+<span class="cstat-no" title="statement not covered" >  protected providerInfo: typeof PROVIDER_INFO[ProviderType];</span>
+<span class="cstat-no" title="statement not covered" >  private _modelsCache: { data: string[]; timestamp: number } | null = null;</span>
+<span class="cstat-no" title="statement not covered" >  private static readonly CACHE_TTL = 60_000;</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  constructor(</span>
+<span class="cstat-no" title="statement not covered" >    providerType: ProviderType,</span>
+<span class="cstat-no" title="statement not covered" >    config: ProviderConfig,</span>
+<span class="cstat-no" title="statement not covered" >    providerInfo: typeof PROVIDER_INFO[ProviderType]</span>
+<span class="cstat-no" title="statement not covered" >  ) {</span>
+<span class="cstat-no" title="statement not covered" >    this.providerType = providerType;</span>
+<span class="cstat-no" title="statement not covered" >    this.config = config;</span>
+<span class="cstat-no" title="statement not covered" >    this.providerInfo = providerInfo;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  abstract chat(params: ChatParams): Promise&lt;ChatResponse&gt;;</span>
+<span class="cstat-no" title="statement not covered" >  abstract stream(params: ChatParams): AsyncGenerator&lt;StreamChunk&gt;;</span>
+<span class="cstat-no" title="statement not covered" >  abstract isAvailable(): Promise&lt;boolean&gt;;</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  async listRemoteModels(): Promise&lt;string[]&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const now = Date.now();</span>
+<span class="cstat-no" title="statement not covered" >    if (this._modelsCache &amp;&amp; now - this._modelsCache.timestamp &lt; BaseProvider.CACHE_TTL) {</span>
+<span class="cstat-no" title="statement not covered" >      return this._modelsCache.data;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >      const url = `${this.getBaseUrl()}/models`;</span>
+<span class="cstat-no" title="statement not covered" >      const response = await fetch(url, {</span>
+<span class="cstat-no" title="statement not covered" >        method: 'GET',</span>
+<span class="cstat-no" title="statement not covered" >        headers: this.buildHeaders(),</span>
+<span class="cstat-no" title="statement not covered" >        signal: AbortSignal.timeout(10000),</span>
+<span class="cstat-no" title="statement not covered" >      });</span>
+<span class="cstat-no" title="statement not covered" >      if (!response.ok) return this._modelsCache?.data || [];</span>
+<span class="cstat-no" title="statement not covered" >      const data: any = await response.json();</span>
+<span class="cstat-no" title="statement not covered" >      const models: Array&lt;{ id: string }&gt; = data.data || data || [];</span>
+<span class="cstat-no" title="statement not covered" >      const sorted = models.map(m =&gt; m.id).sort();</span>
+<span class="cstat-no" title="statement not covered" >      this._modelsCache = { data: sorted, timestamp: now };</span>
+<span class="cstat-no" title="statement not covered" >      return sorted;</span>
+<span class="cstat-no" title="statement not covered" >    } catch {</span>
+<span class="cstat-no" title="statement not covered" >      return this._modelsCache?.data || [];</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  async searchModels(keyword: string): Promise&lt;string[]&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const allModels = await this.listRemoteModels();</span>
+<span class="cstat-no" title="statement not covered" >    const lower = keyword.toLowerCase();</span>
+<span class="cstat-no" title="statement not covered" >    return allModels.filter(id =&gt; id.toLowerCase().includes(lower));</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  async findModel(modelName: string): Promise&lt;{ exact: string | null; candidates: string[] }&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const allModels = await this.listRemoteModels();</span>
+<span class="cstat-no" title="statement not covered" >    const lower = modelName.toLowerCase();</span>
+<span class="cstat-no" title="statement not covered" >    const exact = allModels.find(id =&gt; id.toLowerCase() === lower);</span>
+<span class="cstat-no" title="statement not covered" >    if (exact) return { exact, candidates: [] };</span>
+<span class="cstat-no" title="statement not covered" >    const prefixMatches = allModels.filter(id =&gt; id.toLowerCase().startsWith(lower));</span>
+<span class="cstat-no" title="statement not covered" >    if (prefixMatches.length === 1) return { exact: prefixMatches[0], candidates: [] };</span>
+<span class="cstat-no" title="statement not covered" >    if (prefixMatches.length &gt; 1) return { exact: null, candidates: prefixMatches };</span>
+<span class="cstat-no" title="statement not covered" >    const containsMatches = allModels.filter(id =&gt; id.toLowerCase().includes(lower));</span>
+<span class="cstat-no" title="statement not covered" >    if (containsMatches.length &gt; 0) return { exact: null, candidates: containsMatches.slice(0, 10) };</span>
+<span class="cstat-no" title="statement not covered" >    return { exact: null, candidates: [] };</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  getName(): string { return this.providerInfo.displayName; }</span>
+<span class="cstat-no" title="statement not covered" >  getType(): ProviderType { return this.providerType; }</span>
+<span class="cstat-no" title="statement not covered" >  getModels(): ModelInfo[] { return this.providerInfo.models; }</span>
+<span class="cstat-no" title="statement not covered" >  getDefaultModel(): string { return this.config.model || this.providerInfo.models[0]?.id || ''; }</span>
+<span class="cstat-no" title="statement not covered" >  getModelInfo(modelId: string): ModelInfo | undefined { return this.providerInfo.models.find(m =&gt; m.id === modelId); }</span>
+<span class="cstat-no" title="statement not covered" >  getConfig(): ProviderConfig { return { ...this.config }; }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  public calculateCost(usage: TokenUsage, modelId: string): CostInfo {</span>
+<span class="cstat-no" title="statement not covered" >    return calculateCost(usage, this.getModelInfo(modelId));</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  public getTimeout(): number { return this.config.timeout || 30000; }</span>
+<span class="cstat-no" title="statement not covered" >  public getMaxRetries(): number { return this.config.maxRetries || 3; }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  protected getRetryConfig(): RetryConfig {</span>
+<span class="cstat-no" title="statement not covered" >    return { maxRetries: this.getMaxRetries(), baseDelay: 1000, maxDelay: 60000 };</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  public classifyError(error: Error | Response) { return classifyError(error); }</span>
+<span class="cstat-no" title="statement not covered" >  public shouldRetry(error: Error | Response) { return shouldRetry(error); }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  protected buildHeaders(): Record&lt;string, string&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const headers: Record&lt;string, string&gt; = { 'Content-Type': 'application/json' };</span>
+<span class="cstat-no" title="statement not covered" >    const apiKey = this.getApiKey();</span>
+<span class="cstat-no" title="statement not covered" >    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;</span>
+<span class="cstat-no" title="statement not covered" >    return headers;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  protected getApiKey(): string | undefined { return this.config.apiKey; }</span>
+<span class="cstat-no" title="statement not covered" >  protected getBaseUrl(): string { return this.config.baseUrl || this.providerInfo.baseUrl; }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  protected async makeRequest&lt;T&gt;(endpoint: string, body: Record&lt;string, unknown&gt;): Promise&lt;T&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const url = `${this.getBaseUrl()}${endpoint}`;</span>
+<span class="cstat-no" title="statement not covered" >    const response = await fetch(url, {</span>
+<span class="cstat-no" title="statement not covered" >      method: 'POST',</span>
+<span class="cstat-no" title="statement not covered" >      headers: this.buildHeaders(),</span>
+<span class="cstat-no" title="statement not covered" >      body: JSON.stringify(body),</span>
+<span class="cstat-no" title="statement not covered" >      signal: AbortSignal.timeout(this.getTimeout())</span>
+<span class="cstat-no" title="statement not covered" >    });</span>
+<span class="cstat-no" title="statement not covered" >    if (!response.ok) {</span>
+<span class="cstat-no" title="statement not covered" >      const errorText = await response.text();</span>
+<span class="cstat-no" title="statement not covered" >      throw new Error(`API请求失败 (${response.status}): ${errorText}`);</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >    return response.json() as Promise&lt;T&gt;;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  protected async makeStreamRequest(url: string, body: Record&lt;string, unknown&gt;): Promise&lt;Response&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const response = await fetch(url, {</span>
+<span class="cstat-no" title="statement not covered" >      method: 'POST',</span>
+<span class="cstat-no" title="statement not covered" >      headers: this.buildHeaders(),</span>
+<span class="cstat-no" title="statement not covered" >      body: JSON.stringify(body),</span>
+<span class="cstat-no" title="statement not covered" >      signal: AbortSignal.timeout(this.getTimeout())</span>
+<span class="cstat-no" title="statement not covered" >    });</span>
+<span class="cstat-no" title="statement not covered" >    if (!response.ok) {</span>
+<span class="cstat-no" title="statement not covered" >      const errorText = await response.text();</span>
+<span class="cstat-no" title="statement not covered" >      throw new Error(`流式请求失败 (${response.status}): ${errorText}`);</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >    return response;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  protected async retryWithBackoff&lt;T&gt;(fn: () =&gt; Promise&lt;T&gt;, maxRetries?: number): Promise&lt;T&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const config = this.getRetryConfig();</span>
+<span class="cstat-no" title="statement not covered" >    return retryWithBackoff(fn, { ...config, maxRetries: maxRetries ?? config.maxRetries });</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  protected async retryStreamWithBackoff(fn: () =&gt; Promise&lt;Response&gt;): Promise&lt;Response&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    return retryStreamWithBackoff(fn, this.getRetryConfig());</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-05-14T04:07:56.910Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    

@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+import { injectable } from 'tsyringe';
 import fs from 'fs/promises';
 import path from 'path';
 import type { ProviderType } from '../types.js';
@@ -9,6 +11,11 @@ import { SANDBOX_PERMISSIONS, DEFAULT_CONFIG } from './defaults.js';
 export type { Config, ManagerProviderConfig, SandboxLevel };
 export { SANDBOX_PERMISSIONS, DEFAULT_CONFIG };
 
+/**
+ * 配置管理器
+ * 管理应用程序的配置，包括提供商设置、聊天配置、记忆配置和沙箱配置
+ */
+@injectable()
 export class ConfigManager {
   private configDir: string;
   private configFile: string;

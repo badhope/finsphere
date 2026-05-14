@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+import { injectable } from 'tsyringe';
 import { MEMORY_DIR } from '../utils/index.js';
 import { ragModule } from './rag.js';
 import fs from 'fs/promises';
@@ -11,6 +13,7 @@ export type { MemoryInteraction, MemoryRecord, MemoryStats };
  * 统一记忆管理器
  * 基于文件系统的对话记忆存储
  */
+@injectable()
 export class MemoryManager {
   private storagePath: string;
   private initialized = false;

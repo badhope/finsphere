@@ -1,3 +1,5 @@
+import 'reflect-metadata';
+import { injectable } from 'tsyringe';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -8,6 +10,7 @@ const execAsync = promisify(exec);
 /**
  * Git 管理器 - 封装所有 Git 操作
  */
+@injectable()
 export class GitManager {
   private cwd: string;
 

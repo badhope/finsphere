@@ -2,6 +2,8 @@
 // Plugin System - Plugin Loader
 // ============================================================
 
+import 'reflect-metadata';
+import { injectable } from 'tsyringe';
 import * as fs from 'fs/promises';
 import type { Dirent } from 'fs';
 import * as path from 'path';
@@ -31,6 +33,7 @@ export interface PluginLoaderOptions {
  * Discovery scans configured directories for `manifest.json` files.
  * Loading dynamically imports the plugin's main module (ESM).
  */
+@injectable()
 export class PluginLoader {
   private plugins: Map<string, Plugin> = new Map();
   private states: Map<string, PluginState> = new Map();
