@@ -65,14 +65,24 @@ const helpCommand: SlashCommand = {
   aliases: ['h', '?'],
   description: '显示所有可用命令',
   execute: async () => {
-    // Note: getAllCommands needs to be called with the registry
-    const cmds = getAllCommandsFromRegistry(COMMAND_REGISTRY);
-    let output = chalk.bold('\n📋 可用命令:\n');
-    for (const cmd of cmds) {
-      const aliasStr = cmd.aliases?.length ? ` (${cmd.aliases.map(a => `/${a}`).join(', ')})` : '';
-      output += `  ${chalk.cyan(`/${cmd.name}`)}${chalk.dim(aliasStr)}  ${cmd.description}\n`;
-    }
-    output += chalk.dim('\n  提示: /command <参数>  例如: /model gpt-4\n');
+    let output = '\n';
+    output += chalk.bold('📝 常用命令:\n');
+    output += '  /exit, /q     退出对话\n';
+    output += '  /clear        清空历史\n';
+    output += '  /model        切换模型\n';
+    output += '  /save         保存到记忆\n';
+    output += '\n';
+    output += chalk.bold('🔧 高级命令:\n');
+    output += '  /architect    双模型模式（规划+执行）\n';
+    output += '  /plan         Plan/Act 分步模式\n';
+    output += '  /compact      压缩历史\n';
+    output += '  /tokens       显示 token 用量\n';
+    output += '\n';
+    output += chalk.bold('📂 Git 相关:\n');
+    output += '  /undo         撤销上次提交\n';
+    output += '  /diff         查看变更\n';
+    output += '  /checkpoint   创建检查点\n';
+    output += '\n';
     return { handled: true, message: output };
   },
 };

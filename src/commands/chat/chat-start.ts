@@ -10,98 +10,108 @@ import { checkApiKey, createProviderInstance, getChatParams } from './helpers.js
 import { executeSlashCommand } from '../slash-commands.js';
 import { PersonalityManager } from '../../agent/personality.js';
 import { EmotionalStateManager } from '../../agent/emotional-state.js';
+import { setCurrentSession } from '../../cli.js';
 
-export const chatStartCommand = new Command('start')
-  .alias('s')
-  .description('开始新的对话')
-  .option('-p, --provider <provider>', '指定AI平台')
-  .option('-m, --model <model>', '指定模型')
-  .action(async (options: { provider?: string; model?: string }) => {
-    await configManager.init();
-    printHeader();
-    printSection('开始对话');
+export interface StartChatOptions {
+  provider?: string;
+  model?: string;
+  resumeMessages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+}
 
-    // 确定平台
-    let providerType: ProviderType;
-    if (options.provider) {
-      if (!PROVIDER_TYPE_LIST.includes(options.provider as ProviderType)) {
-        printError(`未知的平台: ${options.provider}`);
-        return;
-      }
-      providerType = options.provider as ProviderType;
+/**
+ * 启动交互式对话的核心函数
+ * 可从 chat start 命令或 chat-resume.ts 调用
+ */
+export async function startInteractiveChat(options: StartChatOptions = {}): Promise<void> {
+  printHeader();
+  printSection(options.resumeMessages ? '恢复对话' : '开始对话');
+
+  // 确定平台
+  let providerType: ProviderType;
+  if (options.provider) {
+    if (!PROVIDER_TYPE_LIST.includes(options.provider as ProviderType)) {
+      printError(`未知的平台: ${options.provider}`);
+      return;
+    }
+    providerType = options.provider as ProviderType;
+  } else {
+    const defaultProvider = configManager.getDefaultProvider();
+    const configuredProviders = PROVIDER_TYPE_LIST.filter(type =>
+      !PROVIDER_INFO[type].requiresApiKey || configManager.getApiKey(type)
+    );
+
+    if (configuredProviders.length === 0) {
+      printError('没有已配置的平台');
+      printInfo('请先运行: devflow config init');
+      return;
+    }
+
+    if (defaultProvider && configuredProviders.includes(defaultProvider)) {
+      providerType = defaultProvider;
+      printInfo(`使用默认平台: ${PROVIDER_INFO[providerType].displayName}`);
+    } else if (process.stdin.isTTY) {
+      const answer = await inquirer.prompt([{
+        type: 'list',
+        name: 'provider',
+        message: '选择AI平台:',
+        choices: configuredProviders.map(type => ({
+          name: `${PROVIDER_INFO[type].displayName} (${type})`,
+          value: type
+        }))
+      }]);
+      providerType = answer.provider;
     } else {
-      const defaultProvider = configManager.getDefaultProvider();
-      const configuredProviders = PROVIDER_TYPE_LIST.filter(type =>
-        !PROVIDER_INFO[type].requiresApiKey || configManager.getApiKey(type)
-      );
-
-      if (configuredProviders.length === 0) {
-        printError('没有已配置的平台');
-        printInfo('请先运行: devflow config init');
-        return;
-      }
-
-      if (defaultProvider && configuredProviders.includes(defaultProvider)) {
-        providerType = defaultProvider;
-        printInfo(`使用默认平台: ${PROVIDER_INFO[providerType].displayName}`);
-      } else if (process.stdin.isTTY) {
-        const answer = await inquirer.prompt([{
-          type: 'list',
-          name: 'provider',
-          message: '选择AI平台:',
-          choices: configuredProviders.map(type => ({
-            name: `${PROVIDER_INFO[type].displayName} (${type})`,
-            value: type
-          }))
-        }]);
-        providerType = answer.provider;
-      } else {
-        printError('未设置默认平台，请使用 --provider 指定平台');
-        return;
-      }
+      printError('未设置默认平台，请使用 --provider 指定平台');
+      return;
     }
+  }
 
-    if (!checkApiKey(providerType)) return;
+  if (!checkApiKey(providerType)) return;
 
-    const providerConfig = configManager.getProviderConfig(providerType);
-    const info = PROVIDER_INFO[providerType];
+  const providerConfig = configManager.getProviderConfig(providerType);
+  const info = PROVIDER_INFO[providerType];
 
-    // 确定模型
-    let modelId = options.model || providerConfig.defaultModel || info.models[0]?.id || 'unknown';
-    if (!modelId) {
-      const defaultModel = providerConfig.defaultModel || info.models[0]?.id;
-      if (!process.stdin.isTTY) {
-        modelId = defaultModel;
-      } else {
-        const { model } = await inquirer.prompt([{
-          type: 'list',
-          name: 'model',
-          message: '选择模型:',
-          default: defaultModel,
-          choices: info.models.map(m => ({
-            name: `${m.name} ($${m.pricing.inputPerMillion}/M tokens)`,
-            value: m.id
-          }))
-        }]);
-        modelId = model;
-      }
+  // 确定模型
+  let modelId = options.model || providerConfig.defaultModel || info.models[0]?.id || 'unknown';
+  if (!modelId) {
+    const defaultModel = providerConfig.defaultModel || info.models[0]?.id;
+    if (!process.stdin.isTTY) {
+      modelId = defaultModel;
+    } else {
+      const { model } = await inquirer.prompt([{
+        type: 'list',
+        name: 'model',
+        message: '选择模型:',
+        default: defaultModel,
+        choices: info.models.map(m => ({
+          name: `${m.name} ($${m.pricing.inputPerMillion}/M tokens)`,
+          value: m.id
+        }))
+      }]);
+      modelId = model;
     }
+  }
 
-    printSuccess(`使用 ${info.displayName} / ${modelId}`);
-    console.log(chalk.gray('  输入 /help 查看命令，输入 /exit 退出对话\n'));
+  printSuccess(`使用 ${info.displayName} / ${modelId}`);
+  console.log(chalk.gray('  提示: 输入 /help 查看命令，Ctrl+C 退出（自动保存）\n'));
 
-    const provider = createProviderInstance(providerType);
-    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
-    const chatParams = getChatParams();
-    const memoryConfig = configManager.getMemoryConfig();
+  const provider = createProviderInstance(providerType);
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = options.resumeMessages || [];
+  const chatParams = getChatParams();
+  const memoryConfig = configManager.getMemoryConfig();
 
-    // 初始化人格和情绪系统
-    const personalityManager = new PersonalityManager();
-    const emotionalState = new EmotionalStateManager();
-    await personalityManager.load();
-    personalityManager.incrementInteractions();
+  // 生成会话 ID 并注册到全局状态追踪
+  const sessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  setCurrentSession(sessionId, messages);
 
-    // 注入人格 system prompt
+  // 初始化人格和情绪系统
+  const personalityManager = new PersonalityManager();
+  const emotionalState = new EmotionalStateManager();
+  await personalityManager.load();
+  personalityManager.incrementInteractions();
+
+  // 如果是新对话，注入人格 system prompt
+  if (!options.resumeMessages) {
     const personalityPrompt = personalityManager.getPersonalityPrompt();
     const commGuidance = personalityManager.getCommunicationGuidance();
     const codeGuidance = personalityManager.getCodeStyleGuidance();
@@ -112,8 +122,10 @@ export const chatStartCommand = new Command('start')
         content: `${personalityPrompt}\n\n沟通风格指导: ${commGuidance}\n代码风格指导: ${codeGuidance}\n风险评估指导: ${riskGuidance}`,
       });
     }
+  }
 
-    // 对话循环
+  // 对话循环
+  try {
     while (true) {
       if (!process.stdin.isTTY) {
         printInfo('非交互模式，请使用 chat ask 命令');
@@ -170,6 +182,9 @@ export const chatStartCommand = new Command('start')
 
       messages.push({ role: 'user', content: userInput });
 
+      // 更新全局会话状态（用于断开保护）
+      setCurrentSession(sessionId, messages);
+
       // 检测用户情绪信号，更新情绪状态
       if (/谢谢|感谢|厉害|不错|好的|很好|棒|perfect|great|thanks/i.test(userInput)) {
         emotionalState.onUserPraise(userInput);
@@ -215,6 +230,15 @@ export const chatStartCommand = new Command('start')
         console.log('\n');
 
         messages.push({ role: 'assistant', content: fullContent });
+
+        // 更新全局会话状态
+        setCurrentSession(sessionId, messages);
+
+        // 每 10 轮对话提示一次已保存
+        const nonSystemCount = messages.filter(m => m.role !== 'system').length;
+        if (nonSystemCount % 10 === 0 && nonSystemCount > 0) {
+          console.log(chalk.dim('  💾 对话已自动保存'));
+        }
 
         // 自动压缩检查：如果消息过多，尝试 AI 压缩
         if (messages.length > chatParams.historyLimit * 2) {
@@ -274,7 +298,21 @@ export const chatStartCommand = new Command('start')
         console.log();
       }
     }
+  } finally {
+    // 清除会话追踪
+    setCurrentSession('', []);
+  }
 
-    // 对话结束，保存人格状态
-    await personalityManager.save().catch(() => {});
+  // 对话结束，保存人格状态
+  await personalityManager.save().catch(() => {});
+}
+
+export const chatStartCommand = new Command('start')
+  .alias('s')
+  .description('开始新的对话')
+  .option('-p, --provider <provider>', '指定AI平台')
+  .option('-m, --model <model>', '指定模型')
+  .action(async (options: { provider?: string; model?: string }) => {
+    await configManager.init();
+    await startInteractiveChat(options);
   });

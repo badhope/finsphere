@@ -31,21 +31,23 @@ export async function showGroupedMenu(
   } = options;
 
   const choices: { name: string; value: string; short: string }[] = [];
+  let globalIndex = 0; // 全局连续编号
 
   groups.forEach(group => {
     if (group.title) {
       choices.push(new inquirer.Separator(chalk.bold.yellow(`  ── ${group.title} ──`)) as any);
     }
 
-    group.items.forEach((item, idx) => {
+    group.items.forEach((item) => {
       const icon = item.icon ? `${item.icon} ` : '';
       const desc = item.description ? chalk.gray(` - ${item.description}`) : '';
-      const num = idx < 9 ? chalk.green(`${idx + 1}.`) : '  ';
+      const num = globalIndex < 9 ? chalk.green(`${globalIndex + 1}.`) : chalk.dim(`${globalIndex + 1}.`);
       choices.push({
         name: `${num} ${icon}${item.label}${desc}`,
         value: item.value,
         short: item.label,
       });
+      globalIndex++;
     });
 
     choices.push(new inquirer.Separator('') as any);

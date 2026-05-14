@@ -28,18 +28,75 @@ import { initializeContainer } from './di/index.js';
 initializeContainer();
 
 // 导入需要在清理时停止的服务
+import path from 'path';
+import fs from 'fs/promises';
 import { syncManager } from './cloud/sync-manager.js';
+import { DEVFLOW_DIR } from './utils/index.js';
+import { decisionReflector } from './agent/decision-reflector.js';
+
+// 全局状态追踪
+let currentSessionId: string | null = null;
+let currentMessages: Array<{role: string; content: string}> = [];
+
+// 供 chat-start.ts 调用以追踪当前对话
+export function setCurrentSession(sessionId: string, messages: Array<{role: string; content: string}>) {
+  currentSessionId = sessionId;
+  currentMessages = messages;
+}
 
 // 注册全局清理处理器
-const cleanup = () => {
-  // 停止所有自动同步
-  syncManager.stopAutoSync();
-  // 清理定时器
-  // 保存未保存的状态
+const cleanup = async () => {
+  console.log('\n正在保存状态...');
+  
+  try {
+    // 1. 停止所有自动同步
+    syncManager.stopAutoSync();
+    
+    // 2. 保存当前对话（如果有）
+    if (currentSessionId && currentMessages.length > 0) {
+      const sessionFile = path.join(DEVFLOW_DIR, 'sessions', `${currentSessionId}.json`);
+      await fs.mkdir(path.dirname(sessionFile), { recursive: true });
+      await fs.writeFile(sessionFile, JSON.stringify({
+        id: currentSessionId,
+        messages: currentMessages,
+        savedAt: new Date().toISOString(),
+        interrupted: true
+      }, null, 2));
+      console.log('✓ 对话已保存');
+    }
+    
+    // 3. 保存决策历史
+    await decisionReflector.save();
+    console.log('✓ 决策历史已保存');
+    
+    // 4. 执行最后一次同步（非阻塞，最多等待 3 秒）
+    await Promise.race([
+      syncManager.sync().catch(() => {}),
+      new Promise(resolve => setTimeout(resolve, 3000))
+    ]);
+    
+    console.log('✓ 状态保存完成');
+  } catch (err) {
+    console.error('保存状态时出错:', err);
+  }
 };
-process.on('exit', cleanup);
-process.on('SIGINT', () => { cleanup(); process.exit(0); });
-process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+
+// 同步版本用于 exit 事件
+const cleanupSync = () => {
+  // exit 事件中无法执行异步操作，但可以触发
+  cleanup().catch(() => {});
+};
+
+process.on('exit', cleanupSync);
+process.on('SIGINT', async () => { 
+  await cleanup(); 
+  console.log('\n再见！');
+  process.exit(0); 
+});
+process.on('SIGTERM', async () => { 
+  await cleanup(); 
+  process.exit(0); 
+});
 
 const program = new Command();
 
@@ -59,6 +116,23 @@ program.addCommand(memoryCommand);
 program.addCommand(agentCommand);
 program.addCommand(gitCommand);
 program.addCommand(dataCommand);
+
+// 快捷命令：devflow ask（等同于 devflow chat ask）
+program
+  .command('ask <question>')
+  .description('快速提问（等同于 chat ask）')
+  .option('-m, --model <model>', '指定模型')
+  .option('-p, --provider <provider>', '指定平台')
+  .option('-s, --stream', '流式输出', true)
+  .action(async (question, options) => {
+    await configManager.init();
+    const { askQuestion } = await import('./commands/chat/chat-ask.js');
+    await askQuestion(question, {
+      model: options.model,
+      provider: options.provider,
+      stream: options.stream
+    });
+  });
 
 program
   .command('help-interactive')
