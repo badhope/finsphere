@@ -91,6 +91,7 @@ export const chatStartCommand = new Command('start')
     const provider = createProviderInstance(providerType);
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
     const chatParams = getChatParams();
+    const memoryConfig = configManager.getMemoryConfig();
 
     // 对话循环
     while (true) {
@@ -128,6 +129,25 @@ export const chatStartCommand = new Command('start')
         }
       }
 
+      // 从记忆中召回相关内容，注入 system prompt（需要配置开启）
+      if (memoryConfig.enabled && memoryConfig.autoRecall) {
+        const memoryResults = await memoryManager.recall(userInput, 5);
+        if (memoryResults.length > 0) {
+          const memoryContext = memoryResults.map(r =>
+            `[${new Date(r.interaction.timestamp).toLocaleString('zh-CN')}]\n用户: ${r.interaction.input}\nAI: ${r.interaction.output.slice(0, 300)}`
+          ).join('\n---\n');
+          // 移除上一轮注入的记忆 system message（如果存在），避免重复累积
+          const memorySysIdx = messages.findIndex(m => m.role === 'system' && m.content.startsWith('以下是用户之前与你的对话记忆'));
+          if (memorySysIdx !== -1) {
+            messages.splice(memorySysIdx, 1);
+          }
+          messages.push({
+            role: 'system',
+            content: `以下是用户之前与你的对话记忆，请参考这些上下文来回答当前问题：\n\n${memoryContext}\n\n请基于以上记忆上下文回答用户的新问题。如果用户问到了之前提过的信息（如名字、偏好等），请直接使用记忆中的信息。`,
+          });
+        }
+      }
+
       messages.push({ role: 'user', content: userInput });
 
       try {
@@ -152,11 +172,47 @@ export const chatStartCommand = new Command('start')
         console.log('\n');
 
         messages.push({ role: 'assistant', content: fullContent });
+
+        // 自动压缩检查：如果消息过多，尝试 AI 压缩
         if (messages.length > chatParams.historyLimit * 2) {
-          messages.splice(0, 2);
+          try {
+            const { CompressionService } = await import('../../services/compression-service.js');
+            const adapterFactory = {
+              getDefaultProvider: () => provider,
+              getProvider: () => provider,
+              listAvailableProviders: () => [providerType],
+              isProviderAvailable: () => true,
+            };
+            const compressionService = new CompressionService(
+              adapterFactory as any,
+              configManager as any
+            );
+
+            if (compressionService.shouldCompress(messages)) {
+              const nonSystemMessages = messages.filter(m => m.role !== 'system');
+              const result = await compressionService.compressMessages(nonSystemMessages);
+
+              if (result.summary) {
+                const systemMsgs = messages.filter(m => m.role === 'system');
+                const recentMsgs = messages.filter(m => m.role !== 'system').slice(-4);
+                messages.length = 0;
+                messages.push(...systemMsgs);
+                messages.push({
+                  role: 'system',
+                  content: `[对话历史摘要]\n${result.summary}`,
+                });
+                messages.push(...recentMsgs);
+                console.log(chalk.dim(
+                  `\n  对话已自动压缩 (${result.originalMessages}条→${messages.length}条, 节省~${result.tokensSaved} tokens)\n`
+                ));
+              }
+            }
+          } catch {
+            // 自动压缩失败，回退到简单截断
+            messages.splice(0, 2);
+          }
         }
 
-        const memoryConfig = configManager.getMemoryConfig();
         if (memoryConfig.enabled) {
           memoryManager.rememberChat({
             input: userInput,

@@ -31,3 +31,6 @@ export { AgentService, type AgentTask, type AgentTaskResult } from './agent-serv
 
 // 导出 Memory 服务
 export { MemoryService, type MemoryEntry, type MemorySearchResult } from './memory-service.js';
+
+// 导出 Compression 服务
+export { CompressionService, type CompressionResult } from './compression-service.js';

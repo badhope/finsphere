@@ -1,7 +1,8 @@
 import { toolRegistry } from '../tools/registry.js';
 import { memoryManager } from '../memory/manager.js';
 import { KnowledgeGraph } from '../memory/knowledgeGraph.js';
-import { reasonStep } from './reasoner.js';
+import { reasonStep, reasonWithSelfCorrection } from './reasoner.js';
+import { DecisionReflector } from './decision-reflector.js';
 import { detectIssues, generateTrustReport, askUserConfirmation, TrustLevel } from './trust.js';
 import { ContextManager } from './context-manager.js';
 import { ContextBuilder, contextBuilder, type KnowledgeEntry } from './context-builder.js';
@@ -43,6 +44,9 @@ export class AgentExecutor {
   private codeIndex?: CodeIndex;
   private changedFiles: string[] = [];
   private rootDir: string;
+  private builtContext: string = '';
+  private decisionReflector: DecisionReflector;
+  private currentDecisionId?: string;
 
   constructor(
     userInput: string,
@@ -71,6 +75,7 @@ export class AgentExecutor {
     this.autoCommit = new AutoCommitEngine(process.cwd());
     this.changeControl = new ChangeControlManager();
     this.knowledgeGraph = new KnowledgeGraph();
+    this.decisionReflector = new DecisionReflector();
     this.rootDir = options?.rootDir || process.cwd();
 
     // ChangeControl 默认启用
@@ -116,9 +121,9 @@ export class AgentExecutor {
           this.output(chalk.dim(`  ✓ 代码结构图已生成 (${contextResult.codeEntryCount} 个符号)`));
         }
 
-        // Add context to the context manager
+        // Add context to the context manager and store for direct injection
         if (contextResult.context) {
-          this.contextManager.addToolResult('context_builder', contextResult.context, true);
+          this.builtContext = contextResult.context;
           this.output(chalk.dim(`  ✓ 知识图谱已查询 (${contextResult.knowledgeEntryCount} 个相关条目)`));
         }
       } catch (error) {
@@ -153,14 +158,36 @@ export class AgentExecutor {
         try {
           if (step.tool) {
             agentLogger.debug({ taskId: this.task.id, step: i, tool: step.tool }, 'Executing tool step');
+
+            // 记录决策：选择当前工具
+            const availableToolsList = [...toolRegistry.keys()];
+            const chosenTool = step.tool;
+            const reasoning = `步骤 "${step.description}" 需要使用工具 "${chosenTool}" 来完成`;
+            this.currentDecisionId = await this.decisionReflector.recordDecision(
+              this.task.id,
+              step.description,
+              { taskDescription: this.task.userInput, stepIndex: i },
+              availableToolsList.map(t => ({
+                id: t,
+                description: `工具: ${t}`,
+                pros: [],
+                cons: [],
+                risk: t === chosenTool ? 0 : 0.5,
+                benefits: t === chosenTool ? 1 : 0.5,
+              })),
+              chosenTool,
+              reasoning,
+              0.8
+            );
+            agentLogger.debug({ taskId: this.task.id, decisionId: this.currentDecisionId }, 'Decision recorded');
+
             if (!step.args || Object.keys(step.args).length === 0) {
               this.output(chalk.dim(`  🧠 AI 推理工具参数: ${chalk.cyan(step.tool)}...`));
-              const previousContext = this.contextManager.getContext();
               const paramReasoning = await reasonStep({
                 taskDescription: this.task.userInput,
                 intent: this.task.intent || 'chat',
                 stepDescription: `为工具 "${step.tool}" 确定执行参数。步骤描述: ${step.description}。请以 JSON 格式输出参数，例如: {"command": "ls -la"} 或 {"path": "/src/index.ts", "content": "..."}`,
-                previousResults: previousContext.map(m => m.content),
+                previousResults: this.getContextWithBuiltContext(),
                 availableTools: [step.tool],
               });
               step.args = parseToolArgsFromAI(step.tool, paramReasoning);
@@ -170,6 +197,18 @@ export class AgentExecutor {
             this.output(chalk.green(`  ✓ 完成: ${step.description}`));
             agentLogger.info({ taskId: this.task.id, step: i, tool: step.tool }, 'Tool step completed');
             this.contextManager.addToolResult(step.tool, step.result, true);
+
+            // 记录决策结果（执行到此处说明步骤成功）
+            if (this.currentDecisionId) {
+              await this.decisionReflector.recordOutcome(this.currentDecisionId, {
+                success: true,
+                actualResult: step.result || '',
+                expectedResult: step.description,
+                gapAnalysis: '',
+                lessonsLearned: [],
+              });
+              agentLogger.debug({ taskId: this.task.id, decisionId: this.currentDecisionId, success: true }, 'Decision outcome recorded');
+            }
 
             // 追踪文件变更（用于自动提交）
             if (step.tool === 'write_file' && step.args?.path) {
@@ -185,12 +224,11 @@ export class AgentExecutor {
           } else {
             // 空操作步骤 → 调用 AI 推理
             this.output(chalk.dim(`  🧠 AI 推理: ${step.description}...`));
-            const previousContext = this.contextManager.getContext();
             const reasoning = await reasonStep({
               taskDescription: this.task.userInput,
               intent: this.task.intent || 'chat',
               stepDescription: step.description,
-              previousResults: previousContext.map(m => m.content),
+              previousResults: this.getContextWithBuiltContext(),
               availableTools: [...toolRegistry.keys()],
             });
             step.result = reasoning;
@@ -232,6 +270,22 @@ export class AgentExecutor {
           step.error = error instanceof Error ? error.message : String(error);
           agentLogger.error({ taskId: this.task.id, step: i, error: step.error }, 'Step execution failed');
           this.output(chalk.red(`  ✗ 失败: ${step.error}`));
+
+          // 记录决策失败结果
+          if (this.currentDecisionId && step.tool) {
+            try {
+              await this.decisionReflector.recordOutcome(this.currentDecisionId, {
+                success: false,
+                actualResult: step.error || '执行失败',
+                expectedResult: step.description,
+                gapAnalysis: `步骤执行失败: ${step.error}`,
+                lessonsLearned: [`工具 ${step.tool} 执行失败: ${step.error}`],
+              });
+            } catch {
+              // 决策记录失败不影响主流程
+            }
+          }
+
           // 将错误结果添加到上下文管理器
           if (step.tool) {
             this.contextManager.addToolResult(step.tool, step.error || '执行失败', false);
@@ -261,23 +315,60 @@ export class AgentExecutor {
       this.output(chalk.dim('[5/5] 反思总结...'));
       agentLogger.debug({ taskId: this.task.id }, 'Phase 5: Reflection');
 
-      // 找到反思步骤并调用 AI
+      // 找到反思步骤并调用 AI（使用自校正推理）
       const reflectStep = this.task.steps.find(s => s.description.includes('反思'));
       if (reflectStep) {
         reflectStep.status = 'running';
-        this.output(chalk.dim(`  🧠 AI 反思中...`));
-        const reflectionContext = this.contextManager.getContext();
-        const reflection = await reasonStep({
-          taskDescription: this.task.userInput,
-          intent: this.task.intent || 'chat',
-          stepDescription: '反思执行过程，总结经验教训，评估完成度，提出改进建议',
-          previousResults: reflectionContext.map(m => m.content),
-          availableTools: [],
-        });
+        this.output(chalk.dim(`  🧠 AI 反思中（带自校正推理）...`));
+        const { content: reflection, corrections } = await reasonWithSelfCorrection(
+          this.task.userInput,
+          '反思执行过程，总结经验教训，评估完成度，提出改进建议',
+          this.getContextWithBuiltContext(),
+          [],
+          2
+        );
+        if (corrections > 0) {
+          agentLogger.info({ taskId: this.task.id, corrections }, 'Reflection self-corrected');
+        }
         reflectStep.result = reflection;
         reflectStep.status = 'done';
         this.output(chalk.green('  ✓ 反思完成'));
         agentLogger.debug({ taskId: this.task.id }, 'Reflection completed');
+      }
+
+      // 使用 DecisionReflector 进行任务级反思
+      try {
+        const executionSummary = this.task.steps
+          .filter(s => s.status === 'done' && s.result)
+          .map(s => `[${s.description}]: ${s.result!.substring(0, 200)}`)
+          .join('\n');
+
+        const taskReflection = await this.decisionReflector.reflectOnTask(
+          this.task.id,
+          this.task.userInput,
+          executionSummary
+        );
+
+        if (taskReflection.improvements.length > 0) {
+          agentLogger.info(
+            { taskId: this.task.id, improvementCount: taskReflection.improvements.length },
+            'Task reflection generated improvement suggestions'
+          );
+          this.output(chalk.dim(`  💡 反思发现 ${taskReflection.improvements.length} 个改进建议:`));
+          for (const improvement of taskReflection.improvements) {
+            this.output(chalk.dim(`    - [${improvement.priority}] ${improvement.description}`));
+          }
+        }
+
+        agentLogger.info(
+          { taskId: this.task.id, overallRating: taskReflection.overallRating },
+          'Task reflection completed'
+        );
+      } catch (error) {
+        agentLogger.warn(
+          { taskId: this.task.id, error: error instanceof Error ? error.message : String(error) },
+          'DecisionReflector reflection failed (non-critical)'
+        );
       }
 
       const summary = generateSummary(this.task);
@@ -318,6 +409,19 @@ export class AgentExecutor {
   private output(text: string): void {
     console.log(text);
     this.onOutput?.(text);
+  }
+
+  /**
+   * 获取包含项目上下文的 previousResults。
+   * 将 ContextBuilder 生成的上下文（Repo Map、Knowledge Graph、Memory）
+   * 直接注入到 previousResults 的开头，避免被 addToolResult 截断。
+   */
+  private getContextWithBuiltContext(): string[] {
+    const previousContext = this.contextManager.getContext().map(m => m.content);
+    if (this.builtContext) {
+      return [`[项目上下文]\n${this.builtContext}`, ...previousContext];
+    }
+    return previousContext;
   }
 
   private async askContinue(): Promise<boolean> {

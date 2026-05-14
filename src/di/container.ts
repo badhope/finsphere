@@ -14,6 +14,7 @@ import { HistoryManager } from '../history/manager.js';
 import { ChatService } from '../services/chat-service.js';
 import { AgentService } from '../services/agent-service.js';
 import { MemoryService } from '../services/memory-service.js';
+import { CompressionService } from '../services/compression-service.js';
 
 // ============================================================
 // 依赖注入容器配置
@@ -56,6 +57,9 @@ export function registerServices(): void {
 
   // MemoryService - 单例
   container.register(TOKENS.MemoryService, { useClass: MemoryService }, { lifecycle: Lifecycle.Singleton });
+
+  // CompressionService - 单例
+  container.register(TOKENS.CompressionService, { useClass: CompressionService }, { lifecycle: Lifecycle.Singleton });
 }
 
 /**

@@ -240,16 +240,85 @@ const planCommand: SlashCommand = {
   },
 };
 
-// /compact — 压缩对话历史
+// /compact — 压缩对话历史（AI 智能摘要）
 const compactCommand: SlashCommand = {
   name: 'compact',
   aliases: ['summarize'],
-  description: '压缩对话历史（保留摘要）',
+  description: '压缩对话历史（AI 智能摘要）',
   execute: async (ctx) => {
     if (ctx.messages.length < 4) {
       return { handled: true, message: chalk.dim('对话太短，无需压缩') };
     }
-    // 保留 system 消息和最近一轮对话
+
+    const originalCount = ctx.messages.length;
+
+    // 尝试使用 AI 压缩
+    try {
+      const { CompressionService } = await import('../../services/compression-service.js');
+      const { configManager } = await import('../../config/manager.js');
+      const { createProviderInstance } = await import('../chat/helpers.js');
+
+      // 直接创建 CompressionService 实例
+      // CompressionService 依赖 IProviderFactory，这里通过适配器注入
+      const providerType = ctx.providerType as any;
+      const provider = createProviderInstance(providerType);
+
+      // 手动构建压缩所需的 provider factory 适配器
+      const adapterFactory = {
+        getDefaultProvider: () => provider,
+        getProvider: () => provider,
+        listAvailableProviders: () => [providerType],
+        isProviderAvailable: () => true,
+      };
+
+      const compressionService = new CompressionService(
+        adapterFactory as any,
+        configManager as any
+      );
+
+      const nonSystemMessages = ctx.messages.filter(m => m.role !== 'system');
+      const result = await compressionService.compressMessages(nonSystemMessages);
+
+      if (result.summary) {
+        const systemMsgs = ctx.messages.filter(m => m.role === 'system');
+        const recentMsgs = ctx.messages.filter(m => m.role !== 'system').slice(-4);
+        ctx.messages.length = 0;
+        ctx.messages.push(...systemMsgs);
+        ctx.messages.push({
+          role: 'system',
+          content: `[对话历史摘要]\n${result.summary}`,
+        });
+        ctx.messages.push(...recentMsgs);
+
+        return {
+          handled: true,
+          message: chalk.green(
+            `✓ 对话已智能压缩: ${originalCount}条 → ${ctx.messages.length}条` +
+            chalk.dim(` (节省 ~${result.tokensSaved} tokens)`)
+          ),
+        };
+      }
+    } catch (error) {
+      // AI 压缩失败，回退到简单截断
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const systemMsgs = ctx.messages.filter(m => m.role === 'system');
+      const recentMsgs = ctx.messages.slice(-4);
+      ctx.messages.length = 0;
+      ctx.messages.push(...systemMsgs);
+      ctx.messages.push({
+        role: 'system',
+        content: '[之前的对话历史已被压缩（AI摘要失败，使用简单截断）]',
+      });
+      ctx.messages.push(...recentMsgs);
+      return {
+        handled: true,
+        message: chalk.yellow(
+          `⚠ AI 压缩失败 (${errMsg})，已回退到简单截断: ${originalCount}条 → ${ctx.messages.length}条`
+        ),
+      };
+    }
+
+    // 默认回退
     const systemMsgs = ctx.messages.filter(m => m.role === 'system');
     const recentMsgs = ctx.messages.slice(-4);
     ctx.messages.length = 0;

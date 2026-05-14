@@ -345,3 +345,62 @@ export async function analyzeCode(
   // 调用 LLM 分析代码
   return callLLM(messages, config);
 }
+
+/**
+ * 带自校正的多轮推理
+ *
+ * 在首次推理后，让 LLM 自检输出质量，发现问题时自动修正。
+ * 适用于关键决策步骤，确保推理结果的正确性和完整性。
+ *
+ * @param taskDescription - 任务描述
+ * @param stepDescription - 步骤描述
+ * @param previousResults - 之前步骤的执行结果
+ * @param availableTools - 可用工具列表
+ * @param maxCorrections - 最大修正次数，默认 2
+ * @param config - 可选的推理器配置
+ * @returns 推理结果和修正次数
+ */
+export async function reasonWithSelfCorrection(
+  taskDescription: string,
+  stepDescription: string,
+  previousResults: string[],
+  availableTools: string[],
+  maxCorrections: number = 2,
+  config?: ReasonerConfig
+): Promise<{ content: string; corrections: number }> {
+  let content = '';
+  let corrections = 0;
+
+  for (let attempt = 0; attempt <= maxCorrections; attempt++) {
+    const prompt = attempt === 0
+      ? `## 任务描述\n${taskDescription}\n\n## 当前步骤\n${stepDescription}\n\n请针对当前步骤进行深入分析和推理，给出具体、可操作的输出。`
+      : `上一次的推理结果可能存在问题，请重新审视并修正：\n\n上一次结果：${content}\n\n请检查是否有逻辑错误、遗漏的边界条件或不完整的分析，然后给出修正后的结果。`;
+
+    const result = await reasonStep({
+      taskDescription,
+      intent: 'default',
+      stepDescription: prompt,
+      previousResults,
+      availableTools,
+    }, config);
+    content = result;
+
+    // Self-check: ask LLM to verify its own output
+    if (attempt < maxCorrections) {
+      const checkPrompt = `请检查以下推理结果是否正确、完整、无遗漏：\n${content}\n\n如果发现问题，请简要描述。如果没有问题，请回复"OK"。`;
+      const check = await reasonStep({
+        taskDescription,
+        intent: 'default',
+        stepDescription: checkPrompt,
+        previousResults,
+        availableTools: [],
+      }, config);
+      if (check.trim() === 'OK' || check.trim().length < 20) {
+        break; // No corrections needed
+      }
+      corrections++;
+    }
+  }
+
+  return { content, corrections };
+}

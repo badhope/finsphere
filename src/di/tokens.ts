@@ -35,6 +35,7 @@ export const TOKENS = {
   ChatService: Symbol('ChatService'),
   AgentService: Symbol('AgentService'),
   MemoryService: Symbol('MemoryService'),
+  CompressionService: Symbol('CompressionService'),
 } as const;
 
 /**
