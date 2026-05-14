@@ -21,8 +21,22 @@
 
 ## 安装
 
+### 从 npm 安装（推荐）
 ```bash
 npm install -g @devflow/agent
+```
+
+### 从 GitHub 源码安装
+```bash
+# 克隆仓库
+git clone https://github.com/badhope/DevFlow-Agent.git
+cd DevFlow-Agent
+
+# 安装依赖（会自动编译）
+npm install
+
+# 全局链接（可选，方便直接使用 devflow 命令）
+npm link
 ```
 
 要求 Node.js >= 18.0.0

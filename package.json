@@ -8,6 +8,7 @@
     "devflow": "./dist/cli.js"
   },
   "scripts": {
+    "postinstall": "npm run build",
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
