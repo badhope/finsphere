@@ -67,6 +67,7 @@ export class ContextBuilder {
   private codeIndex: CodeIndex | null = null;
   private repoMap: string | null = null;
   private repoMapRootDir: string | null = null;
+  private knowledgeGraph: KnowledgeGraph | null = null;
 
   /**
    * Build a comprehensive context for the agent.
@@ -216,11 +217,13 @@ export class ContextBuilder {
    */
   async queryKnowledgeGraph(query: string): Promise<KnowledgeEntry[]> {
     try {
-      const kg = new KnowledgeGraph();
-      await kg.init();
+      if (!this.knowledgeGraph) {
+        this.knowledgeGraph = new KnowledgeGraph();
+        await this.knowledgeGraph.init();
+      }
 
       // Search for entities matching the query
-      const entities = await kg.query();
+      const entities = await this.knowledgeGraph.query();
 
       // Score entities by relevance to query
       const scored = entities
@@ -356,6 +359,7 @@ export class ContextBuilder {
     this.codeIndex = null;
     this.repoMap = null;
     this.repoMapRootDir = null;
+    this.knowledgeGraph = null;
   }
 }
 

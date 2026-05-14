@@ -14,6 +14,54 @@ export interface Logger {
   child(context: LogContext): Logger;
 }
 
+// ============================================================
+// 敏感信息过滤
+// ============================================================
+
+/** 敏感字段列表 */
+const SENSITIVE_FIELDS = [
+  'apiKey', 'api_key', 'API_KEY', 'secret', 'SECRET',
+  'password', 'PASSWORD', 'token', 'TOKEN',
+  'accessToken', 'access_token', 'refreshToken',
+  'privateKey', 'private_key', 'credential',
+];
+
+/**
+ * 判断是否为敏感值
+ */
+function isSensitiveKey(key: string): boolean {
+  const lowerKey = key.toLowerCase();
+  return SENSITIVE_FIELDS.some(f => lowerKey.includes(f.toLowerCase()));
+}
+
+/**
+ * 清理敏感值
+ */
+function sanitizeValue(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (typeof value === 'object') {
+    return sanitizeContext(value as Record<string, unknown>);
+  }
+  return value;
+}
+
+/**
+ * 清理上下文中的敏感信息
+ */
+function sanitizeContext(context: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(context)) {
+    result[key] = isSensitiveKey(key) ? '[REDACTED]' : sanitizeValue(value);
+  }
+  return result;
+}
+
+// ============================================================
+// 日志实现
+// ============================================================
+
 class SimpleLogger implements Logger {
   constructor(private context: LogContext = {}) {}
 
@@ -30,7 +78,9 @@ class SimpleLogger implements Logger {
       logContext = context;
     }
 
-    const fullContext = { ...this.context, ...logContext, level, timestamp };
+    // 清理敏感信息
+    const sanitizedContext = sanitizeContext({ ...this.context, ...logContext });
+    const fullContext = { ...sanitizedContext, level, timestamp };
     const contextStr = Object.entries(fullContext)
       .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
       .join(' ');

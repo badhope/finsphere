@@ -66,8 +66,8 @@ export class AutoCommitEngine {
     const commitMessage = this.generateCommitMessage(filesToCommit, taskDescription);
 
     // 设置 AI 作者信息
-    await this.git.exec(`config user.name "${this.config.authorName}"`);
-    await this.git.exec(`config user.email "${this.config.authorEmail}"`);
+    await this.git.exec(`config --local user.name "${this.config.authorName}"`);
+    await this.git.exec(`config --local user.email "${this.config.authorEmail}"`);
 
     // 提交
     const result = await this.git.commit(commitMessage);

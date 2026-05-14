@@ -14,6 +14,7 @@ import { toolsCommand } from './commands/tools.js';
 import { memoryCommand } from './commands/memory.js';
 import { agentCommand } from './commands/agent.js';
 import { gitCommand } from './commands/git.js';
+import { dataCommand } from './commands/data.js';
 import { configManager } from './config/manager.js';
 import { printHeader, printSuccess, printError, printInfo, printWarning } from './ui/logo.js';
 import { showMainMenu } from './ui/menu.js';
@@ -25,6 +26,20 @@ import { autonomousGoalManager } from './agent/autonomous-goals.js';
 // 注册 DI 容器服务（可选，用于未来的依赖注入迁移）
 import { initializeContainer } from './di/index.js';
 initializeContainer();
+
+// 导入需要在清理时停止的服务
+import { syncManager } from './cloud/sync-manager.js';
+
+// 注册全局清理处理器
+const cleanup = () => {
+  // 停止所有自动同步
+  syncManager.stopAutoSync();
+  // 清理定时器
+  // 保存未保存的状态
+};
+process.on('exit', cleanup);
+process.on('SIGINT', () => { cleanup(); process.exit(0); });
+process.on('SIGTERM', () => { cleanup(); process.exit(0); });
 
 const program = new Command();
 
@@ -43,6 +58,7 @@ program.addCommand(toolsCommand);
 program.addCommand(memoryCommand);
 program.addCommand(agentCommand);
 program.addCommand(gitCommand);
+program.addCommand(dataCommand);
 
 program
   .command('help-interactive')
@@ -75,6 +91,26 @@ if (process.argv.length === 2) {
     try {
       await configManager.init();
       logger.debug('Configuration initialized successfully');
+
+      // 首次运行检测和引导
+      const hasApiKey = configManager.getProviderConfig('openai')?.apiKey
+        || configManager.getProviderConfig('anthropic')?.apiKey
+        || processDELETE.OPENAI_API_KEY
+        || processDELETE.ANTHROPIC_API_KEY;
+
+      if (!hasApiKey) {
+        console.log();
+        printWarning('⚠️  检测到首次运行：尚未配置 API Key');
+        printInfo('DevFlow Agent 需要 AI 提供商的 API Key 才能工作');
+        console.log();
+        console.log('  快速配置方式：');
+        console.log('    1. 运行 devflow config set-provider --provider openai --api-key YOUR_KEY');
+        console.log('    2. 设置环境变量: export OPENAI_API_KEY=your_key');
+        console.log('    3. 在交互菜单中选择 "⚙️ 配置管理" → "设置AI提供商"');
+        console.log();
+        printInfo('支持 OpenAI、Anthropic、阿里云百炼 等提供商');
+        console.log();
+      }
 
       // 运行启动健康检查（非阻塞，仅提示）
       try {

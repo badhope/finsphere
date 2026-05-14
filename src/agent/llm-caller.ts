@@ -41,8 +41,8 @@ const llmCircuitBreaker = new CircuitBreaker({
   halfOpenMaxCalls: 2,
 });
 
-/** 配置是否已初始化 */
-let configInitialized = false;
+/** 配置初始化 Promise（防止并发初始化） */
+let configInitPromise: Promise<void> | null = null;
 
 // ==================== 内部工具函数 ====================
 
@@ -95,10 +95,12 @@ export async function callLLM(
   return llmCircuitBreaker.execute(async () => {
     try {
       // 初始化配置管理器
-      if (!configInitialized) {
-        await configManager.init();
-        configInitialized = true;
+      if (!configInitPromise) {
+        configInitPromise = configManager.init().catch(() => {
+          configInitPromise = null; // 允许重试
+        });
       }
+      await configInitPromise;
 
       const resolved = resolveConfig(config);
 

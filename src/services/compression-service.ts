@@ -82,21 +82,37 @@ ${toCompress.map(m => `[${m.role}]: ${m.content}`).join('\n')}
       : undefined;
     const defaultModel = providerConfig?.defaultModel || 'gpt-4';
 
-    const response = await provider.chat({
-      messages: [{ role: 'user', content: compressionPrompt }],
-      model: defaultModel,
-      temperature: 0.3,
-      maxTokens: maxSummaryTokens,
-    });
+    try {
+      const response = await provider.chat({
+        messages: [{ role: 'user', content: compressionPrompt }],
+        model: defaultModel,
+        temperature: 0.3,
+        maxTokens: maxSummaryTokens,
+      });
 
-    return {
-      summary: response.content,
-      originalMessages: messages.length,
-      compressedMessages: keepRecent + 1, // summary + recent
-      tokensSaved: Math.round(
-        toCompress.reduce((sum, m) => sum + m.content.length / 4, 0)
-      ),
-    };
+      return {
+        summary: response.content,
+        originalMessages: messages.length,
+        compressedMessages: keepRecent + 1,
+        tokensSaved: Math.round(
+          toCompress.reduce((sum, m) => sum + m.content.length / 4, 0)
+        ),
+      };
+    } catch (error) {
+      // LLM 压缩失败时，使用简单截断作为降级方案
+      const fallbackSummary = toCompress
+        .map(m => `[${m.role}]: ${(m.content || '').substring(0, 100)}`)
+        .join('\n');
+
+      return {
+        summary: `[压缩降级] 以下为截断的早期对话摘要:\n${fallbackSummary}`,
+        originalMessages: messages.length,
+        compressedMessages: keepRecent + 1,
+        tokensSaved: Math.round(
+          toCompress.reduce((sum, m) => sum + m.content.length / 4, 0) * 0.7
+        ),
+      };
+    }
   }
 
   /**

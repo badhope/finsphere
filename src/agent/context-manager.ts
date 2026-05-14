@@ -99,14 +99,67 @@ export class ContextManager {
       const nonSystemMessages = this.messages.filter(m => m.role !== 'system');
       if (nonSystemMessages.length <= 4) return false;
 
-      const result: CompressedSummary = await compressionService.compressMessages(nonSystemMessages, {
-        keepRecent: 4,
-        maxSummaryTokens: 300,
-      });
+      // === 上下文保护：识别并保留关键约束消息 ===
+      const CRITICAL_PATTERNS = [
+        /不要|不能|禁止|不允许|必须|只能|不要删除|不要修改|不要创建/,
+        /no.*delete|no.*modify|no.*create|never|always|must not|must only/,
+        /安全|危险|紧急|重要|critical|important|security|danger/,
+      ];
+
+      const protectedMessages: typeof nonSystemMessages = [];
+      const compressibleMessages: typeof nonSystemMessages = [];
+
+      for (const msg of nonSystemMessages) {
+        const isCritical = CRITICAL_PATTERNS.some(p => p.test(msg.content || ''));
+
+        if (isCritical && msg.role !== 'system') {
+          protectedMessages.push(msg);
+        } else {
+          compressibleMessages.push(msg);
+        }
+      }
+
+      // 优先保留受保护的消息
+      const keepRecent = 4;
+      const protectedCount = protectedMessages.length;
+      const toCompress = compressibleMessages.slice(0, -keepRecent);
+      const toKeep = [...protectedMessages, ...compressibleMessages.slice(-keepRecent)];
+
+      // 构建压缩提示词时，告知LLM这些是关键约束不能丢失
+      const compressionPrompt = `请简洁地总结以下对话历史的关键信息，同时特别注意：
+1. 用户的关键约束和限制（如"不要删除文件"）
+2. 重要的安全和权限要求
+3. 任何被明确禁止的操作
+
+关键约束（必须原样保留在摘要中）：
+${protectedMessages.map(m => `[${m.role}]: ${m.content}`).join('\n')}
+
+对话历史：
+${toCompress.map(m => `[${m.role}]: ${m.content}`).join('\n')}
+
+请用简洁的中文总结（不超过300字），确保摘要包含所有关键约束：`;
+
+      // 使用 CompressionService 压缩消息
+      const compressResult = await compressionService.compressMessages(
+        [
+          ...toCompress.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: compressionPrompt }
+        ],
+        {
+          keepRecent: 4,
+          maxSummaryTokens: 300,
+        }
+      );
+
+      const result: CompressedSummary = {
+        summary: compressResult.summary,
+        originalMessages: compressResult.originalMessages,
+        compressedMessages: compressResult.compressedMessages,
+        tokensSaved: compressResult.tokensSaved,
+      };
 
       if (result.summary) {
         const systemMsgs = this.messages.filter(m => m.role === 'system');
-        const recentMsgs = this.messages.filter(m => m.role !== 'system').slice(-4);
 
         this.messages = [];
         this.currentTokens = 0;
@@ -125,7 +178,8 @@ export class ContextManager {
         this.messages.push(summaryMsg);
         this.currentTokens += this.estimateTokens(summaryMsg.content);
 
-        for (const msg of recentMsgs) {
+        // 保留受保护的消息和最近的消息
+        for (const msg of toKeep) {
           this.messages.push(msg);
           this.currentTokens += this.estimateTokens(msg.content);
         }

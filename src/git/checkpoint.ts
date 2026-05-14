@@ -6,6 +6,7 @@ import { BACKUP_DIR } from '../utils/paths.js';
 
 /** 检查点存储目录 */
 const CHECKPOINT_DIR = path.join(BACKUP_DIR, 'checkpoints');
+const CHECKPOINT_FILE = path.join(CHECKPOINT_DIR, 'index.json');
 
 /**
  * 检查点管理器
@@ -147,7 +148,7 @@ export class CheckpointManager {
    */
   private async loadCheckpoints(): Promise<void> {
     try {
-      const content = await fs.readFile(CHECKPOINT_DIR, 'utf8');
+      const content = await fs.readFile(CHECKPOINT_FILE, 'utf8');
       const data = JSON.parse(content);
       for (const cp of data) {
         this.checkpoints.set(cp.id, cp);
@@ -162,9 +163,9 @@ export class CheckpointManager {
    */
   private async saveCheckpoints(): Promise<void> {
     try {
-      await fs.mkdir(path.dirname(CHECKPOINT_DIR), { recursive: true });
+      await fs.mkdir(CHECKPOINT_DIR, { recursive: true });
       const data = Array.from(this.checkpoints.values());
-      await fs.writeFile(CHECKPOINT_DIR, JSON.stringify(data, null, 2), 'utf8');
+      await fs.writeFile(CHECKPOINT_FILE, JSON.stringify(data, null, 2), 'utf8');
     } catch {
       // 忽略写入错误
     }

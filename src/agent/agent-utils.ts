@@ -31,7 +31,11 @@ export function parseToolArgsFromAI(toolName: string, aiResponse: string): Recor
   if (tool) {
     const requiredParams = tool.parameters.filter(p => p.required);
     if (requiredParams.length === 1) {
-      return { [requiredParams[0].name]: aiResponse.trim() };
+      const trimmed = aiResponse.trim();
+      if (trimmed.length > 10000) {
+        return { [requiredParams[0].name]: trimmed.substring(0, 10000) + '...[truncated]' };
+      }
+      return { [requiredParams[0].name]: trimmed };
     }
   }
   return {};

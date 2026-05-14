@@ -58,28 +58,59 @@ export class ConfigManager {
 
   async load(): Promise<void> {
     try {
+      // 尝试加载主配置文件
       const data = await fs.readFile(this.configFile, 'utf-8');
       const loaded = JSON.parse(data);
 
-      // 使用 Zod 验证配置
       const validation = validateConfigWithLogging(loaded);
       if (validation.valid && validation.config) {
         this.config = this.mergeConfig(DEFAULT_CONFIG, validation.config);
       } else {
-        console.warn('配置验证失败，使用默认配置');
-        this.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+        console.warn('[Config] 配置验证失败，尝试从备份恢复');
+        await this.restoreFromBackup();
       }
     } catch (error) {
-      console.error('加载配置失败:', error);
+      console.warn('[Config] 配置文件读取失败，尝试从备份恢复');
+      await this.restoreFromBackup();
     }
   }
 
   async save(): Promise<void> {
     try {
       await fs.mkdir(this.configDir, { recursive: true });
-      await fs.writeFile(this.configFile, JSON.stringify(this.config, null, 2));
+
+      // 先创建备份
+      try {
+        const backupPath = this.configFile + '.backup';
+        await fs.copyFile(this.configFile, backupPath);
+      } catch { /* 备份失败不影响保存 */ }
+
+      // 原子性写入：先写临时文件再重命名
+      const tmpPath = this.configFile + '.tmp';
+      await fs.writeFile(tmpPath, JSON.stringify(this.config, null, 2), 'utf-8');
+      await fs.rename(tmpPath, this.configFile);
     } catch (error) {
-      console.error('保存配置失败:', error);
+      console.error('[Config] 保存配置失败:', error);
+      throw error;  // 不要静默失败
+    }
+  }
+
+  private async restoreFromBackup(): Promise<void> {
+    try {
+      const backupPath = this.configFile + '.backup';
+      const data = await fs.readFile(backupPath, 'utf-8');
+      const loaded = JSON.parse(data);
+      const validation = validateConfigWithLogging(loaded);
+
+      if (validation.valid && validation.config) {
+        this.config = this.mergeConfig(DEFAULT_CONFIG, validation.config);
+        console.info('[Config] 已从备份恢复配置');
+      } else {
+        throw new Error('备份配置也无效');
+      }
+    } catch {
+      console.warn('[Config] 无法从备份恢复，使用默认配置');
+      this.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     }
   }
 

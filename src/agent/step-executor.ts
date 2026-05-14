@@ -16,6 +16,25 @@ export async function executeStep(step: TaskStep, context: Record<string, unknow
   if (!step.tool) {
     return `（手动步骤）${step.description}`;
   }
+
+  // === 防止幻觉工具调用：验证工具存在 ===
+  const { toolRegistry } = await import('../tools/registry.js');
+  if (!toolRegistry.has(step.tool)) {
+    throw new Error(`工具 "${step.tool}" 不存在。可用工具: ${[...toolRegistry.keys()].join(', ')}`);
+  }
+
+  // === 防止范围蔓延：步骤数量上限检查 ===
+  const maxSteps = 20;
+  if (context['_stepCount'] !== undefined) {
+    const currentCount = context['_stepCount'] as number;
+    if (currentCount > maxSteps) {
+      throw new Error(`任务步骤超过上限(${maxSteps}步)，已自动停止。可能是任务范围过大，请分解任务后重试。`);
+    }
+    context['_stepCount'] = currentCount + 1;
+  } else {
+    context['_stepCount'] = 1;
+  }
+
   try {
     const args: Record<string, string> = {};
     if (step.args) {

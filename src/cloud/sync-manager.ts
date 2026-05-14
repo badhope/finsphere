@@ -4,11 +4,13 @@
  */
 
 import os from 'os';
+import process from 'process';
 import type { SyncConfig, SyncData, SyncResult, DeviceInfo, ConflictStrategy } from './types.js';
 import { SYNC_SCHEMA_VERSION, DEFAULT_SYNC_CONFIG } from './types.js';
 import { createSyncProvider, type SyncProvider } from './provider.js';
 import { configManager } from '../config/manager.js';
 import { memoryManager } from '../memory/manager.js';
+import { AsyncLock } from '../utils/async-lock.js';
 
 function stripSecrets(config: Record<string, any>): Record<string, any> {
   const sanitized = { ...config };
@@ -28,6 +30,8 @@ export class SyncManager {
   private deviceId: string;
   private syncInterval?: ReturnType<typeof setInterval>;
   private syncing = false;
+  private syncingLock = new AsyncLock();
+  private cleanupRegistered = false;
 
   constructor(config: SyncConfig) {
     this.config = { ...DEFAULT_SYNC_CONFIG, ...config };
@@ -35,22 +39,39 @@ export class SyncManager {
     this.deviceId = this.getOrCreateDeviceId();
   }
 
+  private ensureCleanup(): void {
+    if (this.cleanupRegistered) return;
+    this.cleanupRegistered = true;
+
+    const cleanup = () => {
+      this.stopAutoSync();
+    };
+
+    process.on('exit', cleanup);
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+  }
+
   async sync(): Promise<SyncResult> {
-    if (this.syncing) return this.errorResult('Sync already in progress');
-    this.syncing = true;
-    const timestamp = new Date().toISOString();
-    try {
-      const localData = await this.gatherLocalData();
-      const remoteData = await this.provider.download();
-      if (!remoteData) { await this.provider.upload(localData); return this.successResult('upload', timestamp); }
-      const conflict = this.detectConflict(localData, remoteData);
-      if (conflict) return { success: false, action: 'conflict', timestamp, error: 'Sync conflict detected', changes: conflict };
-      const localTime = new Date(localData.timestamp).getTime();
-      const remoteTime = new Date(remoteData.timestamp).getTime();
-      if (localTime > remoteTime) { await this.provider.upload(localData); return this.successResult('upload', timestamp); }
-      else { await this.applyRemoteData(remoteData); return this.successResult('download', timestamp); }
-    } catch (error) { return this.errorResult(error instanceof Error ? error.message : 'Unknown error'); }
-    finally { this.syncing = false; }
+    return this.syncingLock.acquire(async () => {
+      if (this.syncing) {
+        return this.errorResult('Sync already in progress');
+      }
+      this.syncing = true;
+      const timestamp = new Date().toISOString();
+      try {
+        const localData = await this.gatherLocalData();
+        const remoteData = await this.provider.download();
+        if (!remoteData) { await this.provider.upload(localData); return this.successResult('upload', timestamp); }
+        const conflict = this.detectConflict(localData, remoteData);
+        if (conflict) return { success: false, action: 'conflict', timestamp, error: 'Sync conflict detected', changes: conflict };
+        const localTime = new Date(localData.timestamp).getTime();
+        const remoteTime = new Date(remoteData.timestamp).getTime();
+        if (localTime > remoteTime) { await this.provider.upload(localData); return this.successResult('upload', timestamp); }
+        else { await this.applyRemoteData(remoteData); return this.successResult('download', timestamp); }
+      } catch (error) { return this.errorResult(error instanceof Error ? error.message : 'Unknown error'); }
+      finally { this.syncing = false; }
+    });
   }
 
   async upload(): Promise<SyncResult> {
@@ -74,6 +95,7 @@ export class SyncManager {
   }
 
   startAutoSync(intervalMinutes?: number): void {
+    this.ensureCleanup();
     const interval = (intervalMinutes || this.config.syncInterval || 5) * 60 * 1000;
     this.stopAutoSync();
     this.syncInterval = setInterval(() => this.sync().catch(e => console.error('[Sync] Auto sync failed:', e)), interval);

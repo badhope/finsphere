@@ -9,12 +9,42 @@
  * 熔断器配置选项
  */
 export interface CircuitBreakerOptions {
-  /** 触发熔断的失败次数阈值 */
+  /** 触发熔断的失败次数阈值，默认 3（关键操作 2，常规操作 3） */
   failureThreshold: number;
-  /** 熔断后重置时间（毫秒） */
+  /** 熔断后重置时间（毫秒），默认 30 秒 */
   resetTimeout: number;
-  /** 半开状态下最大测试调用数 */
+  /** 半开状态下最大测试调用数，默认 1-3 */
   halfOpenMaxCalls: number;
+}
+
+/**
+ * 根据操作类型创建熔断器配置的工厂函数
+ */
+export function createCircuitBreakerConfig(
+  operationType: 'llm' | 'critical' | 'normal' | 'default' = 'default'
+): CircuitBreakerOptions {
+  switch (operationType) {
+    case 'llm':
+      return {
+        failureThreshold: 2,       // LLM 调用更敏感，2次失败即熔断
+        resetTimeout: 30000,        // 30秒后尝试恢复
+        halfOpenMaxCalls: 1,       // 半开状态只允许1次测试调用
+      };
+    case 'critical':
+      return {
+        failureThreshold: 2,       // 关键操作更敏感
+        resetTimeout: 30000,
+        halfOpenMaxCalls: 1,
+      };
+    case 'normal':
+    case 'default':
+    default:
+      return {
+        failureThreshold: 3,       // 常规操作默认阈值
+        resetTimeout: 30000,
+        halfOpenMaxCalls: 3,
+      };
+  }
 }
 
 /**

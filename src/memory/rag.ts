@@ -9,6 +9,7 @@ import {
   BATCH_SIZE,
   API_TIMEOUT,
 } from './rag-types.js';
+import { AsyncLock } from '../utils/async-lock.js';
 
 // Re-export 类型
 export type { VectorDocument, SearchResult, RAGStats, EmbeddingApiResponse };
@@ -41,6 +42,10 @@ export class RAGModule {
   /** 是否已初始化 */
   private initialized = false;
 
+  private initLock = new AsyncLock();
+  private saveLock = new AsyncLock();
+  private docLock = new AsyncLock();
+
   constructor() {
     this.storagePath = path.join(MEMORY_DIR, 'vectors.json');
   }
@@ -55,16 +60,19 @@ export class RAGModule {
    * @description 加载已有的向量数据，确保存储目录存在
    */
   async init(apiKey: string): Promise<void> {
-    this.apiKey = apiKey;
+    await this.initLock.acquire(async () => {
+      if (this.initialized) return;
+      this.apiKey = apiKey;
 
-    // 确保存储目录存在
-    const dir = path.dirname(this.storagePath);
-    await fs.mkdir(dir, { recursive: true });
+      // 确保存储目录存在
+      const dir = path.dirname(this.storagePath);
+      await fs.mkdir(dir, { recursive: true });
 
-    // 从磁盘加载已有向量
-    await this.load();
+      // 从磁盘加载已有向量
+      await this.load();
 
-    this.initialized = true;
+      this.initialized = true;
+    });
   }
 
   // ----------------------------------------------------------
@@ -180,26 +188,28 @@ export class RAGModule {
    * @description 如果 ID 已存在则更新，自动生成向量并保存
    */
   async addDocument(id: string, text: string): Promise<void> {
-    if (!id || !text) return;
+    await this.docLock.acquire(async () => {
+      if (!id || !text) return;
 
-    const now = new Date().toISOString();
-    const existing = this.documents.get(id);
+      const now = new Date().toISOString();
+      const existing = this.documents.get(id);
 
-    // 生成向量
-    const embedding = await this.embed(text);
+      // 生成向量
+      const embedding = await this.embed(text);
 
-    const doc: VectorDocument = {
-      id,
-      text,
-      embedding,
-      createdAt: existing?.createdAt || now,
-      updatedAt: now,
-    };
+      const doc: VectorDocument = {
+        id,
+        text,
+        embedding,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+      };
 
-    this.documents.set(id, doc);
+      this.documents.set(id, doc);
 
-    // 自动持久化
-    await this.save();
+      // 自动持久化
+      await this.save();
+    });
   }
 
   /**
@@ -208,29 +218,31 @@ export class RAGModule {
    * @description 使用批量 Embedding API 提升效率
    */
   async addDocuments(items: Array<{ id: string; text: string }>): Promise<void> {
-    if (!items || items.length === 0) return;
+    await this.docLock.acquire(async () => {
+      if (!items || items.length === 0) return;
 
-    const texts = items.map(item => item.text);
-    const embeddings = await this.embedBatch(texts);
-    const now = new Date().toISOString();
+      const texts = items.map(item => item.text);
+      const embeddings = await this.embedBatch(texts);
+      const now = new Date().toISOString();
 
-    for (let i = 0; i < items.length; i++) {
-      const { id, text } = items[i];
-      const existing = this.documents.get(id);
+      for (let i = 0; i < items.length; i++) {
+        const { id, text } = items[i];
+        const existing = this.documents.get(id);
 
-      const doc: VectorDocument = {
-        id,
-        text,
-        embedding: embeddings[i],
-        createdAt: existing?.createdAt || now,
-        updatedAt: now,
-      };
+        const doc: VectorDocument = {
+          id,
+          text,
+          embedding: embeddings[i],
+          createdAt: existing?.createdAt || now,
+          updatedAt: now,
+        };
 
-      this.documents.set(id, doc);
-    }
+        this.documents.set(id, doc);
+      }
 
-    // 自动持久化
-    await this.save();
+      // 自动持久化
+      await this.save();
+    });
   }
 
   /**
@@ -239,11 +251,13 @@ export class RAGModule {
    * @returns 是否成功删除
    */
   async removeDocument(id: string): Promise<boolean> {
-    const deleted = this.documents.delete(id);
-    if (deleted) {
-      await this.save();
-    }
-    return deleted;
+    return this.docLock.acquire(async () => {
+      const deleted = this.documents.delete(id);
+      if (deleted) {
+        await this.save();
+      }
+      return deleted;
+    });
   }
 
   /**
@@ -339,24 +353,24 @@ export class RAGModule {
    * @description 将内存中的所有文档向量序列化为 JSON 写入文件
    */
   async save(): Promise<void> {
-    try {
-      const data: Record<string, VectorDocument> = {};
-      for (const [id, doc] of this.documents) {
-        data[id] = doc;
+    await this.saveLock.acquire(async () => {
+      try {
+        const data: Record<string, VectorDocument> = {};
+        for (const [id, doc] of this.documents) {
+          data[id] = doc;
+        }
+
+        const dir = path.dirname(this.storagePath);
+        await fs.mkdir(dir, { recursive: true });
+
+        const tmpPath = this.storagePath + '.tmp';
+        await fs.writeFile(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+        await fs.rename(tmpPath, this.storagePath);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[RAG] 保存向量数据失败: ${message}`);
       }
-
-      const dir = path.dirname(this.storagePath);
-      await fs.mkdir(dir, { recursive: true });
-
-      await fs.writeFile(
-        this.storagePath,
-        JSON.stringify(data, null, 2),
-        'utf-8',
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[RAG] 保存向量数据失败: ${message}`);
-    }
+    });
   }
 
   /**
@@ -416,8 +430,10 @@ export class RAGModule {
    * 清空所有文档
    */
   async clear(): Promise<void> {
-    this.documents.clear();
-    await this.save();
+    await this.docLock.acquire(async () => {
+      this.documents.clear();
+      await this.save();
+    });
   }
 
   /**

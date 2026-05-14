@@ -1,4 +1,6 @@
 // 命令白名单
+import path from 'path';
+
 export const ALLOWED_SHELL_COMMANDS = [
   'git', 'npm', 'yarn', 'pnpm', 'node', 'npx',
   'ls', 'dir', 'cat', 'type', 'head', 'tail',
@@ -95,4 +97,29 @@ export function sanitizeShellCommand(command: string): string {
   return command
     .replace(/[;&|`$]/g, '')  // 移除命令分隔符和替换符
     .trim();
+}
+
+// 路径验证函数，防止目录遍历攻击
+export function validatePath(filePath: string): string {
+  // 解析为绝对路径
+  const resolved = path.resolve(filePath);
+
+  // 阻止包含敏感系统路径的访问
+  const sensitivePatterns = [
+    /\/etc\/passwd$/,
+    /\/etc\/shadow$/,
+    /\/etc\/hosts$/,
+    /\.ssh\//,
+    /\.gnupg\//,
+    /\.aws\//,
+    /\DELETE$/,
+  ];
+
+  for (const pattern of sensitivePatterns) {
+    if (pattern.test(resolved)) {
+      throw new Error(`访问被拒绝: 路径涉及敏感系统文件`);
+    }
+  }
+
+  return resolved;
 }

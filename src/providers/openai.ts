@@ -57,7 +57,7 @@ export class OpenAIProvider extends BaseProvider {
       this.makeRequest<OpenAIResponse>('/chat/completions', body)
     );
 
-    const choice = response.choices[0];
+    const choice = response.choices?.[0];
     const usage = response.usage;
 
     return {
@@ -103,38 +103,61 @@ export class OpenAIProvider extends BaseProvider {
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let released = false;
+
+    // 确保 reader 总是被释放的辅助函数
+    const ensureReleased = () => {
+      if (!released && reader) {
+        released = true;
+        try {
+          reader.releaseLock();
+        } catch {
+          // 忽略释放错误
+        }
+      }
+    };
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        try {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
-          
-          if (line.startsWith('data: ')) {
-            try {
-              const data: OpenAIStreamResponse = JSON.parse(line.slice(6));
-              const delta = data.choices[0]?.delta;
-              
-              if (delta?.content) {
-                yield {
-                  content: delta.content,
-                  done: false,
-                };
+          for (const line of lines) {
+            if (line.trim() === '' || line.trim() === 'data: [DONE]') continue;
+            
+            if (line.startsWith('data: ')) {
+              try {
+                const data: OpenAIStreamResponse = JSON.parse(line.slice(6));
+                const delta = data.choices[0]?.delta;
+                
+                if (delta?.content) {
+                  yield {
+                    content: delta.content,
+                    done: false,
+                  };
+                }
+              } catch {
+                // 忽略解析错误
               }
-            } catch {
-              // 忽略解析错误
             }
           }
+        } catch (streamError) {
+          // 流读取错误时也要确保释放
+          ensureReleased();
+          throw streamError;
         }
       }
+    } catch (error) {
+      ensureReleased();
+      throw error;
     } finally {
-      reader.releaseLock();
+      // 最终确保释放
+      ensureReleased();
     }
 
     yield {

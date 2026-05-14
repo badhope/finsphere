@@ -190,7 +190,9 @@ export class MemoryConsolidator {
               lastAccessedAt: record.lastAccessedAt,
             });
           }
-        } catch { /* skip */ }
+        } catch (err) {
+          console.warn('[Consolidation] 文件搜索失败:', err);
+        }
       }
 
       // 应用遗忘曲线并过滤
@@ -201,7 +203,9 @@ export class MemoryConsolidator {
       for (const memory of toRemove) {
         try {
           await fs.unlink(path.join(memoryDir, `${memory.id}.json`));
-        } catch { /* skip */ }
+        } catch (err) {
+          console.warn('[Consolidation] 模式计数失败:', err);
+        }
       }
 
       return {
@@ -210,7 +214,8 @@ export class MemoryConsolidator {
         summariesCreated: 0,
         patternsExtracted: this.extractPatterns(memories).length,
       };
-    } catch {
+    } catch (err) {
+      console.warn('[Consolidation] 大文件查找失败:', err);
       return emptyResult;
     }
   }
@@ -218,11 +223,14 @@ export class MemoryConsolidator {
   /** 按简单规则分组记忆 */
   private groupMemories(memories: DecayableMemory[]): DecayableMemory[][] {
     const groups: Map<string, DecayableMemory[]> = new Map();
+    // 按创建时间分组（7天为一个周期）
+    const WEEK_MS = 7 * 86400000;
     for (const m of memories) {
-      const key = m.id.substring(0, 8); // 按 id 前缀分组
-      const group = groups.get(key) || [];
+      const created = new Date(m.createdAt).getTime();
+      const weekKey = `week-${Math.floor(created / WEEK_MS)}`;
+      const group = groups.get(weekKey) || [];
       group.push(m);
-      groups.set(key, group);
+      groups.set(weekKey, group);
     }
     return [...groups.values()].filter(g => g.length >= 2);
   }

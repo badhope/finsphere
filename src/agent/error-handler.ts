@@ -103,7 +103,7 @@ export class ErrorHandler {
     return 'unknown_error';
   }
 
-  private handleTimeout(error: Error, context: TaskContext): ErrorRecovery {
+  private async handleTimeout(error: Error, context: TaskContext): Promise<ErrorRecovery> {
     const retryCount = (context.results['__retryCount__'] as number) || 0;
 
     if (retryCount < this.maxRetries) {
@@ -119,7 +119,7 @@ export class ErrorHandler {
       };
     }
 
-    const fallback = this.findFallbackTool(context);
+    const fallback = await this.findFallbackTool(context);
     if (fallback) {
       return {
         action: 'fallback',
@@ -134,8 +134,8 @@ export class ErrorHandler {
     };
   }
 
-  private handleToolNotFound(error: Error, context: TaskContext): ErrorRecovery {
-    const alternatives = this.findAlternativeTools(context.description);
+  private async handleToolNotFound(error: Error, context: TaskContext): Promise<ErrorRecovery> {
+    const alternatives = await this.findAlternativeTools(context.description);
 
     if (alternatives.length > 0) {
       const alt = alternatives[0];
@@ -152,8 +152,8 @@ export class ErrorHandler {
     };
   }
 
-  private findAlternativeTools(description: string): string[] {
-    const { listTools } = require('../tools/registry.js');
+  private async findAlternativeTools(description: string): Promise<string[]> {
+    const { listTools } = await import('../tools/registry.js');
     const tools = listTools();
     const keywords = description.toLowerCase().split(/\s+/);
 
@@ -217,8 +217,8 @@ export class ErrorHandler {
     };
   }
 
-  private findFallbackTool(context: TaskContext): { serverId: string; toolId: string } | null {
-    const alternatives = this.findAlternativeTools(context.description);
+  private async findFallbackTool(context: TaskContext): Promise<{ serverId: string; toolId: string } | null> {
+    const alternatives = await this.findAlternativeTools(context.description);
 
     if (alternatives.length > 1) {
       return { serverId: 'builtin', toolId: alternatives[1] };

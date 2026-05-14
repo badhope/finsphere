@@ -2,22 +2,44 @@
 
 **DevFlow Agent** — 可靠、诚实、可控的 AI 开发助手 CLI 工具。
 
+> 核心目标：完全模拟人类开发者的思维方式和工作流程
+
 ## 三条铁律
 
 1. **可靠性** — 每个 AI 建议必须可验证、可复现
 2. **诚实性** — 明确区分 AI 推测和确认事实
 3. **可控性** — 用户对所有操作保持完全控制
 
-## 功能特性
+## 核心特性
 
+### 🤖 AI 能力
 - **10 个 AI 平台** — OpenAI、Anthropic、Google、DeepSeek、硅基流动、阿里云百炼、智谱AI、百度千帆、Ollama、LM Studio
-- **智能模型查找** — 用户输入模型名，自动从平台 API 搜索匹配（支持 239+ 个阿里云模型）
+- **智能模型查找** — 自动从平台 API 搜索匹配模型（支持 239+ 个阿里云模型）
 - **自动切换** — 模型失败时自动尝试下一个（`--fallback`）
-- **代码审查** — 规则引擎 + AI 深度审查，覆盖安全/Bug/性能/质量四个维度
-- **13 个内置工具** — Shell、文件操作、HTTP、JSON、文本处理、哈希等，无需 AI 也可独立使用
+- **流式响应** — 实时显示 AI 输出
+
+### 🛠️ 开发工具
+- **13 个内置工具** — Shell、文件操作、HTTP、JSON、文本处理、哈希等
 - **管道链式调用** — `tools pipe "shell() | text() | json()"` 组合工具
-- **会话历史** — 自动保存、搜索、导出聊天记录
-- **交互式菜单** — 上下键选择，清晰美观的界面
+- **代码审查** — 规则引擎 + AI 深度审查（安全/Bug/性能/质量）
+
+### 🧠 记忆系统
+- **上下文记忆** — 自动关联相关历史对话
+- **知识图谱** — 实体关系网络，支持路径查找
+- **RAG 检索** — 向量检索相似内容
+- **记忆整合** — 自动压缩和整理过期记忆
+- **时间衰减** — 旧记忆自动降低权重
+
+### 👤 人格模拟
+- **Big Five 人格模型** — 开放性、尽责性、外向性、宜人性、神经质
+- **情绪状态** — 8 种情绪状态，影响响应风格
+- **学习循环** — 从经验中学习，改进行为
+- **自主目标** — 主动检测项目健康状态并生成建议
+
+### ☁️ 云同步
+- **多提供商支持** — Local、GitHub Gist、自定义 API
+- **自动备份** — 定时备份配置和记忆
+- **数据导出/导入** — `devflow data export/import`
 
 ## 安装
 
@@ -35,7 +57,7 @@ cd DevFlow-Agent
 # 安装依赖（会自动编译）
 npm install
 
-# 全局链接（可选，方便直接使用 devflow 命令）
+# 全局链接（可选）
 npm link
 ```
 
@@ -53,98 +75,115 @@ devflow chat ask "你好，介绍一下你自己"
 
 # 3. 指定模型（支持模糊匹配）
 devflow chat ask "写一个冒泡排序" -m qwen-max
-devflow chat ask "解释闭包" -m deepseek-v3
 
-# 4. 启用自动切换（额度用完自动换模型）
+# 4. 启用自动切换
 devflow chat ask "你好" -m qwen-plus --fallback
 
-# 5. 搜索平台可用模型
-devflow chat search qwen
-devflow chat remote-models --filter deepseek
+# 5. 交互式多轮对话
+devflow chat start
 ```
 
 ## 命令参考
 
 ### `devflow chat` — AI 对话
-
 ```bash
 devflow chat start              # 交互式多轮对话
 devflow chat ask <问题>         # 单轮快速提问
-devflow chat ask <问题> -m <模型> -p <平台>  # 指定模型和平台
-devflow chat ask <问题> --fallback          # 自动切换模型
-devflow chat ask <问题> --fallback-order "qwen-plus,qwen-max"  # 自定义切换顺序
-devflow chat ask <问题> -s                   # 流式输出
-devflow chat models -p aliyun --sort price   # 列出平台模型
-devflow chat search <关键词> -p <平台>       # 搜索平台模型
-devflow chat remote-models -p <平台>        # 列出所有远程模型
-```
-
-### `devflow ai` — AI 平台管理
-
-```bash
-devflow ai interactive          # 交互式菜单
-devflow ai list                # 列出所有支持的平台
-devflow ai status              # 查看配置状态
-devflow ai model list          # 列出所有模型（按价格排序）
+devflow chat ask <问题> -m <模型> --fallback  # 自动切换模型
+devflow chat models -p aliyun   # 列出平台模型
 ```
 
 ### `devflow config` — 配置管理
-
 ```bash
 devflow config init             # 交互式配置向导
 devflow config list             # 查看所有配置
-devflow config set-key <平台> <API Key>  # 设置 API Key
-devflow config remove-key <平台> --force   # 删除 API Key
-devflow config set-default <平台>         # 设置默认平台
-devflow config set-chat          # 设置聊天参数
-devflow config test <平台>       # 测试平台连接
+devflow config set-key <平台> <API Key>
+devflow config set-default <平台>
+devflow config test <平台>      # 测试平台连接
+```
+
+### `devflow tools` — 工具调用
+```bash
+devflow tools list              # 列出所有工具
+devflow tools shell "git status"  # 执行 Shell
+devflow tools run read_file p=src/index.ts
+devflow tools pipe "shell(cmd=dir) | text(action=sort)"
+```
+
+### `devflow data` — 数据管理
+```bash
+devflow data export -o backup.json    # 导出所有数据
+devflow data import -i backup.json    # 导入数据
+devflow data reset --confirm "DELETE ALL DATA"  # 重置数据
 ```
 
 ### `devflow review` — 代码审查
-
 ```bash
-devflow review file <文件路径>                    # 审查单个文件
-devflow review file <文件路径> --no-ai            # 仅规则检测（不用 AI）
-devflow review file <文件路径> -c security,bugs   # 指定审查类别
-devflow review dir <目录路径>                      # 审查整个目录
-devflow review dir <目录路径> -i node_modules,dist # 忽略目录
+devflow review file <文件路径>           # 审查单个文件
+devflow review dir <目录路径>            # 审查整个目录
+devflow review file <文件> -c security   # 仅安全审查
 ```
 
-审查规则：SEC001-004（安全）、BUG001-005（Bug）、PERF001-002（性能）、QUAL001-003（质量）
+## 项目结构
 
-### `devflow tools` — 工具调用
-
-```bash
-devflow tools list                # 列出所有工具
-devflow tools shell "git status" -s  # 执行 Shell（-s 静默）
-devflow tools run <工具> <参数>     # 执行工具
-devflow tools run read_file p=src/index.ts  # 支持短参数名
-devflow tools pipe "shell(cmd=dir) | text(action=sort)"  # 管道链式调用
-devflow tools schema             # 导出工具定义（JSON）
+```
+src/
+├── cli.ts                    # CLI 入口
+├── core.ts                   # Agent 核心执行器
+├── commands/                 # CLI 命令
+│   ├── ai.ts                # AI 平台管理
+│   ├── chat.ts              # 聊天功能
+│   ├── config.ts            # 配置管理
+│   ├── data.ts              # 数据管理
+│   ├── review.ts            # 代码审查
+│   └── tools.ts             # 工具调用
+├── providers/                # AI 平台适配器
+│   ├── openai.ts
+│   ├── anthropic.ts
+│   ├── aliyun.ts
+│   └── ...
+├── agent/                    # Agent 系统
+│   ├── core.ts              # 主执行器
+│   ├── context-builder.ts   # 上下文构建
+│   ├── experience-store.ts  # 经验学习
+│   ├── personality.ts       # 人格系统
+│   ├── emotional-state.ts   # 情绪状态
+│   └── autonomous-goals.ts  # 自主目标
+├── memory/                   # 记忆系统
+│   ├── manager.ts           # 记忆管理器
+│   ├── knowledgeGraph.ts    # 知识图谱
+│   ├── memoryGraph.ts       # 记忆图谱
+│   ├── rag.ts               # RAG 检索
+│   └── consolidation.ts     # 记忆整合
+├── tools/                    # 工具系统
+│   ├── registry.ts          # 工具注册表
+│   ├── security.ts          # 安全检查
+│   └── definitions/         # 工具定义
+├── config/                   # 配置管理
+│   ├── manager.ts
+│   ├── schemas.ts           # Zod 验证
+│   └── validation.ts
+├── services/                 # 服务层
+│   ├── logger.ts            # 结构化日志
+│   ├── compression-service.ts
+│   └── chat-service.ts
+├── di/                       # 依赖注入
+│   ├── container.ts
+│   └── tokens.ts
+└── utils/                    # 工具函数
+    ├── async-lock.ts        # 异步锁
+    ├── errors.ts            # 错误类
+    └── ...
 ```
 
-内置工具：`shell`、`read_file`、`write_file`、`search_files`、`list_dir`、`file_tree`、`file_info`、`sysinfo`、`http`、`json`、`text`、`hash`、`delete_file`
+## 安全特性
 
-### `devflow files` — 文件操作
-
-```bash
-devflow files read <文件路径>              # 读取文件
-devflow files write <文件路径> <内容>      # 写入文件
-devflow files list <目录路径>              # 列出目录
-devflow files tree <目录路径>              # 目录树
-devflow files search <关键词> <目录路径>   # 搜索文件
-devflow files info <文件路径>              # 文件信息
-```
-
-### `devflow history` — 历史记录
-
-```bash
-devflow history list              # 列出所有会话
-devflow history view <会话ID>      # 查看会话详情
-devflow history delete <会话ID> -f # 删除会话
-devflow history clear --force      # 清空所有历史
-devflow history export <会话ID>    # 导出会话
-```
+- **路径验证** — 所有文件操作都经过 `validatePath` 检查
+- **命令白名单** — Shell 命令限制在白名单内
+- **危险模式检测** — 自动识别并阻止危险命令
+- **敏感信息过滤** — 日志自动脱敏 API Key 等敏感信息
+- **SSRF 防护** — HTTP 工具阻止访问私有 IP 和元数据端点
+- **并发锁保护** — 关键资源使用 AsyncLock 防止竞态条件
 
 ## 支持的 AI 平台
 
@@ -161,48 +200,30 @@ devflow history export <会话ID>    # 导出会话
 | Ollama | 本地 | Ollama | ✅ |
 | LM Studio | 本地 | OpenAI 兼容 | ✅ |
 
-## 项目结构
+## 开发
 
+```bash
+# 安装依赖
+npm install
+
+# 开发模式（热重载）
+npm run dev
+
+# 构建
+npm run build
+
+# 测试
+npm test
+
+# 代码检查
+npm run lint
 ```
-src/
-├── cli.ts                    # CLI 入口
-├── base.ts                   # Provider 基类（重试、模型搜索）
-├── types.ts                  # 类型定义 + 平台/模型信息
-├── commands/                 # CLI 命令
-│   ├── ai.ts                # AI 平台管理
-│   ├── chat.ts              # 聊天功能
-│   ├── config.ts            # 配置管理
-│   ├── review.ts            # 代码审查
-│   ├── files.ts             # 文件操作
-│   ├── history.ts           # 历史记录
-│   └── tools.ts             # 工具调用
-├── providers/                # AI 平台适配器
-│   ├── openai.ts            # OpenAI（基准）
-│   ├── anthropic.ts         # Anthropic Claude
-│   ├── google.ts            # Google Gemini
-│   ├── deepseek.ts          # DeepSeek
-│   ├── siliconflow.ts       # 硅基流动
-│   ├── aliyun.ts            # 阿里云百炼
-│   ├── zhipu.ts             # 智谱AI
-│   ├── baidu.ts             # 百度千帆
-│   ├── ollama.ts            # Ollama（本地）
-│   └── lmstudio.ts          # LM Studio（本地）
-├── review/                   # 代码审查引擎
-│   ├── analyzer.ts          # 分析器（规则 + AI）
-│   └── types.ts             # 审查类型定义
-├── history/                  # 会话历史
-│   ├── manager.ts           # 历史管理器
-│   └── storage.ts           # JSON 文件存储
-├── files/                    # 文件操作
-│   └── manager.ts           # 文件管理器
-├── tools/                    # 工具系统
-│   └── registry.ts          # 工具注册表（13个工具）
-├── config/                   # 配置管理
-│   └── manager.ts           # 配置管理器
-└── ui/                       # 用户界面
-    ├── logo.ts              # Logo + 打印工具
-    └── menu.ts              # 交互式菜单
-```
+
+## 子项目
+
+- `/web` — React Web 界面
+- `/sdk` — JavaScript SDK
+- `/vscode` — VSCode 扩展
 
 ## License
 

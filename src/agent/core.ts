@@ -76,17 +76,17 @@ export class AgentExecutor {
     };
     this.onStepChange = onStepChange;
     this.onOutput = onOutput;
+    this.rootDir = options?.rootDir || process.cwd();
     this.contextManager = new ContextManager(8000);
     this.contextBuilder = new ContextBuilder();
-    this.dirtyProtect = new DirtyProtect(process.cwd());
-    this.autoCommit = new AutoCommitEngine(process.cwd());
+    this.dirtyProtect = new DirtyProtect(this.rootDir);
+    this.autoCommit = new AutoCommitEngine(this.rootDir);
     this.changeControl = new ChangeControlManager();
     this.knowledgeGraph = new KnowledgeGraph();
     this.decisionReflector = new DecisionReflector();
     this.experienceStore = new ExperienceStore();
     this.personalityManager = new PersonalityManager();
     this.emotionalState = new EmotionalStateManager();
-    this.rootDir = options?.rootDir || process.cwd();
 
     // ChangeControl 默认启用
     if (options?.enableChangeControl === false) {
@@ -131,7 +131,7 @@ export class AgentExecutor {
     try {
       // === 阶段 0: Git 检查点 ===
       try {
-        const checkpoint = new CheckpointManager(process.cwd());
+        const checkpoint = new CheckpointManager(this.rootDir);
         await checkpoint.create(`执行前自动检查点: ${this.task.userInput.substring(0, 50)}`);
         agentLogger.debug({ taskId: this.task.id }, 'Git checkpoint created');
       } catch {
@@ -191,7 +191,17 @@ export class AgentExecutor {
       agentLogger.debug({ taskId: this.task.id }, 'Phase 3: Executing steps');
       const context: Record<string, unknown> = {};
 
+      const TASK_TIMEOUT_MS = 10 * 60 * 1000; // 10分钟全局超时
+      const taskStartTime = Date.now();
+
       for (let i = 0; i < this.task.steps.length; i++) {
+        // 在每个步骤执行前检查超时
+        if (Date.now() - taskStartTime > TASK_TIMEOUT_MS) {
+          this.output(chalk.yellow(`⏱ 任务超时（${TASK_TIMEOUT_MS / 60000}分钟），强制停止`));
+          this.task.status = 'failed';
+          this.task.result = `任务执行超时（${TASK_TIMEOUT_MS / 60000}分钟），可能是任务范围过大或LLM响应过慢`;
+          return this.task;
+        }
         const step = this.task.steps[i];
         this.task.currentStep = i;
         step.status = 'running';
@@ -277,9 +287,11 @@ export class AgentExecutor {
             this.output(chalk.green(`  ✓ 推理完成: ${step.description}`));
           }
 
-          // === 信任检查 ===
-          if (step.result && step.result.length > 10) {
-            const issues = detectIssues(step.result, {
+          // === 信任检查（对所有工具结果执行，不依赖长度） ===
+          if (step.result) {
+            // 对空结果或短结果也进行检查
+            const resultToCheck = step.result || '';
+            const issues = detectIssues(resultToCheck, {
               intent: this.task.intent,
               toolUsed: step.tool,
             });
@@ -531,12 +543,20 @@ export class AgentExecutor {
 
       return this.task;
     } catch (error) {
-      this.task.status = 'failed';
-      this.task.result = error instanceof Error ? error.message : String(error);
+      // 检查是否是超时错误
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (error instanceof Error && error.message.includes('timeout')) {
+        this.output(chalk.red(`⏱ 任务超时: ${errorMessage}`));
+        this.task.status = 'timeout';
+        this.task.result = errorMessage;
+      } else {
+        this.task.status = 'failed';
+        this.task.result = errorMessage;
+      }
       agentLogger.error({ taskId: this.task.id, error: this.task.result }, 'Task failed');
 
       // 更新情绪状态：任务失败
-      this.emotionalState.onTaskFailure(this.task.result);
+      this.emotionalState.onTaskFailure(this.task.result || '未知错误');
 
       // 即使失败也保存已记录的决策
       await this.decisionReflector.save();
@@ -607,7 +627,12 @@ export class AgentExecutor {
   }
 
   private async askContinue(): Promise<boolean> {
-    if (!process.stdin.isTTY) return true;
+    if (!process.stdin.isTTY) {
+      // CI/CD 环境下默认中止，除非设置了 DEVFLOW_CONTINUE_ON_ERROR
+      if (processDELETE.DEVFLOW_CONTINUE_ON_ERROR === 'true') return true;
+      this.output(chalk.yellow('  非交互环境，步骤失败将中止任务（设置 DEVFLOW_CONTINUE_ON_ERROR=true 可继续）'));
+      return false;
+    }
     try {
       const inquirer = await import('inquirer');
       const { continue: result } = await inquirer.default.prompt([{

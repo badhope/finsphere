@@ -13,6 +13,7 @@ import type {
 } from './knowledge-graph/types.js';
 import { getRelated, query, findPaths } from './knowledge-query.js';
 import { extractFromMemories } from './knowledge-extraction-engine.js';
+import { AsyncLock } from '../utils/async-lock.js';
 
 // Re-export 类型
 export type {
@@ -43,6 +44,9 @@ export class KnowledgeGraph {
   private entities: Record<string, Entity> = {};
   private relationships: Relationship[] = [];
   private initialized = false;
+  private initLock = new AsyncLock();  // 初始化锁
+  private saveLock = new AsyncLock();  // 保存锁
+  private stateLock = new AsyncLock(); // 状态修改锁
 
   constructor() {
     this.storagePath = path.join(MEMORY_DIR, 'knowledge.json');
@@ -50,32 +54,38 @@ export class KnowledgeGraph {
 
   /** 初始化：创建目录并加载已有数据 */
   async init(): Promise<void> {
-    if (this.initialized) return;
+    await this.initLock.acquire(async () => {
+      if (this.initialized) return;
 
-    const dir = path.dirname(this.storagePath);
-    await fs.mkdir(dir, { recursive: true });
+      const dir = path.dirname(this.storagePath);
+      await fs.mkdir(dir, { recursive: true });
 
-    try {
-      const raw = await fs.readFile(this.storagePath, 'utf-8');
-      const data: KnowledgeGraphData = JSON.parse(raw);
-      this.entities = data.entities || {};
-      this.relationships = data.relationships || [];
-    } catch {
-      this.entities = {};
-      this.relationships = [];
-    }
+      try {
+        const raw = await fs.readFile(this.storagePath, 'utf-8');
+        const data: KnowledgeGraphData = JSON.parse(raw);
+        this.entities = data.entities || {};
+        this.relationships = data.relationships || [];
+      } catch {
+        this.entities = {};
+        this.relationships = [];
+      }
 
-    this.initialized = true;
+      this.initialized = true;
+    });
   }
 
   /** 保存到磁盘 */
   async save(): Promise<void> {
-    await this.init();
-    const data: KnowledgeGraphData = {
-      entities: this.entities,
-      relationships: this.relationships,
-    };
-    await fs.writeFile(this.storagePath, JSON.stringify(data, null, 2), 'utf-8');
+    await this.saveLock.acquire(async () => {
+      await this.init();
+      const data: KnowledgeGraphData = {
+        entities: this.entities,
+        relationships: this.relationships,
+      };
+      const tmpPath = this.storagePath + '.tmp';
+      await fs.writeFile(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+      await fs.rename(tmpPath, this.storagePath);
+    });
   }
 
   /**
@@ -86,27 +96,29 @@ export class KnowledgeGraph {
     label: string,
     attributes?: Record<string, string>,
   ): Promise<Entity> {
-    await this.init();
+    return this.stateLock.acquire(async () => {
+      await this.init();
 
-    const existing = Object.values(this.entities).find(
-      (e) => e.type === type && e.label === label,
-    );
-    if (existing) {
-      if (attributes) Object.assign(existing.attributes, attributes);
-      return existing;
-    }
+      const existing = Object.values(this.entities).find(
+        (e) => e.type === type && e.label === label,
+      );
+      if (existing) {
+        if (attributes) Object.assign(existing.attributes, attributes);
+        return existing;
+      }
 
-    const entity: Entity = {
-      id: crypto.randomUUID(),
-      type,
-      label,
-      attributes: attributes || {},
-      createdAt: new Date().toISOString(),
-    };
+      const entity: Entity = {
+        id: crypto.randomUUID(),
+        type,
+        label,
+        attributes: attributes || {},
+        createdAt: new Date().toISOString(),
+      };
 
-    this.entities[entity.id] = entity;
-    await this.save();
-    return entity;
+      this.entities[entity.id] = entity;
+      await this.save();
+      return entity;
+    });
   }
 
   /** 获取实体 */
@@ -124,32 +136,34 @@ export class KnowledgeGraph {
     type: RelationshipType,
     weight = 0.5,
   ): Promise<Relationship> {
-    await this.init();
+    return this.stateLock.acquire(async () => {
+      await this.init();
 
-    if (!this.entities[fromId]) throw new Error(`起始实体不存在: ${fromId}`);
-    if (!this.entities[toId]) throw new Error(`目标实体不存在: ${toId}`);
+      if (!this.entities[fromId]) throw new Error(`起始实体不存在: ${fromId}`);
+      if (!this.entities[toId]) throw new Error(`目标实体不存在: ${toId}`);
 
-    const existing = this.relationships.find(
-      (r) => r.fromId === fromId && r.toId === toId && r.type === type,
-    );
-    if (existing) {
-      existing.weight = Math.min(1, Math.max(existing.weight, weight));
+      const existing = this.relationships.find(
+        (r) => r.fromId === fromId && r.toId === toId && r.type === type,
+      );
+      if (existing) {
+        existing.weight = Math.min(1, Math.max(existing.weight, weight));
+        await this.save();
+        return existing;
+      }
+
+      const relationship: Relationship = {
+        id: crypto.randomUUID(),
+        fromId,
+        toId,
+        type,
+        weight: Math.max(0, Math.min(1, weight)),
+        createdAt: new Date().toISOString(),
+      };
+
+      this.relationships.push(relationship);
       await this.save();
-      return existing;
-    }
-
-    const relationship: Relationship = {
-      id: crypto.randomUUID(),
-      fromId,
-      toId,
-      type,
-      weight: Math.max(0, Math.min(1, weight)),
-      createdAt: new Date().toISOString(),
-    };
-
-    this.relationships.push(relationship);
-    await this.save();
-    return relationship;
+      return relationship;
+    });
   }
 
   /** 获取与指定实体相关的实体 */
@@ -177,18 +191,20 @@ export class KnowledgeGraph {
   async extractFromMemory(
     memories: MemoryEntry[],
   ): Promise<{ entitiesAdded: number; relationshipsAdded: number }> {
-    await this.init();
+    return this.stateLock.acquire(async () => {
+      await this.init();
 
-    const result = await extractFromMemories(memories, {
-      addEntity: (type, label, attributes) => this.addEntity(type, label, attributes),
-      addRelationship: (fromId, toId, type, weight) =>
-        this.addRelationship(fromId, toId, type, weight),
-      findEntity: (type, label) =>
-        Object.values(this.entities).find((e) => e.type === type && e.label === label),
+      const result = await extractFromMemories(memories, {
+        addEntity: (type, label, attributes) => this.addEntity(type, label, attributes),
+        addRelationship: (fromId, toId, type, weight) =>
+          this.addRelationship(fromId, toId, type, weight),
+        findEntity: (type, label) =>
+          Object.values(this.entities).find((e) => e.type === type && e.label === label),
+      });
+
+      await this.save();
+      return result;
     });
-
-    await this.save();
-    return result;
   }
 
   /** 获取知识图谱统计信息 */
@@ -226,30 +242,36 @@ export class KnowledgeGraph {
 
   /** 删除实体及其所有关联关系 */
   async removeEntity(id: string): Promise<boolean> {
-    await this.init();
-    if (!this.entities[id]) return false;
-    delete this.entities[id];
-    this.relationships = this.relationships.filter((r) => r.fromId !== id && r.toId !== id);
-    await this.save();
-    return true;
+    return this.stateLock.acquire(async () => {
+      await this.init();
+      if (!this.entities[id]) return false;
+      delete this.entities[id];
+      this.relationships = this.relationships.filter((r) => r.fromId !== id && r.toId !== id);
+      await this.save();
+      return true;
+    });
   }
 
   /** 删除关系 */
   async removeRelationship(id: string): Promise<boolean> {
-    await this.init();
-    const index = this.relationships.findIndex((r) => r.id === id);
-    if (index === -1) return false;
-    this.relationships.splice(index, 1);
-    await this.save();
-    return true;
+    return this.stateLock.acquire(async () => {
+      await this.init();
+      const index = this.relationships.findIndex((r) => r.id === id);
+      if (index === -1) return false;
+      this.relationships.splice(index, 1);
+      await this.save();
+      return true;
+    });
   }
 
   /** 清空所有数据 */
   async clear(): Promise<void> {
-    await this.init();
-    this.entities = {};
-    this.relationships = [];
-    await this.save();
+    return this.stateLock.acquire(async () => {
+      await this.init();
+      this.entities = {};
+      this.relationships = [];
+      await this.save();
+    });
   }
 }
 

@@ -6,6 +6,7 @@ import { MemoryConsolidator, type ConsolidationConfig, type ConsolidationResult 
 import fs from 'fs/promises';
 import path from 'path';
 import type { MemoryInteraction, MemoryRecord, MemoryStats } from './memory-types.js';
+import { AsyncLock } from '../utils/async-lock.js';
 
 // Re-export 类型
 export type { MemoryInteraction, MemoryRecord, MemoryStats };
@@ -22,6 +23,12 @@ export class MemoryManager {
   private ragEnabled: boolean = false;
   private ragInitialized: boolean = false;
   private consolidator: MemoryConsolidator;
+  private recordCache: MemoryInteraction[] | null = null;
+  private cacheTimestamp: number = 0;
+  private readonly CACHE_TTL = 5000; // 5秒缓存
+  private initLock = new AsyncLock();
+  private cacheLock = new AsyncLock();
+  private writeLock = new AsyncLock();
 
   constructor(consolidationConfig?: Partial<ConsolidationConfig>) {
     this.storagePath = MEMORY_DIR;
@@ -29,9 +36,11 @@ export class MemoryManager {
   }
 
   async init(): Promise<void> {
-    if (this.initialized) return;
-    await fs.mkdir(this.storagePath, { recursive: true });
-    this.initialized = true;
+    await this.initLock.acquire(async () => {
+      if (this.initialized) return;
+      await fs.mkdir(this.storagePath, { recursive: true });
+      this.initialized = true;
+    });
   }
 
   /**
@@ -83,30 +92,34 @@ export class MemoryManager {
     taskId?: string;
     tags?: string[];
   }): Promise<void> {
-    await this.init();
+    await this.writeLock.acquire(async () => {
+      await this.init();
 
-    const id = crypto.randomUUID();
-    const record: MemoryInteraction = {
-      id,
-      taskId: params.taskId || `chat-${Date.now()}`,
-      input: params.input,
-      output: params.output,
-      skillUsed: `chat:${params.provider}:${params.model}`,
-      context: { provider: params.provider, model: params.model },
-      tags: params.tags || ['chat', params.provider, params.model],
-      timestamp: new Date(),
-    };
+      const id = crypto.randomUUID();
+      const record: MemoryInteraction = {
+        id,
+        taskId: params.taskId || `chat-${Date.now()}`,
+        input: params.input,
+        output: params.output,
+        skillUsed: `chat:${params.provider}:${params.model}`,
+        context: { provider: params.provider, model: params.model },
+        tags: params.tags || ['chat', params.provider, params.model],
+        timestamp: new Date(),
+      };
 
-    const filePath = path.join(this.storagePath, `${id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(record, null, 2));
+      const filePath = path.join(this.storagePath, `${id}.json`);
+      await fs.writeFile(filePath, JSON.stringify(record, null, 2));
 
-    // 自动索引到 RAG（如果启用）
-    if (this.ragEnabled && this.ragInitialized) {
-      const text = `${params.input} ${params.output || ''}`;
-      await ragModule.addDocument(id, text).catch(err => {
-        console.warn('[记忆] RAG 索引失败:', err);
-      });
-    }
+      this.recordCache = null; // 使缓存失效
+
+      // 自动索引到 RAG（如果启用）
+      if (this.ragEnabled && this.ragInitialized) {
+        const text = `${params.input} ${params.output || ''}`;
+        await ragModule.addDocument(id, text).catch(err => {
+          console.warn('[记忆] RAG 索引失败:', err);
+        });
+      }
+    });
   }
 
   /**
@@ -147,9 +160,14 @@ export class MemoryManager {
       // 自动整合：记忆数量超过上限时触发
       const config = this.consolidator.getConfig();
       if (config.autoConsolidateOnLoad && records.length > config.maxShortTermMemories) {
-        this.consolidator.runConsolidationCycle(this.storagePath).catch(err => {
-          console.warn('[记忆] 自动整合失败:', err);
-        });
+        // 使用 IIFE 正确处理异步错误
+        void (async () => {
+          try {
+            await this.consolidator.runConsolidationCycle(this.storagePath);
+          } catch (err) {
+            console.warn('[记忆] 自动整合失败:', err);
+          }
+        })();
       }
 
       return records.sort((a, b) =>
@@ -161,10 +179,25 @@ export class MemoryManager {
   }
 
   /**
+   * 获取缓存记录（带 TTL）
+   */
+  private async getCachedRecords(): Promise<MemoryInteraction[]> {
+    return this.cacheLock.acquire(async () => {
+      const now = Date.now();
+      if (this.recordCache && (now - this.cacheTimestamp) < this.CACHE_TTL) {
+        return this.recordCache;
+      }
+      this.recordCache = await this.loadAllRecords();
+      this.cacheTimestamp = now;
+      return this.recordCache;
+    });
+  }
+
+  /**
    * 根据上下文搜索相关记忆（关键词匹配 + 中文分词 + 语义搜索）
    */
   async recall(context: string, limit = 10): Promise<MemoryRecord[]> {
-    const records = await this.loadAllRecords();
+    const records = await this.getCachedRecords();
     if (!context) {
       return records.slice(0, limit).map(r => ({ interaction: r, relevance: 1 }));
     }
@@ -198,6 +231,9 @@ export class MemoryManager {
     }
 
     // 3. 混合评分
+    const now = Date.now();
+    const MAX_AGE_DAYS = 90; // 超过90天的记忆权重降低
+
     const scored: MemoryRecord[] = records.map(record => {
       const keywordScore = keywordScores.get(record.id) || 0;
       const semanticScore = semanticScores.get(record.id) || 0;
@@ -206,9 +242,23 @@ export class MemoryManager {
       // 如果只有关键词，使用关键词分数
       // 如果只有语义，使用语义分数
       // 如果两者都有，加权合并
-      const relevance = semanticScores.size > 0
+      let relevance = semanticScores.size > 0
         ? keywordScore * 0.4 + semanticScore * 0.6  // 混合模式
         : keywordScore;  // 纯关键词模式
+
+      // 添加时间衰减因子（记忆新鲜度检查）
+      const ageInDays = this.calculateAgeDays(record.timestamp);
+      let freshnessMultiplier = 1;
+      if (ageInDays > MAX_AGE_DAYS) {
+        freshnessMultiplier = 0.3; // 旧记忆权重降低70%
+      } else if (ageInDays > 30) {
+        freshnessMultiplier = 0.6; // 30-90天的记忆权重降低40%
+      } else if (ageInDays > 7) {
+        freshnessMultiplier = 0.8; // 7-30天的记忆权重降低20%
+      }
+
+      // 应用新鲜度因子
+      relevance = relevance * freshnessMultiplier;
       
       return { interaction: record, relevance };
     });
@@ -245,6 +295,17 @@ export class MemoryManager {
    */
   getConsolidationConfig(): ConsolidationConfig {
     return this.consolidator.getConfig();
+  }
+
+  /**
+   * 计算年龄天数，带日期验证
+   */
+  private calculateAgeDays(timestamp: Date | string): number {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    if (isNaN(date.getTime())) {
+      return 0; // 无效日期返回0
+    }
+    return Math.max(0, (Date.now() - date.getTime()) / 86400000);
   }
 
   /**
@@ -321,15 +382,18 @@ export class MemoryManager {
    * 清空所有记忆
    */
   async clear(): Promise<void> {
-    await this.init();
-    try {
-      const files = await fs.readdir(this.storagePath);
-      for (const file of files) {
-        if (file.endsWith('.json')) {
-          await fs.unlink(path.join(this.storagePath, file));
+    await this.writeLock.acquire(async () => {
+      await this.init();
+      this.recordCache = null;
+      try {
+        const files = await fs.readdir(this.storagePath);
+        for (const file of files) {
+          if (file.endsWith('.json')) {
+            await fs.unlink(path.join(this.storagePath, file));
+          }
         }
-      }
-    } catch { /* ignore */ }
+      } catch { /* ignore */ }
+    });
   }
 }
 

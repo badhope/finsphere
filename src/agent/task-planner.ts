@@ -1,5 +1,7 @@
 import type { TaskStep } from './types.js';
 
+const MAX_STEPS_PER_TASK = 20; // 单个任务最大步骤数
+
 /**
  * 任务规划器
  * 将用户输入和意图分解为可执行步骤序列。
@@ -14,6 +16,17 @@ import type { TaskStep } from './types.js';
 export async function planTask(userInput: string, intent: string): Promise<TaskStep[]> {
   const steps: TaskStep[] = [];
   const lower = userInput.toLowerCase();
+
+  // === 防止范围蔓延：检测潜在的超大任务 ===
+  const scopeCreepPatterns = [
+    /所有.*文件|所有.*bug|所有.*问题|整个.*项目|全部.*修复/,
+    /遍历|递归处理|扫描整个|分析所有/,
+  ];
+
+  const hasScopeCreepRisk = scopeCreepPatterns.some(p => p.test(lower));
+  if (hasScopeCreepRisk) {
+    console.warn('[TaskPlanner] 警告: 任务范围可能过大，已自动限制执行步骤');
+  }
 
   // === 理解任务 ===
   steps.push({

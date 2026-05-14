@@ -24,7 +24,7 @@ export interface Task {
   intent?: string;
   steps: TaskStep[];
   currentStep: number;
-  status: 'planning' | 'executing' | 'completed' | 'failed';
+  status: 'planning' | 'executing' | 'completed' | 'failed' | 'timeout';
   result?: string;
   startedAt: number;
   completedAt?: number;

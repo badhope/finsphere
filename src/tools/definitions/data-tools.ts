@@ -1,22 +1,57 @@
 import fs from 'fs/promises';
+import path from 'path';
 import { createHash } from 'crypto';
 import type { ToolDefinition } from '../registry.js';
+import { validatePath } from '../security.js';
 
 // ==================== 辅助函数 ====================
 
 function validateUrl(url: string): void {
   const parsed = new URL(url);
-  // Block internal/private IPs
-  if (parsed.hostname === 'localhost' || 
-      parsed.hostname === '127.0.0.1' ||
-      parsed.hostname.startsWith('192.168.') ||
-      parsed.hostname.startsWith('10.') ||
-      parsed.hostname.startsWith('172.') ||
-      parsed.hostname === '::1') {
-    throw new Error('Access denied: cannot request internal URLs');
-  }
+
+  // 只允许 http 和 https
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error('Access denied: only http and https protocols are allowed');
+  }
+
+  // 完整的私有IP检查
+  const hostname = parsed.hostname.toLowerCase();
+
+  // 阻止 localhost 和回环地址
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0') {
+    throw new Error('Access denied: cannot access localhost or loopback addresses');
+  }
+
+  // 阻止 IPv4 私有地址段
+  if (hostname.startsWith('10.') ||
+      hostname.startsWith('172.16.') || hostname.startsWith('172.17.') ||
+      hostname.startsWith('172.18.') || hostname.startsWith('172.19.') ||
+      hostname.startsWith('172.20.') || hostname.startsWith('172.21.') ||
+      hostname.startsWith('172.22.') || hostname.startsWith('172.23.') ||
+      hostname.startsWith('172.24.') || hostname.startsWith('172.25.') ||
+      hostname.startsWith('172.26.') || hostname.startsWith('172.27.') ||
+      hostname.startsWith('172.28.') || hostname.startsWith('172.29.') ||
+      hostname.startsWith('172.30.') || hostname.startsWith('172.31.') ||
+      hostname.startsWith('192.168.')) {
+    throw new Error('Access denied: cannot access private IP ranges');
+  }
+
+  // 阻止链路本地地址 (169.254.x.x)
+  if (hostname.startsWith('169.254.')) {
+    throw new Error('Access denied: cannot access link-local addresses');
+  }
+
+  // 阻止 IPv6 私有地址
+  if (hostname.startsWith('fc00:') || hostname.startsWith('fd') ||
+      hostname.startsWith('fe80:') || hostname === '::1') {
+    throw new Error('Access denied: cannot access IPv6 private or link-local addresses');
+  }
+
+  // 阻止 AWS/GCP/Azure 元数据端点
+  if (hostname === '169.254.169.254' ||
+      hostname === 'metadata.google.internal' ||
+      hostname.includes('.internal.')) {
+    throw new Error('Access denied: cannot access cloud metadata endpoints');
   }
 }
 
@@ -93,13 +128,20 @@ export const jsonTool: ToolDefinition = {
       const action = args.action || 'format';
       let jsonStr = args.input;
 
-      // 如果是文件路径，读取文件
-      try {
-        const stat = await fs.stat(jsonStr);
-        if (stat.isFile()) {
-          jsonStr = await fs.readFile(jsonStr, 'utf-8');
-        }
-      } catch { /* 不是文件，当作字符串 */ }
+      // 如果是文件路径，先验证再读取
+      if (!jsonStr.startsWith('{') && !jsonStr.startsWith('[') && !jsonStr.startsWith('"')) {
+        try {
+          const safePath = validatePath(jsonStr);  // 验证路径安全
+          const stat = await fs.stat(safePath);
+          if (stat.isFile()) {
+            // 验证文件大小
+            if (stat.size > 5 * 1024 * 1024) {
+              return { success: false, output: '', error: 'JSON 文件过大（最大5MB）' };
+            }
+            jsonStr = await fs.readFile(safePath, 'utf-8');
+          }
+        } catch { /* 不是有效文件路径，当作字符串 */ }
+      }
 
       const obj = JSON.parse(jsonStr);
 

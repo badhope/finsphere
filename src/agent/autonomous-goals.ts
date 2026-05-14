@@ -9,6 +9,10 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
+// ==================== 常量定义 ====================
+
+const MAX_GOALS = 10; // 最大目标数量
+
 // ==================== 类型定义 ====================
 
 export interface AutonomousGoal {
@@ -64,6 +68,10 @@ export class AutonomousGoalManager {
       } catch {
         // 单个检查失败不影响其他检查
       }
+      // 限制结果数量，避免过多目标
+      if (allResults.length >= MAX_GOALS * 2) {
+        break;
+      }
     }
     return allResults;
   }
@@ -96,6 +104,12 @@ export class AutonomousGoalManager {
       if (!isDuplicate) {
         this.goals.set(goalId, goal);
         newGoals.push(goal);
+      }
+
+      // 限制目标数量
+      if (newGoals.length >= MAX_GOALS) {
+        console.warn(`[AutonomousGoals] 生成了 ${results.length} 个目标，已限制为前 ${MAX_GOALS} 个`);
+        break;
       }
     }
 

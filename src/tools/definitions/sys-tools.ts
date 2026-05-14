@@ -1,12 +1,62 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import os from 'os';
+import path from 'path';
+import fs from 'fs/promises';
 import type { ToolDefinition } from '../registry.js';
 import { formatBytes } from '../../utils/format.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // ==================== 辅助函数 ====================
+
+// 改进的命令解析函数
+function parseCommand(command: string): { cmd: string; args: string[] } {
+  const trimmed = command.trim();
+  if (!trimmed) {
+    return { cmd: '', args: [] };
+  }
+
+  const args: string[] = [];
+  let current = '';
+  let inQuote = false;
+  let quoteChar = '';
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i];
+
+    if (!inQuote && (char === '"' || char === "'")) {
+      inQuote = true;
+      quoteChar = char;
+      continue;
+    }
+
+    if (inQuote && char === quoteChar) {
+      inQuote = false;
+      quoteChar = '';
+      continue;
+    }
+
+    if (!inQuote && /\s/.test(char)) {
+      if (current) {
+        args.push(current);
+        current = '';
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current) {
+    args.push(current);
+  }
+
+  return {
+    cmd: args[0] || '',
+    args: args.slice(1),
+  };
+}
 
 function formatUptime(seconds: number): string {
   const days = Math.floor(seconds / 86400);
@@ -49,13 +99,40 @@ export const shellTool: ToolDefinition = {
     
     try {
       const timeout = args.timeout ? parseInt(args.timeout, 10) : 30000;
-      const { stdout, stderr } = await execAsync(args.command, {
-        cwd: args.cwd || process.cwd(),
+      const cwd = args.cwd || process.cwd();
+
+      // === 防止目录遍历攻击：验证 cwd ===
+      let cwdResolved: string;
+      try {
+        cwdResolved = path.resolve(cwd);
+        const cwdStat = await fs.stat(cwdResolved);
+        if (!cwdStat.isDirectory()) {
+          return { success: false, output: '', error: 'cwd 必须是有效的目录路径' };
+        }
+      } catch {
+        return { success: false, output: '', error: 'cwd 目录不存在或无法访问' };
+      }
+
+      // 解析命令和参数（使用 execFile 防止 shell 注入）
+      const { cmd, args: cmdArgs } = parseCommand(args.command);
+
+      if (!cmd) {
+        return { success: false, output: '', error: '无法解析命令' };
+      }
+
+      const { stdout, stderr } = await execFileAsync(cmd, cmdArgs, {
+        cwd: cwdResolved,
         timeout,
-        maxBuffer: 1024 * 1024,
+        maxBuffer: 10 * 1024 * 1024,
       });
-      return { success: true, output: stdout || stderr };
+      return { success: true, output: stdout + (stderr ? '\n--- STDERR ---\n' + stderr : '') };
     } catch (error: any) {
+      if (error.message?.includes('maxBuffer')) {
+        return { success: false, output: error.stdout || '', error: '命令输出超过缓冲区限制(10MB)，请使用分页或过滤参数' };
+      }
+      if (error.message?.includes('ETIMEDOUT') || error.message?.includes('timeout')) {
+        return { success: false, output: error.stdout || '', error: '命令执行超时' };
+      }
       return { success: false, output: error.stdout || '', error: error.stderr || error.message };
     }
   },

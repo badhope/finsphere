@@ -10,6 +10,7 @@ import type { SyncData } from './types.js';
 import { SYNC_SCHEMA_VERSION } from './types.js';
 import { configManager } from '../config/manager.js';
 import { memoryManager } from '../memory/manager.js';
+import { MEMORY_DIR } from '../utils/index.js';
 
 function stripSecrets(config: Record<string, any>): Record<string, any> {
   const sanitized = { ...config };
@@ -59,14 +60,59 @@ export class BackupManager {
   async restoreBackup(backupId: string): Promise<boolean> {
     try {
       const data = await this.getBackupData(backupId);
+
+      // 恢复配置
       if (data.config) {
         await configManager.init();
-        const defaultProvider = data.config.defaultProvider;
-        if (defaultProvider && typeof defaultProvider === 'string') {
-          await configManager.setDefaultProvider(defaultProvider as import('../types.js').ProviderType);
+        const config = data.config as Record<string, any>;
+
+        // 恢复默认提供商
+        if (config.defaultProvider && typeof config.defaultProvider === 'string') {
+          await configManager.setDefaultProvider(config.defaultProvider as import('../types.js').ProviderType);
         }
+
+        // 恢复各提供商配置（仅非敏感字段）
+        if (config.providers) {
+          for (const [name, providerConfig] of Object.entries(config.providers)) {
+            if (providerConfig && typeof providerConfig === 'object') {
+              const cfg = providerConfig as Record<string, any>;
+              // 跳过已脱敏的 apiKey
+              if (cfg.apiKey === '***REDACTED***') {
+                console.log(`[Backup] 跳过 ${name} API Key 恢复（已脱敏，需手动配置）`);
+                delete cfg.apiKey;
+              }
+              // 恢复 baseUrl, defaultModel 等配置
+              if (cfg.baseUrl || cfg.defaultModel || cfg.maxRetries) {
+                const existing = configManager.getProviderConfig(name as import('../types.js').ProviderType);
+                if (existing) {
+                  if (cfg.baseUrl) (existing as any).baseUrl = cfg.baseUrl;
+                  if (cfg.defaultModel) (existing as any).defaultModel = cfg.defaultModel;
+                  if (cfg.maxRetries) (existing as any).maxRetries = cfg.maxRetries;
+                }
+              }
+            }
+          }
+        }
+
+        console.log('[Backup] 配置已恢复');
       }
-      if (data.memory) console.log('[Backup] Memory data restored from backup');
+
+      // 恢复记忆数据
+      if (data.memory?.conversations && Array.isArray(data.memory.conversations)) {
+        await memoryManager.init();
+        let restoredCount = 0;
+        for (const record of data.memory.conversations as Array<Record<string, any>>) {
+          try {
+            if (record.id && record.timestamp) {
+              const filePath = path.join(MEMORY_DIR, `${record.id}.json`);
+              await fs.writeFile(filePath, JSON.stringify(record, null, 2));
+              restoredCount++;
+            }
+          } catch { /* skip individual record errors */ }
+        }
+        console.log(`[Backup] 已恢复 ${restoredCount} 条记忆记录`);
+      }
+
       return true;
     } catch (error) {
       console.error('[Backup] Restore failed:', error);
