@@ -23,7 +23,7 @@ export {
   findReferencesInFile,
 } from './reference-finder.js';
 export type {
-  Reference,
+  ReferenceInfo,
   ReferenceResult,
   FindReferencesOptions,
 } from './reference-finder.js';

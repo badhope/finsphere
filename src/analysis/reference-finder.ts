@@ -1,22 +1,20 @@
 /**
  * Reference Finder
  *
- * Finds all references to a symbol across the codebase using tree-sitter
- * AST analysis. Locates the definition first, then searches all files
- * for usages, classifying each reference by context (import, export,
- * definition, type-reference, or usage).
+ * Finds all references to a symbol across the codebase using ts-morph
+ * for accurate cross-file reference analysis. Locates definitions and
+ * usages with proper TypeScript type information.
  */
 
 import * as path from 'path';
-import { parseFile, parseFiles } from '../parser/engine.js';
-import { extractSymbols, findSymbolByName } from '../parser/symbols.js';
-import type { CodeSymbol } from '../parser/symbols.js';
-import { getLanguageByFilePath } from '../parser/languages.js';
-import { globMatch } from '../utils/glob.js';
-import { collectSourceFiles } from '../utils/file-system.js';
+import type { SourceFile, Node } from 'ts-morph';
+import { getProject, createProject } from '../parser/ts-morph-project.js';
+
+/** Type of reference */
+export type ReferenceType = 'usage' | 'import' | 'export' | 'definition' | 'type-reference';
 
 /** A single reference to a symbol */
-export interface Reference {
+export interface ReferenceInfo {
   /** File path where the reference occurs */
   filePath: string;
   /** Line number (1-based) */
@@ -26,7 +24,7 @@ export interface Reference {
   /** The line content */
   context: string;
   /** Type of reference */
-  type: 'usage' | 'import' | 'export' | 'definition' | 'type-reference';
+  type: ReferenceType;
 }
 
 /** Complete reference search result */
@@ -34,9 +32,9 @@ export interface ReferenceResult {
   /** The symbol name that was searched */
   symbolName: string;
   /** Location of the definition, if found */
-  definition: { filePath: string; line: number } | null;
+  definition: { filePath: string; line: number; column: number } | null;
   /** All references found */
-  references: Reference[];
+  references: ReferenceInfo[];
   /** Number of files containing references */
   fileCount: number;
   /** Total number of references */
@@ -49,286 +47,327 @@ export interface FindReferencesOptions {
   includeDefinition?: boolean;
   /** Glob patterns to restrict which files to search */
   filePatterns?: string[];
+  /** Path to tsconfig.json */
+  tsConfigPath?: string;
 }
 
 /**
- * Classify a reference based on its AST context.
+ * ReferenceFinder class for finding symbol references using ts-morph.
  *
- * Walks up the AST to determine if the reference is inside an import,
- * export, type annotation, or the definition itself.
+ * Provides accurate TypeScript reference analysis including type references,
+ * cross-file navigation, and proper handling of module boundaries.
  */
-function classifyReference(
-  node: any,
-  symbolName: string,
-  definitionLine: number,
-  filePath: string,
-  source: string
-): Reference['type'] {
-  const line = node.startPosition.row; // 0-based
-  const lines = source.split('\n');
-  const context = lines[line] ?? '';
+export class ReferenceFinder {
+  private project;
 
-  // Check if this is the definition line
-  if (line === definitionLine) {
-    return 'definition';
+  /**
+   * Create a new ReferenceFinder instance.
+   *
+   * @param tsConfigPath - Optional path to tsconfig.json
+   */
+  constructor(tsConfigPath?: string) {
+    this.project = tsConfigPath ? createProject(tsConfigPath) : getProject();
   }
 
-  // Walk up the AST to find context
-  let current: any = node;
-  let depth = 0;
-  const maxDepth = 10;
+  /**
+   * Find all references to a symbol across the codebase.
+   *
+   * Uses ts-morph's language service for accurate cross-file analysis.
+   *
+   * @param symbolName - The symbol name to search for
+   * @param filePath - Optional file path where the symbol is defined (improves accuracy)
+   * @param options - Search options
+   * @returns Complete reference result
+   */
+  async findReferences(
+    symbolName: string,
+    filePath?: string,
+    options: FindReferencesOptions = {}
+  ): Promise<ReferenceResult> {
+    const includeDefinition = options.includeDefinition ?? true;
 
-  while (current && depth < maxDepth) {
-    const nodeType = current.type;
+    // Find the symbol definition
+    const definition = this.findDefinition(symbolName, filePath);
 
-    // Import context
-    if (
-      nodeType === 'import_statement' ||
-      nodeType === 'import_declaration' ||
-      nodeType === 'import_from_statement' ||
-      nodeType === 'import_specifier'
-    ) {
-      return 'import';
+    // Get all source files
+    let sourceFiles = this.project.getSourceFiles();
+
+    // Apply file pattern filters if provided
+    if (options.filePatterns && options.filePatterns.length > 0) {
+      sourceFiles = sourceFiles.filter(sf =>
+        this.matchesPatterns(sf.getFilePath(), options.filePatterns!)
+      );
     }
 
-    // Export context
-    if (
-      nodeType === 'export_statement' ||
-      nodeType === 'export_default_declaration' ||
-      nodeType === 'export_named_declaration' ||
-      nodeType === 'export_specifier'
-    ) {
-      return 'export';
+    // Collect all references
+    const allReferences: ReferenceInfo[] = [];
+
+    for (const sourceFile of sourceFiles) {
+      const refs = this.findReferencesInFile(symbolName, sourceFile, definition);
+      allReferences.push(...refs);
     }
 
-    // Type annotation context
-    if (
-      nodeType === 'type_annotation' ||
-      nodeType === 'predefined_type' ||
-      nodeType === 'type_identifier' ||
-      nodeType === 'generic_type' ||
-      nodeType === 'union_type' ||
-      nodeType === 'intersection_type' ||
-      nodeType === 'punctuation' // inside type annotations
-    ) {
-      return 'type-reference';
-    }
+    // Filter out definition if not requested
+    const filteredReferences = includeDefinition
+      ? allReferences
+      : allReferences.filter(r => r.type !== 'definition');
 
-    // TS-specific type contexts
-    if (
-      nodeType === 'implements_clause' ||
-      nodeType === 'extends_clause'
-    ) {
-      return 'type-reference';
-    }
+    // Get unique file count
+    const uniqueFiles = new Set(filteredReferences.map(r => r.filePath));
 
-    // If we reach a function/class body, it's a usage
-    if (
-      nodeType === 'statement_block' ||
-      nodeType === 'function_body' ||
-      nodeType === 'block'
-    ) {
-      return 'usage';
-    }
-
-    current = current.parent;
-    depth++;
+    return {
+      symbolName,
+      definition,
+      references: filteredReferences,
+      fileCount: uniqueFiles.size,
+      referenceCount: filteredReferences.length,
+    };
   }
 
-  // Default: check if the line looks like a type reference
-  const trimmed = context.trim();
-  if (
-    trimmed.startsWith('import ') ||
-    trimmed.startsWith('from ') ||
-    trimmed.includes('import ')
-  ) {
-    return 'import';
-  }
+  /**
+   * Find the definition location of a symbol.
+   *
+   * @param symbolName - The symbol name to find
+   * @param filePath - Optional file path to search in
+   * @returns Definition location or null if not found
+   */
+  findDefinition(
+    symbolName: string,
+    filePath?: string
+  ): { filePath: string; line: number; column: number } | null {
+    const sourceFiles = filePath
+      ? [this.project.getSourceFile(filePath)].filter(Boolean) as SourceFile[]
+      : this.project.getSourceFiles();
 
-  if (
-    trimmed.startsWith('export ') ||
-    trimmed.startsWith('export{')
-  ) {
-    return 'export';
-  }
+    for (const sourceFile of sourceFiles) {
+      // Try to find by declarations
+      const declarations = sourceFile.getVariableDeclarations().filter(d =>
+        d.getName() === symbolName
+      );
+      if (declarations.length > 0) {
+        const decl = declarations[0];
+        const lineAndCol = sourceFile.getLineAndColumnAtPos(decl.getStart());
+        return {
+          filePath: path.normalize(sourceFile.getFilePath()),
+          line: lineAndCol.line,
+          column: lineAndCol.column - 1,
+        };
+      }
 
-  // Check for type annotation patterns
-  if (trimmed.includes(': ') && !trimmed.includes('=>')) {
-    const colonIdx = trimmed.indexOf(':');
-    const afterColon = trimmed.substring(colonIdx + 1).trim();
-    if (afterColon.startsWith(symbolName)) {
-      return 'type-reference';
+      // Try to find by function declarations
+      const funcs = sourceFile.getFunctions().filter(f =>
+        f.getName() === symbolName
+      );
+      if (funcs.length > 0) {
+        const func = funcs[0];
+        const lineAndCol = sourceFile.getLineAndColumnAtPos(func.getStart());
+        return {
+          filePath: path.normalize(sourceFile.getFilePath()),
+          line: lineAndCol.line,
+          column: lineAndCol.column - 1,
+        };
+      }
+
+      // Try to find by class declarations
+      const classes = sourceFile.getClasses().filter(c =>
+        c.getName() === symbolName
+      );
+      if (classes.length > 0) {
+        const cls = classes[0];
+        const lineAndCol = sourceFile.getLineAndColumnAtPos(cls.getStart());
+        return {
+          filePath: path.normalize(sourceFile.getFilePath()),
+          line: lineAndCol.line,
+          column: lineAndCol.column - 1,
+        };
+      }
+
+      // Try to find by interface declarations
+      const interfaces = sourceFile.getInterfaces().filter(i =>
+        i.getName() === symbolName
+      );
+      if (interfaces.length > 0) {
+        const iface = interfaces[0];
+        const lineAndCol = sourceFile.getLineAndColumnAtPos(iface.getStart());
+        return {
+          filePath: path.normalize(sourceFile.getFilePath()),
+          line: lineAndCol.line,
+          column: lineAndCol.column - 1,
+        };
+      }
+
+      // Try to find by type alias declarations
+      const typeAliases = sourceFile.getTypeAliases().filter(t =>
+        t.getName() === symbolName
+      );
+      if (typeAliases.length > 0) {
+        const typeAlias = typeAliases[0];
+        const lineAndCol = sourceFile.getLineAndColumnAtPos(typeAlias.getStart());
+        return {
+          filePath: path.normalize(sourceFile.getFilePath()),
+          line: lineAndCol.line,
+          column: lineAndCol.column - 1,
+        };
+      }
     }
+
+    return null;
   }
 
-  return 'usage';
-}
+  /**
+   * Find all references to a symbol within a specific file.
+   *
+   * @param symbolName - The symbol name to search for
+   * @param sourceFile - The source file to search in
+   * @param definition - Optional definition location
+   * @returns Array of reference info
+   */
+  private findReferencesInFile(
+    symbolName: string,
+    sourceFile: SourceFile,
+    definition: { filePath: string; line: number; column: number } | null
+  ): ReferenceInfo[] {
+    const references: ReferenceInfo[] = [];
+    const filePath = path.normalize(sourceFile.getFilePath());
 
-/**
- * Find all references to a symbol within a single file.
- *
- * @param symbolName - The symbol name to search for
- * @param filePath - Absolute path to the file
- * @returns Array of references found in this file
- */
-export async function findReferencesInFile(
-  symbolName: string,
-  filePath: string
-): Promise<Reference[]> {
-  const parseResult = await parseFile(filePath);
-  if (!parseResult) return [];
+    // Search by identifier nodes
+    const identifiers = sourceFile.getDescendantsOfKind(79); // SyntaxKind.Identifier = 79
 
-  const { tree, source } = parseResult;
-  const rootNode = tree.rootNode;
-  const references: Reference[] = [];
-  const lines = source.split('\n');
+    for (const identifier of identifiers) {
+      if (identifier.getText() !== symbolName) continue;
 
-  // Word-boundary regex to find the symbol
-  const escaped = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`\\b${escaped}\\b`, 'g');
+      const node = identifier;
+      const lineAndCol = sourceFile.getLineAndColumnAtPos(node.getStart());
+      const lineText = this.getLineText(sourceFile, lineAndCol.line);
 
-  // Find all symbol definitions to know the definition line
-  const symbols = extractSymbols(parseResult);
-  const definitionSymbol = symbols.find(
-    s => s.name === symbolName && (
-      s.kind === 'function' || s.kind === 'class' || s.kind === 'interface' ||
-      s.kind === 'type' || s.kind === 'enum' || s.kind === 'variable' ||
-      s.kind === 'method' || s.kind === 'module' || s.kind === 'namespace'
-    )
-  );
-  const definitionLine = definitionSymbol?.startLine ?? -1;
-
-  // Search each line for the symbol name
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    pattern.lastIndex = 0;
-
-    let match;
-    while ((match = pattern.exec(line)) !== null) {
-      const column = match.index;
-      const line1Based = i + 1;
-
-      // Try to find the AST node at this position
-      const node = rootNode.descendantForPosition({
-        row: i,
-        column,
-      });
-
-      const refType = node
-        ? classifyReference(node, symbolName, definitionLine, filePath, source)
-        : 'usage';
+      const refType = this.classifyReference(
+        node,
+        lineAndCol.line,
+        lineAndCol.column - 1,
+        definition
+      );
 
       references.push({
         filePath,
-        line: line1Based,
-        column,
-        context: line,
+        line: lineAndCol.line,
+        column: lineAndCol.column - 1,
+        context: lineText,
         type: refType,
       });
     }
+
+    return references;
   }
 
-  return references;
+  /**
+   * Classify a reference by its context.
+   *
+   * @param node - The AST node
+   * @param line - Line number
+   * @param column - Column number
+   * @param definition - Definition location
+   * @returns Reference type
+   */
+  private classifyReference(
+    node: Node,
+    line: number,
+    column: number,
+    definition: { filePath: string; line: number; column: number } | null
+  ): ReferenceType {
+    // Check if this is the definition
+    if (definition && line === definition.line && column === definition.column) {
+      return 'definition';
+    }
+
+    const parent = node.getParent();
+    if (!parent) return 'usage';
+
+    // Check for import
+    if (parent.getKindName().includes('Import')) {
+      return 'import';
+    }
+
+    // Check for export
+    if (parent.getKindName().includes('Export')) {
+      return 'export';
+    }
+
+    // Check for type reference
+    if (parent.getKindName().includes('TypeReference') ||
+        parent.getKindName().includes('TypeAlias')) {
+      return 'type-reference';
+    }
+
+    return 'usage';
+  }
+
+  /**
+   * Get the text of a specific line.
+   *
+   * @param sourceFile - The source file
+   * @param line - Line number (1-based)
+   * @returns The line text
+   */
+  private getLineText(sourceFile: SourceFile, line: number): string {
+    const lines = sourceFile.getFullText().split('\n');
+    return lines[line - 1] || '';
+  }
+
+  /**
+   * Check if a file path matches any of the given patterns.
+   *
+   * @param filePath - The file path to check
+   * @param patterns - Array of glob patterns
+   * @returns True if matches any pattern
+   */
+  private matchesPatterns(filePath: string, patterns: string[]): boolean {
+    return patterns.some(pattern => {
+      // Simple glob matching
+      const regex = new RegExp(
+        pattern
+          .replace(/\*\*/g, '<<<DOUBLESTAR>>>')
+          .replace(/\*/g, '[^/]*')
+          .replace(/<<<DOUBLESTAR>>>/g, '.*')
+      );
+      return regex.test(filePath);
+    });
+  }
 }
 
 /**
- * Find all references to a symbol across the codebase.
- *
- * First locates the definition using AST symbol extraction, then searches
- * all files for the symbol name using word-boundary regex. Each reference
- * is classified by its AST context.
+ * Find references to a symbol (convenience function).
  *
  * @param symbolName - The symbol name to search for
- * @param rootDir - Root directory of the project
+ * @param filePath - Optional file path where the symbol is defined
  * @param options - Search options
  * @returns Complete reference result
  */
 export async function findReferences(
   symbolName: string,
-  rootDir: string,
+  filePath?: string,
   options?: FindReferencesOptions
 ): Promise<ReferenceResult> {
-  const includeDefinition = options?.includeDefinition ?? true;
-  const filePatterns = options?.filePatterns;
+  const finder = new ReferenceFinder(options?.tsConfigPath);
+  return finder.findReferences(symbolName, filePath, options);
+}
 
-  // Step 1: Collect source files
-  const allFiles = await collectSourceFiles(rootDir);
-
-  // Apply file pattern filters if provided
-  let filesToSearch = allFiles;
-  if (filePatterns && filePatterns.length > 0) {
-    filesToSearch = allFiles.filter(fp => {
-      const relative = path.relative(rootDir, fp).replace(/\\/g, '/');
-      return filePatterns.some(pattern => globMatch(relative, pattern));
-    });
-  }
-
-  // Step 2: Parse all files and find the definition
-  const parseResults = await parseFiles(filesToSearch);
-  let definition: { filePath: string; line: number } | null = null;
-
-  // Search for the definition across all parsed files
-  for (const [filePath, result] of parseResults) {
-    const symbols = extractSymbols(result);
-    const matches = findSymbolByName(symbols, symbolName);
-
-    for (const sym of matches) {
-      if (
-        sym.kind === 'function' || sym.kind === 'class' || sym.kind === 'interface' ||
-        sym.kind === 'type' || sym.kind === 'enum' || sym.kind === 'variable' ||
-        sym.kind === 'method' || sym.kind === 'module' || sym.kind === 'namespace'
-      ) {
-        // Prefer exact match over partial match
-        if (sym.name === symbolName) {
-          definition = {
-            filePath,
-            line: sym.startLine + 1, // convert to 1-based
-          };
-          break;
-        }
-      }
-    }
-    if (definition && definition.filePath === filePath) break;
-  }
-
-  // Step 3: Search all files for references
-  const allReferences: Reference[] = [];
-  const batchSize = 10;
-
-  for (let i = 0; i < filesToSearch.length; i += batchSize) {
-    const batch = filesToSearch.slice(i, i + batchSize);
-    const batchResults = await Promise.all(
-      batch.map(async (fp) => {
-        const refs = await findReferencesInFile(symbolName, fp);
-        return refs;
-      })
-    );
-    for (const refs of batchResults) {
-      allReferences.push(...refs);
-    }
-  }
-
-  // Step 4: Filter out definition if not requested
-  const filteredReferences = includeDefinition
-    ? allReferences
-    : allReferences.filter(r => r.type !== 'definition');
-
-  // Step 5: Sort by file path, then line number
-  filteredReferences.sort((a, b) => {
-    if (a.filePath !== b.filePath) {
-      return a.filePath.localeCompare(b.filePath);
-    }
-    return a.line - b.line;
+/**
+ * Find references within a single file (convenience function).
+ *
+ * @param symbolName - The symbol name to search for
+ * @param filePath - The file path to search in
+ * @param options - Search options
+ * @returns Array of reference info
+ */
+export async function findReferencesInFile(
+  symbolName: string,
+  filePath: string,
+  options?: FindReferencesOptions
+): Promise<ReferenceInfo[]> {
+  const finder = new ReferenceFinder(options?.tsConfigPath);
+  const result = await finder.findReferences(symbolName, filePath, {
+    ...options,
+    filePatterns: [filePath],
   });
-
-  // Step 6: Count unique files
-  const uniqueFiles = new Set(filteredReferences.map(r => r.filePath));
-
-  return {
-    symbolName,
-    definition,
-    references: filteredReferences,
-    fileCount: uniqueFiles.size,
-    referenceCount: filteredReferences.length,
-  };
+  return result.references.filter(r => r.filePath === path.normalize(filePath));
 }

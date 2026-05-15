@@ -110,7 +110,7 @@ export async function generateRepoMap(
   const parseResults = await parseFiles(filePaths);
 
   // Step 3: Build dependency graph
-  const graph = buildDependencyGraph(filePaths, parseResults);
+  const graph = buildDependencyGraph(filePaths);
 
   // Step 4: Extract all symbols (only top-level meaningful ones for repo map)
   const allSymbols = new Map<string, import('./symbols.js').CodeSymbol[]>();
@@ -136,7 +136,7 @@ export async function generateRepoMap(
 
   // Step 5: Detect entry points and rank symbols
   const entryPoints = options?.entryPoints ?? detectEntryPoints(filePaths);
-  const ranked = rankSymbols(allSymbols, graph, entryPoints, allSources);
+  const ranked = rankSymbols(undefined, graph, entryPoints, undefined, {});
 
   // Step 6: Generate map within token budget
   const budget = createTokenBudget(maxTokens);

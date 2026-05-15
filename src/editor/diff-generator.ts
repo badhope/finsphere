@@ -1,11 +1,11 @@
 /**
  * Unified diff generator for code edits
  *
- * Generates git-style unified diffs and applies SEARCH/REPLACE edits
- * to source strings. Supports single and multi-edit operations with
- * bottom-up processing to preserve line numbers.
+ * Uses the 'diff' npm package for reliable diff generation.
+ * Provides unified diff generation, application, and parsing.
  */
 
+import * as diff from 'diff';
 import type { EditTarget } from './edit-target.js';
 
 /** A single edit operation combining a target with its replacement */
@@ -35,51 +35,54 @@ export interface DiffResult {
 /**
  * Generate a unified diff for a single edit operation.
  *
- * Produces git-style unified diff output with headers, hunk markers,
- * and +/- line indicators.
+ * Uses diff.createPatch() for reliable git-style unified diff generation.
  *
  * @param operation - The edit operation to diff
  * @returns DiffResult with unified diff string and statistics
  */
 export function generateDiff(operation: EditOperation): DiffResult {
-  const { target, replacement } = operation;
-  const oldLines = target.content.split('\n');
-  const newLines = replacement.split('\n');
+  const { target, replacement, description } = operation;
 
-  const deletions = oldLines.length;
-  const additions = newLines.length;
-
-  // Build unified diff
-  const diffLines: string[] = [];
-
-  // Diff header
-  diffLines.push(`--- a/${target.filePath}`);
-  diffLines.push(`+++ b/${target.filePath}`);
-
-  // Hunk header: @@ -start,count +start,count @@
-  // Unified diff uses 1-based line numbers
-  const oldStart = target.startLine;
-  const newStart = target.startLine;
-  diffLines.push(
-    `@@ -${oldStart},${deletions} +${newStart},${additions} @@`
+  // Generate unified diff using the diff library
+  const patch = diff.createPatch(
+    target.filePath,
+    target.content,
+    replacement,
+    'a/' + target.filePath,
+    'b/' + target.filePath
   );
 
-  // If there's a description, add it as a diff context note
-  if (operation.description) {
-    diffLines.push(`+ // ${operation.description}`);
+  // Calculate statistics using structured patch
+  const structured = diff.structuredPatch(
+    target.filePath,
+    target.filePath,
+    target.content,
+    replacement,
+    'a/' + target.filePath,
+    'b/' + target.filePath
+  );
+
+  let additions = 0;
+  let deletions = 0;
+
+  for (const hunk of structured.hunks) {
+    for (const line of hunk.lines) {
+      if (line.startsWith('+')) additions++;
+      if (line.startsWith('-')) deletions++;
+    }
   }
 
-  // Removed lines (prefixed with -)
-  for (const line of oldLines) {
-    diffLines.push(`-${line}`);
+  // Add description as a comment in the diff if provided
+  let unifiedDiff = patch;
+  if (description) {
+    // Insert description after the first two lines (--- and +++)
+    const lines = patch.split('\n');
+    if (lines.length >= 2) {
+      lines.splice(2, 0, `+// ${description}`);
+      unifiedDiff = lines.join('\n');
+      additions++; // Count the description line
+    }
   }
-
-  // Added lines (prefixed with +)
-  for (const line of newLines) {
-    diffLines.push(`+${line}`);
-  }
-
-  const unifiedDiff = diffLines.join('\n') + '\n';
 
   return {
     filePath: target.filePath,
@@ -175,5 +178,31 @@ export function applyMultipleEdits(source: string, operations: EditOperation[]):
     result = applyEdit(result, op);
   }
 
+  return result;
+}
+
+/**
+ * Parse a unified diff string into structured format.
+ *
+ * @param diffString - The unified diff string to parse
+ * @returns Parsed diff structure or null if parsing fails
+ */
+export function parseDiff(diffString: string): ReturnType<typeof diff.parsePatch>[0] | null {
+  const parsed = diff.parsePatch(diffString);
+  if (parsed.length === 0) return null;
+  return parsed[0];
+}
+
+/**
+ * Apply a unified diff patch to source content.
+ *
+ * @param source - Original source content
+ * @param patch - Unified diff patch string
+ * @returns The patched content or null if application fails
+ */
+export function applyDiff(source: string, patch: string): string | null {
+  const result = diff.applyPatch(source, patch);
+  // applyPatch returns false on failure
+  if (result === false) return null;
   return result;
 }

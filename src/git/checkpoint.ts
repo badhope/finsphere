@@ -40,10 +40,14 @@ export class CheckpointManager {
 
     // 创建 Git tag 作为检查点
     const tagMessage = description || `Checkpoint ${id}`;
-    const { stderr } = await this.git.exec(`tag -a "devflow-${id}" -m ${JSON.stringify(tagMessage)}`);
-
-    if (stderr && stderr.includes('already exists')) {
-      return { success: false, message: '检查点已存在' };
+    try {
+      await this.git.exec(['tag', '-a', `devflow-${id}`, '-m', tagMessage]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('already exists')) {
+        return { success: false, message: '检查点已存在' };
+      }
+      throw error;
     }
 
     const checkpoint: GitCheckpoint = {
@@ -76,9 +80,11 @@ export class CheckpointManager {
       return { success: false, message: `检查点 ${checkpointId} 不存在` };
     }
 
-    const { stderr } = await this.git.exec(`reset --hard ${checkpoint.commitHash}`);
-    if (stderr) {
-      return { success: false, message: `回滚失败: ${stderr}` };
+    try {
+      await this.git.exec(['reset', '--hard', checkpoint.commitHash]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, message: `回滚失败: ${message}` };
     }
 
     return {
@@ -111,7 +117,7 @@ export class CheckpointManager {
     }
 
     // 删除 Git tag
-    await this.git.exec(`tag -d "devflow-${checkpointId}"`);
+    await this.git.exec(['tag', '-d', `devflow-${checkpointId}`]);
 
     this.checkpoints.delete(checkpointId);
     await this.saveCheckpoints();
@@ -123,23 +129,28 @@ export class CheckpointManager {
    * 从 Git tags 加载检查点
    */
   private async loadFromGit(): Promise<void> {
-    const { stdout } = await this.git.exec('tag -l "devflow-cp-*" --format="%(refname:short)|%(objectname:short)|%(contents)"');
-    if (!stdout) return;
+    try {
+      const result = await this.git.exec(['tag', '-l', 'devflow-cp-*', '--format=%(refname:short)|%(objectname:short)|%(contents)']);
+      const stdout = typeof result === 'string' ? result : '';
+      if (!stdout) return;
 
-    for (const line of stdout.split('\n')) {
-      const [tagRef, commitHash, message] = line.split('|');
-      if (!tagRef) continue;
+      for (const line of stdout.split('\n')) {
+        const [tagRef, commitHash, message] = line.split('|');
+        if (!tagRef) continue;
 
-      const id = tagRef.replace('devflow-', '');
-      if (!this.checkpoints.has(id)) {
-        this.checkpoints.set(id, {
-          id,
-          branch: '',
-          commitHash: commitHash || '',
-          message: message || '',
-          createdAt: 0, // 从 Git tag 无法获取创建时间
-        });
+        const id = tagRef.replace('devflow-', '');
+        if (!this.checkpoints.has(id)) {
+          this.checkpoints.set(id, {
+            id,
+            branch: '',
+            commitHash: commitHash || '',
+            message: message || '',
+            createdAt: 0, // 从 Git tag 无法获取创建时间
+          });
+        }
       }
+    } catch {
+      // Ignore errors when loading from git
     }
   }
 
@@ -148,13 +159,19 @@ export class CheckpointManager {
    */
   private async loadCheckpoints(): Promise<void> {
     try {
-      const content = await fs.readFile(CHECKPOINT_FILE, 'utf8');
-      const data = JSON.parse(content);
-      for (const cp of data) {
-        this.checkpoints.set(cp.id, cp);
+      const data = await fs.readFile(CHECKPOINT_FILE, 'utf-8');
+      const checkpoints: GitCheckpoint[] = JSON.parse(data);
+      for (const cp of checkpoints) {
+        // 合并 Git 加载的数据和文件数据
+        const existing = this.checkpoints.get(cp.id);
+        if (existing) {
+          this.checkpoints.set(cp.id, { ...existing, ...cp });
+        } else {
+          this.checkpoints.set(cp.id, cp);
+        }
       }
     } catch {
-      // 文件不存在，忽略
+      // 文件不存在或解析失败，忽略
     }
   }
 
@@ -164,10 +181,10 @@ export class CheckpointManager {
   private async saveCheckpoints(): Promise<void> {
     try {
       await fs.mkdir(CHECKPOINT_DIR, { recursive: true });
-      const data = Array.from(this.checkpoints.values());
-      await fs.writeFile(CHECKPOINT_FILE, JSON.stringify(data, null, 2), 'utf8');
-    } catch {
-      // 忽略写入错误
+      const data = JSON.stringify(Array.from(this.checkpoints.values()), null, 2);
+      await fs.writeFile(CHECKPOINT_FILE, data, 'utf-8');
+    } catch (error) {
+      console.error('Failed to save checkpoints:', error);
     }
   }
 }
