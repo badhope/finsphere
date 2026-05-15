@@ -5,6 +5,7 @@ import { memoryManager } from '../../memory/manager.js';
 import { listTools, toolRegistry } from '../../tools/registry.js';
 import { PROVIDER_INFO, PROVIDER_TYPE_LIST, type ProviderType } from '../../types.js';
 import { waitForEnter as pause } from '../../utils/io.js';
+import { getErrorMessage } from '../../utils/error-handling.js';
 import { printSuccess, printInfo, printError } from '../logo.js';
 import { interactiveHelp } from '../help.js';
 import { runSubCommand } from './command-runner.js';
@@ -80,7 +81,7 @@ export async function handleMenuChoice(choice: string): Promise<void> {
               model: modelId,
             }).catch(() => {});
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           const { message, hint } = formatApiError(error);
           printError(`对话失败: ${message}`);
           if (hint) printInfo(hint);
@@ -122,7 +123,7 @@ export async function handleMenuChoice(choice: string): Promise<void> {
             model: modelId,
           }).catch(() => {});
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         const { message: msg, hint } = formatApiError(error);
         printError(`提问失败: ${msg}`);
         if (hint) printInfo(hint);
@@ -155,7 +156,7 @@ export async function handleMenuChoice(choice: string): Promise<void> {
             console.log(`  ${chalk.cyan(id)}${builtin ? chalk.green(' ✓') : ''}`);
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         const { message, hint } = formatApiError(error);
         printError(`搜索失败: ${message}`);
         if (hint) printInfo(hint);
@@ -173,8 +174,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
 
       try {
         await runSubCommand(['agent', 'run', task]);
-      } catch (error: any) {
-        printError(`Agent 执行失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`Agent 执行失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -189,8 +190,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
 
       try {
         await runSubCommand(['review', 'file', filePath]);
-      } catch (error: any) {
-        printError(`审查失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`审查失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -205,8 +206,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
 
       try {
         await runSubCommand(['review', 'dir', dirPath]);
-      } catch (error: any) {
-        printError(`审查失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`审查失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -214,8 +215,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
     case 'tools-list': {
       try {
         await runSubCommand(['tools', 'list']);
-      } catch (error: any) {
-        printError(`工具列表获取失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`工具列表获取失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -256,8 +257,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
         if (!result.success && result.error) {
           printError(`工具返回错误: ${result.error}`);
         }
-      } catch (error: any) {
-        printError(`工具执行失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`工具执行失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -272,8 +273,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
 
       try {
         await runSubCommand(['files', 'read', filePath]);
-      } catch (error: any) {
-        printError(`读取失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`读取失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -301,8 +302,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
         } else {
           printError(`写入失败: ${result.error}`);
         }
-      } catch (error: any) {
-        printError(`写入失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`写入失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -316,8 +317,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
       }]);
       try {
         await runSubCommand(['files', 'tree', dirPath]);
-      } catch (error: any) {
-        printError(`目录树获取失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`目录树获取失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -325,8 +326,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
     case 'memory-view': {
       try {
         await runSubCommand(['memory', 'recent', '--limit', '10']);
-      } catch (error: any) {
-        printError(`记忆查看失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`记忆查看失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -341,8 +342,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
 
       try {
         await runSubCommand(['memory', 'search', query]);
-      } catch (error: any) {
-        printError(`记忆搜索失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`记忆搜索失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -350,8 +351,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
     case 'config-view': {
       try {
         await runSubCommand(['config', 'list']);
-      } catch (error: any) {
-        printError(`配置查看失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`配置查看失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -375,8 +376,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
           await configManager.setApiKey(provider as ProviderType, apiKey);
           printSuccess(`${PROVIDER_INFO[provider as ProviderType].displayName} API Key 已设置`);
         }
-      } catch (error: any) {
-        printError(`密钥设置失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`密钥设置失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -384,8 +385,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
     case 'config-sandbox': {
       try {
         await runSubCommand(['config', 'get-sandbox']);
-      } catch (error: any) {
-        printError(`沙盒配置查看失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`沙盒配置查看失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -393,8 +394,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
     case 'list': {
       try {
         await runSubCommand(['ai', 'list']);
-      } catch (error: any) {
-        printError(`平台列表获取失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`平台列表获取失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -402,8 +403,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
     case 'status': {
       try {
         await runSubCommand(['config', 'list']);
-      } catch (error: any) {
-        printError(`状态查看失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`状态查看失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }
@@ -413,8 +414,8 @@ export async function handleMenuChoice(choice: string): Promise<void> {
       const p = defaultProvider || 'aliyun';
       try {
         await runSubCommand(['chat', 'models', '-p', p]);
-      } catch (error: any) {
-        printError(`模型列表获取失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        printError(`模型列表获取失败: ${getErrorMessage(error)}`);
       }
       await pause();
     }

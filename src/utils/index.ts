@@ -6,3 +6,14 @@ export { formatError, formatSuccess, ValidationSchema, validateParams } from './
 export { formatBytes, formatContext } from './format.js';
 export { waitForEnter, readStdin } from './io.js';
 export { tokenize, estimateTokens } from './tokens.js';
+export {
+  isError,
+  hasMessage,
+  hasCode,
+  getErrorMessage,
+  getErrorStack,
+  getErrorCode,
+  toErrorObject,
+  safeAsync,
+  safeSync,
+} from './error-handling.js';

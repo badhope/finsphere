@@ -6,7 +6,16 @@
  */
 
 import * as path from 'path';
-import type { SourceFile, Symbol } from 'ts-morph';
+import type {
+  SourceFile,
+  Symbol,
+  FunctionDeclaration,
+  ClassDeclaration,
+  InterfaceDeclaration,
+  TypeAliasDeclaration,
+  EnumDeclaration,
+  VariableDeclaration,
+} from 'ts-morph';
 import { getProject, createProject } from './ts-morph-project.js';
 import type { DependencyGraph } from './dependency-graph.js';
 
@@ -148,7 +157,10 @@ export class ImportanceRanker {
 
       // Get all exported declarations
       const exportedDecls = sourceFile.getExportedDeclarations();
-      const exportedNames = new Set(exportedDecls.keys());
+      const exportedNames = new Set<string>();
+      for (const key of exportedDecls.keys()) {
+        exportedNames.add(key as string);
+      }
 
       // Analyze functions
       for (const func of sourceFile.getFunctions()) {
@@ -263,9 +275,9 @@ export class ImportanceRanker {
   /**
    * Calculate inheritance depth for a class.
    */
-  private calculateInheritanceDepth(cls: any): number {
+  private calculateInheritanceDepth(cls: ClassDeclaration): number {
     let depth = 0;
-    let current = cls;
+    let current: ClassDeclaration | undefined = cls;
 
     while (current) {
       const baseClass = current.getBaseClass();
@@ -280,8 +292,8 @@ export class ImportanceRanker {
   /**
    * Count implementations of an interface.
    */
-  private countImplementations(iface: any): number {
-    const implementations = iface.getImplementations?.() ?? [];
+  private countImplementations(iface: InterfaceDeclaration): number {
+    const implementations = iface.getImplementations();
     return implementations.length;
   }
 
@@ -307,12 +319,12 @@ export class ImportanceRanker {
   }
 
   // Analysis methods for different symbol kinds
-  private analyzeFunction(func: any, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
+  private analyzeFunction(func: FunctionDeclaration, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
     const name = func.getName();
     if (!name) return null;
 
     const referenceCount = this.countReferences(name);
-    const isExported = exportedNames.has(name) || func.isExported?.() || false;
+    const isExported = exportedNames.has(name) || func.isExported();
     const startLine = func.getStartLineNumber();
     const endLine = func.getEndLineNumber();
 
@@ -335,12 +347,12 @@ export class ImportanceRanker {
     };
   }
 
-  private analyzeClass(cls: any, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
+  private analyzeClass(cls: ClassDeclaration, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
     const name = cls.getName();
     if (!name) return null;
 
     const referenceCount = this.countReferences(name);
-    const isExported = exportedNames.has(name) || cls.isExported?.() || false;
+    const isExported = exportedNames.has(name) || cls.isExported();
     const startLine = cls.getStartLineNumber();
     const endLine = cls.getEndLineNumber();
     const inheritanceDepth = this.calculateInheritanceDepth(cls);
@@ -364,12 +376,12 @@ export class ImportanceRanker {
     };
   }
 
-  private analyzeInterface(iface: any, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
+  private analyzeInterface(iface: InterfaceDeclaration, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
     const name = iface.getName();
     if (!name) return null;
 
     const referenceCount = this.countReferences(name);
-    const isExported = exportedNames.has(name) || iface.isExported?.() || false;
+    const isExported = exportedNames.has(name) || iface.isExported();
     const startLine = iface.getStartLineNumber();
     const endLine = iface.getEndLineNumber();
     const implementationCount = this.countImplementations(iface);
@@ -393,12 +405,12 @@ export class ImportanceRanker {
     };
   }
 
-  private analyzeTypeAlias(typeAlias: any, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
+  private analyzeTypeAlias(typeAlias: TypeAliasDeclaration, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
     const name = typeAlias.getName();
     if (!name) return null;
 
     const referenceCount = this.countReferences(name);
-    const isExported = exportedNames.has(name) || typeAlias.isExported?.() || false;
+    const isExported = exportedNames.has(name) || typeAlias.isExported();
     const startLine = typeAlias.getStartLineNumber();
     const endLine = typeAlias.getEndLineNumber();
 
@@ -421,12 +433,12 @@ export class ImportanceRanker {
     };
   }
 
-  private analyzeEnum(enm: any, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
+  private analyzeEnum(enm: EnumDeclaration, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
     const name = enm.getName();
     if (!name) return null;
 
     const referenceCount = this.countReferences(name);
-    const isExported = exportedNames.has(name) || enm.isExported?.() || false;
+    const isExported = exportedNames.has(name) || enm.isExported();
     const startLine = enm.getStartLineNumber();
     const endLine = enm.getEndLineNumber();
 
@@ -449,12 +461,12 @@ export class ImportanceRanker {
     };
   }
 
-  private analyzeVariable(variable: any, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
+  private analyzeVariable(variable: VariableDeclaration, filePath: string, isEntry: boolean, exportedNames: Set<string>): SymbolImportance | null {
     const name = variable.getName();
     if (!name) return null;
 
     const referenceCount = this.countReferences(name);
-    const isExported = exportedNames.has(name) || variable.isExported?.() || false;
+    const isExported = exportedNames.has(name) || variable.isExported();
     const startLine = variable.getStartLineNumber();
     const endLine = variable.getEndLineNumber();
 

@@ -1,23 +1,17 @@
 /**
- * 信任管理器 - 问题检测器
+ * Trust 模块统一导出
  *
- * 此文件为重导出模块，保持向后兼容性。
- * 实际实现已拆分到 trust/ 子目录。
- *
- * @module trust-detector
+ * 提供信任检测相关的所有类型、类和函数。
  */
 
-// ==================== Re-export from trust submodules ====================
-
-// Types
+// ==================== Types ====================
 export type {
   SeverityLevel,
   DetectionPattern,
   PatternCategory,
-  DetectionContext,
-} from './trust/index.js';
+} from './types.js';
 
-// Patterns
+// ==================== Patterns ====================
 export {
   FILE_SYSTEM_PATTERNS,
   NETWORK_PATTERNS,
@@ -30,9 +24,9 @@ export {
   ALL_DETECTION_PATTERNS,
   getAllPatterns,
   getPatternsByCategory,
-} from './trust/index.js';
+} from './patterns.js';
 
-// Severity
+// ==================== Severity ====================
 export {
   SEVERITY_LEVELS,
   getSeverityLevel,
@@ -40,9 +34,11 @@ export {
   deduplicateAndSortIssues,
   isHighSeverity,
   createIssueFromPattern,
-} from './trust/index.js';
+} from './severity.js';
 
-// Context
+// ==================== Context ====================
+export type { DetectionContext } from './context.js';
+
 export {
   isTestFile,
   shouldSkipInTest,
@@ -52,10 +48,10 @@ export {
   detectFileContext,
   detectNetworkContext,
   detectWithContext,
-} from './trust/index.js';
+} from './context.js';
 
-// Detector
+// ==================== Detector ====================
 export {
   TrustDetector,
   detectIssues,
-} from './trust/index.js';
+} from './detector.js';

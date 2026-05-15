@@ -5,7 +5,7 @@ import { ragModule } from './rag.js';
 import { MemoryConsolidator, type ConsolidationConfig, type ConsolidationResult } from './consolidation.js';
 import fs from 'fs/promises';
 import path from 'path';
-import type { MemoryInteraction, MemoryRecord, MemoryStats } from './memory-types.js';
+import type { MemoryInteraction, MemoryRecord, MemoryStats, MemoryInteractionWithMeta } from './memory-types.js';
 import { AsyncLock } from '../utils/async-lock.js';
 
 // Re-export 类型
@@ -150,10 +150,10 @@ export class MemoryManager {
       this.consolidator.applyForgettingCurve(
         records.map(r => ({
           id: r.id,
-          importance: (r as any).importance ?? 0.5,
+          importance: r.importance ?? 0.5,
           createdAt: r.timestamp,
-          stability: (r as any).stability,
-          accessCount: (r as any).accessCount,
+          stability: r.stability,
+          accessCount: r.accessCount,
         })),
       );
 
@@ -272,10 +272,10 @@ export class MemoryManager {
     for (const result of results) {
       this.consolidator.reinforceMemory({
         id: result.interaction.id,
-        importance: (result.interaction as any).importance ?? result.relevance,
+        importance: result.interaction.importance ?? result.relevance,
         createdAt: result.interaction.timestamp,
-        stability: (result.interaction as any).stability,
-        accessCount: (result.interaction as any).accessCount,
+        stability: result.interaction.stability,
+        accessCount: result.interaction.accessCount,
       });
     }
 

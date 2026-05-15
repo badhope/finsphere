@@ -3,6 +3,17 @@ import path from 'path';
 import { createHash } from 'crypto';
 import type { ToolDefinition } from '../registry.js';
 import { validatePath } from '../security.js';
+import { getErrorMessage } from '../../utils/error-handling.js';
+
+// ==================== JSON 类型定义 ====================
+
+/**
+ * JSON 值类型 - 表示有效的 JSON 值
+ */
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray;
+export type JsonPrimitive = string | number | boolean | null;
+export interface JsonObject { [key: string]: JsonValue }
+export interface JsonArray extends Array<JsonValue> {}
 
 // ==================== 辅助函数 ====================
 
@@ -166,8 +177,8 @@ export const httpTool: ToolDefinition = {
         output: `[${response.status} ${response.statusText}]\n\n${outputText.slice(0, 10000)}`,
         error: response.ok ? undefined : `HTTP ${response.status}`,
       };
-    } catch (error: any) {
-      return { success: false, output: '', error: `请求失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `请求失败: ${getErrorMessage(error)}` };
     }
   },
 };
@@ -219,13 +230,15 @@ export const jsonTool: ToolDefinition = {
         case 'query': {
           if (!args.query) return { success: false, output: '', error: '查询模式需要 --query 参数' };
           const parts = args.query.replace(/^\./, '').split('.');
-          let result: any = obj;
+          let result: JsonValue = obj;
           for (const part of parts) {
             const arrayMatch = part.match(/^(\w+)\[(\d+)\]$/);
             if (arrayMatch) {
-              result = result[arrayMatch[1]]?.[parseInt(arrayMatch[2])];
+              const objPart = (result as JsonObject)?.[arrayMatch[1]];
+              const arr = objPart as JsonArray | undefined;
+              result = arr?.[parseInt(arrayMatch[2])] as JsonValue;
             } else {
-              result = result[part];
+              result = (result as JsonObject)?.[part] as JsonValue;
             }
             if (result === undefined) break;
           }
@@ -234,8 +247,8 @@ export const jsonTool: ToolDefinition = {
         default:
           return { success: true, output: JSON.stringify(obj, null, 2) };
       }
-    } catch (error: any) {
-      return { success: false, output: '', error: `JSON 处理失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `JSON 处理失败: ${getErrorMessage(error)}` };
     }
   },
 };
@@ -285,8 +298,8 @@ export const textTool: ToolDefinition = {
         default:
           return { success: true, output: input };
       }
-    } catch (error: any) {
-      return { success: false, output: '', error: `文本处理失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `文本处理失败: ${getErrorMessage(error)}` };
     }
   },
 };
@@ -318,8 +331,8 @@ export const hashTool: ToolDefinition = {
 
       const hash = createHash(algo).update(data).digest('hex');
       return { success: true, output: `${algo.toUpperCase()}: ${hash}` };
-    } catch (error: any) {
-      return { success: false, output: '', error: error.message };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: getErrorMessage(error) };
     }
   },
 };
