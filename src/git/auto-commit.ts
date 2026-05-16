@@ -3,11 +3,12 @@ import { GitManager } from './manager.js';
 import { configManager } from '../config/manager.js';
 
 /** 默认自动提交配置 */
-export const DEFAULT_AUTO_COMMIT_CONFIG: AutoCommitConfig = {
+export const DEFAULT_AUTO_COMMIT_CONFIG: AutoCommitConfig & { aiCommitMessage?: boolean } = {
   enabled: true,
   authorName: 'DevFlow Agent',
   authorEmail: 'devflow@agent.local',
   commitPrefix: 'feat',
+  aiCommitMessage: true,
 };
 
 /**
@@ -65,7 +66,8 @@ export class AutoCommitEngine {
 
     // 先尝试获取 diff，用于 AI 生成提交消息
     const diffResult = await this.git.getDiff({ staged: true });
-    const useAI = (this.config as any).aiCommitMessage !== false;  // 默认启用
+    const configWithAI = this.config as AutoCommitConfig & { aiCommitMessage?: boolean };
+    const useAI = configWithAI.aiCommitMessage !== false;  // 默认启用
 
     let commitMessage: string;
     if (useAI && diffResult.patch.trim()) {

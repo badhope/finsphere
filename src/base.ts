@@ -49,8 +49,8 @@ export abstract class BaseProvider {
         signal: AbortSignal.timeout(10000),
       });
       if (!response.ok) return this._modelsCache?.data || [];
-      const data: any = await response.json();
-      const models: Array<{ id: string }> = data.data || data || [];
+      const data = await response.json() as { data?: Array<{ id: string }> } | Array<{ id: string }>;
+      const models: Array<{ id: string }> = Array.isArray(data) ? data : (data.data || []);
       const sorted = models.map(m => m.id).sort();
       this._modelsCache = { data: sorted, timestamp: now };
       return sorted;

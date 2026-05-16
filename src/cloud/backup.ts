@@ -85,9 +85,9 @@ export class BackupManager {
               if (cfg.baseUrl || cfg.defaultModel || cfg.maxRetries) {
                 const existing = configManager.getProviderConfig(name as import('../types.js').ProviderType);
                 if (existing) {
-                  if (cfg.baseUrl) (existing as any).baseUrl = cfg.baseUrl;
-                  if (cfg.defaultModel) (existing as any).defaultModel = cfg.defaultModel;
-                  if (cfg.maxRetries) (existing as any).maxRetries = cfg.maxRetries;
+                  if (cfg.baseUrl) existing.baseUrl = cfg.baseUrl;
+                  if (cfg.defaultModel) existing.defaultModel = cfg.defaultModel;
+                  if (cfg.maxRetries) existing.maxRetries = cfg.maxRetries;
                 }
               }
             }

@@ -92,8 +92,8 @@ export class ContextManager {
       };
 
       const compressionService = new CompressionService(
-        adapterFactory as any,
-        configManager as any
+        adapterFactory as unknown as import('../services/interfaces.js').IProviderFactory,
+        configManager as unknown as import('../services/interfaces.js').IConfigManager
       );
 
       const nonSystemMessages = this.messages.filter(m => m.role !== 'system');

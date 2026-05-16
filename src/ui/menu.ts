@@ -35,7 +35,7 @@ export async function showGroupedMenu(
 
   groups.forEach(group => {
     if (group.title) {
-      choices.push(new inquirer.Separator(chalk.bold.yellow(`  ── ${group.title} ──`)) as any);
+      choices.push(new inquirer.Separator(chalk.bold.yellow(`  ── ${group.title} ──`)) as unknown as { name: string; value: string; short: string });
     }
 
     group.items.forEach((item) => {
@@ -50,7 +50,7 @@ export async function showGroupedMenu(
       globalIndex++;
     });
 
-    choices.push(new inquirer.Separator('') as any);
+    choices.push(new inquirer.Separator('') as unknown as { name: string; value: string; short: string });
   });
 
   if (showBack) {

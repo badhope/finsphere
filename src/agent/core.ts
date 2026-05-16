@@ -695,7 +695,13 @@ export class AgentExecutor {
     const previousContext = this.contextManager.getContext().map(m => {
       if (typeof m.content === 'string') return m.content;
       if (Array.isArray(m.content)) {
-        return m.content.map(c => typeof c === 'string' ? c : (c as any).text || '').join('');
+        return m.content.map(c => {
+          if (typeof c === 'string') return c;
+          if (typeof c === 'object' && c !== null && 'text' in c) {
+            return (c as { text: string }).text;
+          }
+          return '';
+        }).join('');
       }
       return String(m.content);
     });

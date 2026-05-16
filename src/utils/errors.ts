@@ -34,7 +34,7 @@ export class NetworkError extends DevFlowError {
   }
 }
 
-export function formatError(error: unknown): { code: string; message: string; details?: any } {
+export function formatError(error: unknown): { code: string; message: string; details?: Record<string, unknown> } {
   if (error instanceof DevFlowError) {
     return { code: error.code, message: error.message, details: error.details };
   }

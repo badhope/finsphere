@@ -70,7 +70,7 @@ export function printTable(options: TableOptions): void {
     style: tableStyle,
     wordWrap: true,
     wrapOnWordBoundary: false,
-  } as any);
+  } as ConstructorParameters<typeof Table>[0]);
 
   for (const row of rows) {
     table.push(row);

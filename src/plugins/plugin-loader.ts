@@ -77,8 +77,9 @@ export class PluginLoader {
           // Default enabled to true
           if (manifest.enabled === false) continue;
 
-          (manifest as any)._dir = path.join(resolved, entry.name);
-          manifests.push(manifest);
+          const manifestWithDir = manifest as PluginManifest & { _dir?: string };
+          manifestWithDir._dir = path.join(resolved, entry.name);
+          manifests.push(manifestWithDir);
         } catch {
           // Not a valid plugin directory - skip
         }
@@ -96,7 +97,8 @@ export class PluginLoader {
     if (existing) return existing;
 
     // Determine the plugin directory and entry point
-    let pluginDir: string | undefined = (manifest as any)._dir;
+    const manifestWithDir = manifest as PluginManifest & { _dir?: string };
+    let pluginDir: string | undefined = manifestWithDir._dir;
     let entryFile = manifest.main ?? 'index.js';
 
     if (!pluginDir) {

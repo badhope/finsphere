@@ -137,6 +137,8 @@ export class ChatService extends BaseService {
    * @returns 是否可用
    */
   isProviderAvailable(type: string): boolean {
-    return this.providerFactory.isProviderAvailable(type as any);
+    const validProviders = ['openai', 'anthropic', 'google', 'siliconflow', 'aliyun', 'zhipu', 'baidu', 'deepseek', 'ollama', 'lmstudio'];
+    if (!validProviders.includes(type)) return false;
+    return this.providerFactory.isProviderAvailable(type as import('../types.js').ProviderType);
   }
 }

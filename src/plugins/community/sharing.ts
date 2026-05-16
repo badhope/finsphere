@@ -7,10 +7,18 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 
+export interface PluginManifest {
+  name: string;
+  version: string;
+  description: string;
+  main?: string;
+  enabled?: boolean;
+}
+
 export interface ShareBundle {
   format: 'devflow-plugin';
   version: string;
-  plugin: { manifest: any; files: Record<string, string> };
+  plugin: { manifest: PluginManifest; files: Record<string, string> };
   metadata: { createdAt: string; exportedBy?: string; checksum: string };
 }
 

@@ -15,7 +15,7 @@ async function showHelpLevel(topics: HelpTopic[], title: string): Promise<HelpTo
 
   choices.push({
     name: chalk.gray('\u2190 返回上级'),
-    value: null as any,
+    value: null as unknown as HelpTopic,
     short: '返回',
   });
 

@@ -8,6 +8,7 @@ import { runPlanAct } from '../agent/plan-act.js';
 import { configManager } from '../config/manager.js';
 import { agentTrustCommand } from './agent/agent-trust.js';
 import { agentRiskCommand } from './agent/agent-risk.js';
+import type { ProviderType } from '../types.js';
 
 const agentCommand = new Command('agent')
   .description('Agent 核心循环 - 智能理解、规划、执行任务');
@@ -57,13 +58,13 @@ agentCommand
           undefined,
           {
             architect: {
-              provider: options.provider as any,
+              provider: options.provider as ProviderType,
               model: options.architectModel,
               temperature: 0.2,
               maxTokens: 4096,
             },
             editor: {
-              provider: options.provider as any,
+              provider: options.provider as ProviderType,
               model: options.editorModel,
               temperature: 0.1,
               maxTokens: 8192,
@@ -88,7 +89,7 @@ agentCommand
 
         const result = await runPlanAct(task, {
           llm: {
-            provider: options.provider as any,
+            provider: options.provider as ProviderType,
             model: options.model,
           },
           autoApprove: options.yes,
@@ -144,10 +145,10 @@ agentCommand
         const displaySteps = steps.filter(Boolean).map(s => ({
           step: s.id,
           title: s.description,
-          status: s.status === 'done' ? 'done' : s.status === 'running' ? 'running' : s.status === 'error' ? 'error' : 'pending',
+          status: (s.status === 'done' ? 'done' : s.status === 'running' ? 'running' : s.status === 'error' ? 'error' : 'pending') as 'pending' | 'running' | 'done' | 'error',
           detail: s.result ? s.result.slice(0, 50) : s.error,
         }));
-        printSteps(displaySteps as any);
+        printSteps(displaySteps);
       }
     } catch (error) {
       printError(`任务执行失败: ${error instanceof Error ? error.message : String(error)}`);
