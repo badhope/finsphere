@@ -184,7 +184,8 @@ export class KnowledgeGraph {
       const existingAttrs = this.graph.getEdgeAttrs<RelationEdgeAttrs>(fromId, toId);
       if (existingAttrs?.relationship && existingAttrs.relationship.type === type) {
         existingAttrs.relationship.weight = Math.min(1, Math.max(existingAttrs.relationship.weight, weight));
-        this.graph.setEdgeAttrs(fromId, toId, existingAttrs as unknown as Record<string, unknown>);
+        const updatedAttrs: Record<string, unknown> = { relationship: existingAttrs.relationship };
+        this.graph.setEdgeAttrs(fromId, toId, updatedAttrs);
         await this.save();
         return existingAttrs.relationship;
       }

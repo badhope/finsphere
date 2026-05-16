@@ -358,7 +358,7 @@ export class OutputValidator {
       if (!result.success) {
         errors.push(...result.error.issues.map((e) => e.message));
       }
-    } catch (e) {
+    } catch (e: unknown) {
       errors.push(`JSON 解析错误: ${e instanceof Error ? e.message : String(e)}`);
     }
 

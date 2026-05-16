@@ -65,8 +65,11 @@ function findTsConfigSync(startDir: string): string | undefined {
 
   while (currentDir !== path.dirname(currentDir)) {
     const tsConfigPath = path.join(currentDir, 'tsconfig.json');
-    if (fs.existsSync(tsConfigPath)) {
+    try {
+      fs.accessSync(tsConfigPath);
       return tsConfigPath;
+    } catch {
+      // File does not exist, continue searching
     }
     currentDir = path.dirname(currentDir);
   }

@@ -9,6 +9,9 @@ import { SANDBOX_PERMISSIONS, DEFAULT_CONFIG } from './defaults.js';
 import { validateConfigWithLogging } from './validation.js';
 import type { Config } from './schemas.js';
 import { DEFAULT_TIMEOUT_MS } from '../constants/index.js';
+import { createLogger } from '../services/logger.js';
+
+const logger = createLogger('config');
 
 
 // Re-export 类型和常量
@@ -45,7 +48,7 @@ export class ConfigManager {
       }
       this._initialized = true;
     } catch (error) {
-      console.error('初始化配置失败:', error);
+      logger.error({ error }, '初始化配置失败');
     }
   }
 
@@ -68,11 +71,11 @@ export class ConfigManager {
       if (validation.valid && validation.config) {
         this.config = this.mergeConfig(DEFAULT_CONFIG, validation.config);
       } else {
-        console.warn('[Config] 配置验证失败，尝试从备份恢复');
+        logger.warn('[Config] 配置验证失败，尝试从备份恢复');
         await this.restoreFromBackup();
       }
     } catch (error) {
-      console.warn('[Config] 配置文件读取失败，尝试从备份恢复');
+      logger.warn('[Config] 配置文件读取失败，尝试从备份恢复');
       await this.restoreFromBackup();
     }
   }
@@ -92,7 +95,7 @@ export class ConfigManager {
       await fs.writeFile(tmpPath, JSON.stringify(this.config, null, 2), 'utf-8');
       await fs.rename(tmpPath, this.configFile);
     } catch (error) {
-      console.error('[Config] 保存配置失败:', error);
+      logger.error({ error }, '[Config] 保存配置失败');
       throw error;  // 不要静默失败
     }
   }
@@ -106,12 +109,12 @@ export class ConfigManager {
 
       if (validation.valid && validation.config) {
         this.config = this.mergeConfig(DEFAULT_CONFIG, validation.config);
-        console.info('[Config] 已从备份恢复配置');
+        logger.info('[Config] 已从备份恢复配置');
       } else {
         throw new Error('备份配置也无效');
       }
     } catch {
-      console.warn('[Config] 无法从备份恢复，使用默认配置');
+      logger.warn('[Config] 无法从备份恢复，使用默认配置');
       this.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     }
   }

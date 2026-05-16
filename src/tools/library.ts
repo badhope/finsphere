@@ -85,10 +85,10 @@ export class ToolLibrary {
             try {
               const module = await import(`file://${toolPath}`);
               toolDef = module.default || module;
-            } catch (e) {
+            } catch (e: unknown) {
               toolDef = await this.parseToolFromSource(entry.name, toolPath);
               if (!toolDef) {
-                console.warn(`⚠️  无法加载工具 ${entry.name}: ${e}`);
+                console.warn(`⚠️  无法加载工具 ${entry.name}: ${e instanceof Error ? e.message : String(e)}`);
                 continue;
               }
             }
@@ -112,8 +112,8 @@ export class ToolLibrary {
               path: toolPath
             };
           }
-        } catch (e) {
-          console.warn(`⚠️  跳过工具 ${entry.name}: ${e}`);
+        } catch (e: unknown) {
+          console.warn(`⚠️  跳过工具 ${entry.name}: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
     } catch (error) {

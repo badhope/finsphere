@@ -109,7 +109,7 @@ export async function publishPlugin(options: PublishOptions): Promise<PublishRes
     publishedAt: existing?.publishedAt ?? now,
     updatedAt: now,
     versions: existing?.versions ?? [],
-    category: (manifest as unknown as Record<string, string>).category ?? 'tool',
+    category: (manifest as PluginManifest & { category?: string }).category ?? 'tool',
   };
   if (!entry.versions.some((v) => v.version === manifest.version)) {
     entry.versions.push(newVersion);
