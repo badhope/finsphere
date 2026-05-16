@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import type { ToolDefinition } from '../registry.js';
 import { formatBytes } from '../../utils/format.js';
+import { getErrorMessage } from '../../utils/error-handling.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -126,14 +127,16 @@ export const shellTool: ToolDefinition = {
         maxBuffer: 10 * 1024 * 1024,
       });
       return { success: true, output: stdout + (stderr ? '\n--- STDERR ---\n' + stderr : '') };
-    } catch (error: any) {
-      if (error.message?.includes('maxBuffer')) {
-        return { success: false, output: error.stdout || '', error: '命令输出超过缓冲区限制(10MB)，请使用分页或过滤参数' };
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
+      const errObj = error as { stdout?: string; stderr?: string };
+      if (errorMsg.includes('maxBuffer')) {
+        return { success: false, output: errObj.stdout || '', error: '命令输出超过缓冲区限制(10MB)，请使用分页或过滤参数' };
       }
-      if (error.message?.includes('ETIMEDOUT') || error.message?.includes('timeout')) {
-        return { success: false, output: error.stdout || '', error: '命令执行超时' };
+      if (errorMsg.includes('ETIMEDOUT') || errorMsg.includes('timeout')) {
+        return { success: false, output: errObj.stdout || '', error: '命令执行超时' };
       }
-      return { success: false, output: error.stdout || '', error: error.stderr || error.message };
+      return { success: false, output: errObj.stdout || '', error: errObj.stderr || errorMsg };
     }
   },
 };
@@ -166,8 +169,8 @@ export const sysInfoTool: ToolDefinition = {
       ];
 
       return { success: true, output: lines.join('\n') };
-    } catch (error: any) {
-      return { success: false, output: '', error: error.message };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: getErrorMessage(error) };
     }
   },
 };

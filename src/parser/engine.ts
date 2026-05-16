@@ -8,10 +8,46 @@ import Parser from 'tree-sitter';
 import { getLanguageByFilePath, type LanguageInfo } from './languages.js';
 import { parseCache } from './cache.js';
 
+/**
+ * Tree-sitter 解析树节点位置
+ */
+export interface ParseTreePosition {
+  row: number;
+  column: number;
+}
+
+/**
+ * Tree-sitter 解析树节点
+ */
+export interface ParseTreeNode {
+  type: string;
+  text: string;
+  startPosition: ParseTreePosition;
+  endPosition: ParseTreePosition;
+  childCount: number;
+  children: ParseTreeNode[];
+  parent: ParseTreeNode | null;
+  /** 前一个命名兄弟节点 */
+  previousNamedSibling?: ParseTreeNode | null;
+  /** 获取指定位置的子孙节点 */
+  descendantForPosition(position: ParseTreePosition): ParseTreeNode;
+  /** 获取子节点 */
+  child(index: number): ParseTreeNode | null;
+  /** 根据字段名获取子节点 */
+  childForFieldName(fieldName: string): ParseTreeNode | null;
+}
+
+/**
+ * Tree-sitter 解析树
+ */
+export interface ParseTree {
+  rootNode: ParseTreeNode;
+}
+
 /** 解析结果 */
 export interface ParseResult {
   /** 语法树 */
-  tree: any;
+  tree: ParseTree;
   /** 语言信息 */
   language: LanguageInfo;
   /** 源代码 */
@@ -25,12 +61,15 @@ const parserInstances = new Map<string, Parser>();
 
 /**
  * 获取或创建 Parser 实例
+ * @param languageName 语言名称
+ * @param language 语言对象（来自 tree-sitter 语言包）
+ * @returns Parser 实例
  */
-function getParser(languageName: string, language: any): Parser {
+function getParser(languageName: string, language: unknown): Parser {
   let parser = parserInstances.get(languageName);
   if (!parser) {
     parser = new Parser();
-    parser.setLanguage(language);
+    parser.setLanguage(language as Parser.Language);
     parserInstances.set(languageName, parser);
   }
   return parser;
@@ -45,7 +84,7 @@ function getParser(languageName: string, language: any): Parser {
 export function parseSource(
   source: string,
   filePath: string,
-  oldTree?: any
+  oldTree?: ParseTree
 ): ParseResult | null {
   const language = getLanguageByFilePath(filePath);
   if (!language || !language.language) {
@@ -53,7 +92,7 @@ export function parseSource(
   }
 
   const parser = getParser(language.name, language.language);
-  const tree = parser.parse(source, oldTree || undefined);
+  const tree = parser.parse(source, oldTree as Parser.Tree | undefined) as ParseTree;
 
   return { tree, language, source, filePath };
 }
@@ -69,7 +108,7 @@ export function updateParse(
   if (!language.language) return null;
 
   const oldTree = result.tree;
-  const newTree = parseSource(newSource, result.filePath, oldTree);
+  const newTree = parseSource(newSource, result.filePath, oldTree as ParseTree);
   return newTree;
 }
 

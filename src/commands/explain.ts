@@ -4,6 +4,7 @@ import path from 'path';
 import { configManager } from '../config/manager.js';
 import { printSuccess, printError, printInfo } from '../ui/logo.js';
 import { callLLM } from '../agent/llm-caller.js';
+import { getErrorMessage } from '../utils/error-handling.js';
 
 export const explainCommand = new Command('explain')
   .description('解释代码（文件、函数、概念）')
@@ -63,7 +64,7 @@ ${code}
       });
       console.log();
       console.log(response || '(无回复)');
-    } catch (error: any) {
-      printError(`解释失败: ${error.message}`);
+    } catch (error: unknown) {
+      printError(`解释失败: ${getErrorMessage(error)}`);
     }
   });

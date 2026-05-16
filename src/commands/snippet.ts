@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import inquirer from 'inquirer';
 import { printSuccess, printError, printInfo, printWarning } from '../ui/logo.js';
+import { getErrorMessage } from '../utils/error-handling.js';
 
 const SNIPPETS_DIR = path.join(os.homedir(), '.devflow', 'snippets');
 
@@ -24,8 +25,8 @@ snippetCommand
     if (options.file) {
       try {
         code = await fs.readFile(options.file, 'utf-8');
-      } catch (err: any) {
-        printError(`文件读取失败: ${err.message}`);
+      } catch (err: unknown) {
+        printError(`文件读取失败: ${getErrorMessage(err)}`);
         return;
       }
     }

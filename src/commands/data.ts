@@ -8,6 +8,7 @@ import { ragModule } from '../memory/rag.js';
 import { backupManager } from '../cloud/backup.js';
 import { configManager } from '../config/manager.js';
 import { printSuccess, printError, printInfo, printWarning } from '../ui/logo.js';
+import { getErrorMessage } from '../utils/error-handling.js';
 
 const DATA_DIR = path.join(os.homedir(), '.devflow');
 
@@ -52,8 +53,8 @@ dataCommand
       const content = JSON.stringify(exportData, null, 2);
       await fs.writeFile(opts.output, content, 'utf-8');
       printSuccess(`数据已导出到: ${opts.output} (${(Buffer.byteLength(content) / 1024).toFixed(1)} KB)`);
-    } catch (error: any) {
-      printError(`导出失败: ${error.message}`);
+    } catch (error: unknown) {
+      printError(`导出失败: ${getErrorMessage(error)}`);
     }
   });
 
@@ -94,8 +95,8 @@ dataCommand
       }
 
       printSuccess('数据导入完成');
-    } catch (error: any) {
-      printError(`导入失败: ${error.message}`);
+    } catch (error: unknown) {
+      printError(`导入失败: ${getErrorMessage(error)}`);
     }
   });
 
@@ -120,9 +121,9 @@ dataCommand
         await kg.init();
         await kg.clear();
         printSuccess('所有数据已重置（记忆 + 知识图谱）');
-        printInfo('配置数据未被删除，使用 devflow config reset 可重置配置');
       }
-    } catch (error: any) {
-      printError(`重置失败: ${error.message}`);
+      printInfo('配置数据未被删除，使用 devflow config reset 可重置配置');
+    } catch (error: unknown) {
+      printError(`重置失败: ${getErrorMessage(error)}`);
     }
   });

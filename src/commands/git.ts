@@ -1,8 +1,10 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { GitManager, AutoCommitEngine, DirtyProtect, CheckpointManager } from '../git/index.js';
+import type { GitCheckpoint } from '../git/types.js';
 import { printHeader, printSection, printSuccess, printError, printInfo, printWarning } from '../ui/logo.js';
 import { printTable, printBadge } from '../ui/display.js';
+import { getErrorMessage } from '../utils/error-handling.js';
 
 /**
  * Git 命令 - Git 深度集成
@@ -198,9 +200,10 @@ checkpointCmd
     const result = await cp.create(options.description);
     if (result.success) {
       printSuccess(result.message);
-      if (result.data) {
-        printInfo(`分支: ${result.data.branch}`);
-        printInfo(`提交: ${result.data.commitHash.substring(0, 7)}`);
+      const data = result.data as GitCheckpoint | undefined;
+      if (data) {
+        printInfo(`分支: ${data.branch}`);
+        printInfo(`提交: ${data.commitHash.substring(0, 7)}`);
       }
     } else {
       printError(result.message);
@@ -353,8 +356,8 @@ gitCommand
       } else {
         printError(result.message);
       }
-    } catch (error: any) {
-      printError(`推送失败: ${error.message}`);
+    } catch (error: unknown) {
+      printError(`推送失败: ${getErrorMessage(error)}`);
     }
   });
 
@@ -379,7 +382,7 @@ gitCommand
       printInfo(`正在创建 PR: ${chalk.cyan(prTitle)}`);
       const result = await git.createPR(prTitle, options.body, options.base);
       printSuccess(`PR 创建成功: ${result}`);
-    } catch (error: any) {
-      printError(`PR 创建失败: ${error.message}`);
+    } catch (error: unknown) {
+      printError(`PR 创建失败: ${getErrorMessage(error)}`);
     }
   });

@@ -14,7 +14,7 @@ import { LMStudioProvider } from './lmstudio.js';
 export function createProvider(type: ProviderType, config: ProviderConfig): BaseProvider {
   switch (type) {
     case 'openai':
-      return new OpenAIProvider(config);
+      return new OpenAIProvider('openai', config);
     case 'anthropic':
       return new AnthropicProvider(config);
     case 'google':

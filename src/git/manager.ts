@@ -4,6 +4,7 @@ import simpleGit, { SimpleGit, StatusResult, LogResult, DefaultLogFields } from 
 import path from 'path';
 import { gitLogger } from '../services/logger.js';
 import type { GitCommit, GitDiff, GitStatus, GitResult } from './types.js';
+import { getErrorMessage } from '../utils/error-handling.js';
 
 /**
  * Git 管理器 - 基于 simple-git 封装所有 Git 操作
@@ -510,11 +511,12 @@ export class GitManager {
       });
       gitLogger.info({ title }, 'PR created successfully');
       return stdout.trim();
-    } catch (error: any) {
-      if (error.message?.includes('gh: command not found')) {
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
+      if (errorMsg.includes('gh: command not found')) {
         throw new Error('需要安装 GitHub CLI (gh): https://cli.github.com/');
       }
-      gitLogger.error({ title, error: error.stderr || error.message }, 'PR creation failed');
+      gitLogger.error({ title, error: errorMsg }, 'PR creation failed');
       throw error;
     }
   }

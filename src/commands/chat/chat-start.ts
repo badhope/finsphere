@@ -14,6 +14,8 @@ import { executeSlashCommand } from '../slash-commands.js';
 import { PersonalityManager } from '../../agent/personality.js';
 import { EmotionalStateManager } from '../../agent/emotional-state.js';
 import { setCurrentSession } from '../../cli.js';
+import type { IProviderFactory, IConfigManager, ILLMProvider } from '../../services/interfaces.js';
+import { getErrorMessage } from '../../utils/error-handling.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -208,8 +210,8 @@ export async function startInteractiveChat(options: StartChatOptions = {}): Prom
             role: 'assistant',
             content: `[命令执行结果]\n${stdout || '(无输出)'}${stderr ? '\n' + stderr : ''}`,
           });
-        } catch (error: any) {
-          console.log(chalk.red(`命令执行失败: ${error.message}`));
+        } catch (error: unknown) {
+          console.log(chalk.red(`命令执行失败: ${getErrorMessage(error)}`));
         }
         continue;
       }
@@ -297,15 +299,15 @@ export async function startInteractiveChat(options: StartChatOptions = {}): Prom
         if (messages.length > chatParams.historyLimit * 2) {
           try {
             const { CompressionService } = await import('../../services/compression-service.js');
-            const adapterFactory = {
-              getDefaultProvider: () => provider,
-              getProvider: () => provider,
+            const adapterFactory: IProviderFactory = {
+              getDefaultProvider: () => provider as ILLMProvider,
+              getProvider: () => provider as ILLMProvider,
               listAvailableProviders: () => [providerType],
               isProviderAvailable: () => true,
             };
             const compressionService = new CompressionService(
-              adapterFactory as any,
-              configManager as any
+              adapterFactory,
+              configManager as IConfigManager
             );
 
             if (compressionService.shouldCompress(messages)) {
@@ -341,8 +343,8 @@ export async function startInteractiveChat(options: StartChatOptions = {}): Prom
             model: modelId,
           }).catch(() => {});
         }
-      } catch (error: any) {
-        const errMsg = error?.message || String(error);
+      } catch (error: unknown) {
+        const errMsg = getErrorMessage(error);
         printError(`\n  请求失败: ${errMsg}`);
         if (errMsg.includes('401')) printInfo('  API Key 可能无效，请运行: devflow config set-key <平台> <apiKey>');
         else if (errMsg.includes('429')) printInfo('  请求频率过高，请稍后重试');

@@ -1,22 +1,36 @@
-export function formatError(message: string, error?: any): Record<string, any> {
+/**
+ * 格式化错误响应
+ * @param message 错误消息
+ * @param error 可选的错误对象
+ * @returns 包含错误信息的对象
+ */
+export function formatError<T = unknown>(message: string, error?: T): { success: false; error: string; details: string } {
   return {
     success: false,
     error: message,
-    details: error?.message || String(error || '')
+    details: (error as { message?: string } | undefined)?.message || String(error ?? '')
   };
 }
 
-export function formatSuccess(data: any): Record<string, any> {
+/**
+ * 格式化成功响应
+ * @param data 响应数据
+ * @returns 包含成功状态和数据的对象
+ */
+export function formatSuccess<T extends Record<string, unknown>>(data: T): { success: true } & T {
   return {
     success: true,
     ...data
   };
 }
 
+/**
+ * 验证模式接口
+ */
 export interface ValidationSchema {
   type: string;
   required?: boolean;
-  default?: any;
+  default?: unknown;
   min?: number;
   max?: number;
   enum?: string[];
@@ -24,12 +38,18 @@ export interface ValidationSchema {
   match?: RegExp | string;
 }
 
-export function validateParams<T extends Record<string, any>>(
-  params: Record<string, any>,
+/**
+ * 验证参数
+ * @param params 待验证的参数
+ * @param schema 验证模式
+ * @returns 验证结果
+ */
+export function validateParams<T extends Record<string, unknown>>(
+  params: Record<string, unknown>,
   schema: Record<string, ValidationSchema>
 ): { valid: boolean; errors: string[]; data: T } {
   const errors: string[] = [];
-  const data: Record<string, any> = {};
+  const data: Record<string, unknown> = {};
 
   for (const [key, rules] of Object.entries(schema)) {
     const value = params[key];
@@ -57,7 +77,7 @@ export function validateParams<T extends Record<string, any>>(
         }
       }
 
-      if (rules.type === 'string' && rules.enum && !rules.enum.includes(value)) {
+      if (rules.type === 'string' && rules.enum && !rules.enum.includes(value as string)) {
         errors.push(`Parameter ${key} must be one of: ${rules.enum.join(', ')}`);
         continue;
       }

@@ -4,9 +4,7 @@ import { PROVIDER_INFO } from '../types.js';
 
 export class AliyunProvider extends OpenAIProvider {
   constructor(config: ProviderConfig) {
-    super({ ...config, baseUrl: PROVIDER_INFO.aliyun.baseUrl });
-    (this as any).providerType = 'aliyun';
-    (this as any).providerInfo = PROVIDER_INFO.aliyun;
+    super('aliyun', config, PROVIDER_INFO.aliyun);
   }
 
   protected getBaseUrl(): string {

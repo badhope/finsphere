@@ -3,6 +3,7 @@ import path from 'path';
 import { glob } from 'glob';
 import type { ToolDefinition } from '../registry.js';
 import { formatBytes } from '../../utils/format.js';
+import { getErrorMessage } from '../../utils/error-handling.js';
 
 // ==================== 辅助函数 ====================
 
@@ -41,8 +42,8 @@ export const readFileTool: ToolDefinition = {
       }
       const content = await fs.readFile(safePath, 'utf-8');
       return { success: true, output: content, _meta: `(${stat.size} bytes)` };
-    } catch (error: any) {
-      return { success: false, output: '', error: `读取失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `读取失败: ${getErrorMessage(error)}` };
     }
   },
 };
@@ -61,8 +62,8 @@ export const writeFileTool: ToolDefinition = {
       await fs.writeFile(safePath, args.content);
       const stat = await fs.stat(safePath);
       return { success: true, output: `文件已写入: ${args.path} (${stat.size} bytes)` };
-    } catch (error: any) {
-      return { success: false, output: '', error: `写入失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `写入失败: ${getErrorMessage(error)}` };
     }
   },
 };
@@ -117,8 +118,8 @@ export const searchFilesTool: ToolDefinition = {
       }
 
       return { success: true, output: results.length > 0 ? results.join('\n') : '未找到匹配结果' };
-    } catch (error: any) {
-      return { success: false, output: '', error: `搜索失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `搜索失败: ${getErrorMessage(error)}` };
     }
   },
 };
@@ -138,8 +139,8 @@ export const listDirTool: ToolDefinition = {
         return `${type} ${e.name}`;
       }).join('\n');
       return { success: true, output: content };
-    } catch (error: any) {
-      return { success: false, output: '', error: `列出目录失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `列出目录失败: ${getErrorMessage(error)}` };
     }
   },
 };
@@ -209,8 +210,8 @@ export const fileInfoTool: ToolDefinition = {
         `是否目录: ${stat.isDirectory() ? '是' : '否'}`,
       ].join('\n');
       return { success: true, output: content };
-    } catch (error: any) {
-      return { success: false, output: '', error: `获取信息失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `获取信息失败: ${getErrorMessage(error)}` };
     }
   },
 };
@@ -257,8 +258,8 @@ export const deleteFileTool: ToolDefinition = {
         await fs.unlink(safePath);
       }
       return { success: true, output: `已删除: ${args.path}` };
-    } catch (error: any) {
-      return { success: false, output: '', error: `删除失败: ${error.message}` };
+    } catch (error: unknown) {
+      return { success: false, output: '', error: `删除失败: ${getErrorMessage(error)}` };
     }
   },
 };

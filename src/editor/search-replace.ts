@@ -17,6 +17,7 @@ import {
   type SearchReplaceBlock,
 } from './search-replace/parser.js';
 import { normalizeContent } from './search-replace/normalizer.js';
+import { getErrorMessage } from '../utils/error-handling.js';
 
 export { SearchReplaceBlock };
 export type { SearchReplaceBlock as SearchReplaceBlockType };
@@ -168,12 +169,12 @@ export async function executeSearchReplace(
       originalContent: source,
       newContent,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return {
       success: false,
       filePath: targetPath,
       applied: false,
-      error: err.message || String(err),
+      error: getErrorMessage(err),
     };
   }
 }
@@ -286,13 +287,13 @@ export async function executeMultipleSearchReplace(
           newContent,
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       for (const { block } of blockTargets) {
         results.push({
           success: false,
           filePath,
           applied: false,
-          error: err.message || String(err),
+          error: getErrorMessage(err),
         });
       }
     }

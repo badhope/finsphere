@@ -3,6 +3,16 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+/**
+ * 执行选项接口
+ */
+export interface ExecOptions {
+  timeout?: number;
+  encoding?: BufferEncoding;
+  maxBuffer?: number;
+  cwd?: string;
+}
+
 export interface ExecResult {
   stdout: string;
   stderr: string;
@@ -10,6 +20,13 @@ export interface ExecResult {
   durationMs: number;
 }
 
+/**
+ * 安全执行命令（返回完整结果）
+ * @param cmd 命令字符串
+ * @param timeout 超时时间（毫秒）
+ * @param cwd 工作目录
+ * @returns 执行结果
+ */
 export async function safeExecRaw(
   cmd: string,
   timeout: number = 60000,
@@ -17,7 +34,7 @@ export async function safeExecRaw(
 ): Promise<ExecResult> {
   const startTime = Date.now();
   try {
-    const options: any = { timeout, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 };
+    const options: ExecOptions = { timeout, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 };
     if (cwd) options.cwd = cwd;
     const { stdout, stderr } = await execAsync(cmd, options);
     return {
@@ -26,16 +43,24 @@ export async function safeExecRaw(
       exitCode: 0,
       durationMs: Date.now() - startTime
     };
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const error = e as { stdout?: string; stderr?: string; message?: string; code?: number };
     return {
-      stdout: String(e.stdout || '').trim(),
-      stderr: String(e.stderr || e.message || '').trim(),
-      exitCode: e.code || 1,
+      stdout: String(error.stdout || '').trim(),
+      stderr: String(error.stderr || error.message || '').trim(),
+      exitCode: error.code || 1,
       durationMs: Date.now() - startTime
     };
   }
 }
 
+/**
+ * 安全执行命令（返回输出字符串）
+ * @param cmd 命令字符串
+ * @param timeout 超时时间（毫秒）
+ * @param cwd 工作目录
+ * @returns 命令输出
+ */
 export async function safeExec(
   cmd: string,
   timeout: number = 60000,

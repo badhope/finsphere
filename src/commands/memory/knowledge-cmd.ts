@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { knowledgeGraph } from '../../memory/knowledgeGraph.js';
 import { memoryManager } from '../../memory/manager.js';
 import { printSection, printSuccess, printError, printInfo, createSpinner } from '../../ui/logo.js';
+import type { EntityType } from '../../memory/knowledge-graph/types.js';
 
 export const memoryKnowledgeCommand = new Command('knowledge')
   .alias('k')
@@ -23,7 +24,7 @@ export const memoryKnowledgeCommand = new Command('knowledge')
       .description('查询知识图谱')
       .option('-t, --type <type>', '实体类型 (person/tech/project/concept/skill)')
       .action(async (options: { type?: string }) => {
-        const entities = await knowledgeGraph.query(options.type as any);
+        const entities = await knowledgeGraph.query(options.type as EntityType);
         if (entities.length === 0) { printInfo('知识图谱为空，先运行 memory knowledge extract'); return; }
         printSection(`知识图谱 (${entities.length} 个实体)`);
         entities.forEach(e => {

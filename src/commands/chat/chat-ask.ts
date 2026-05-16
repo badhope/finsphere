@@ -5,6 +5,7 @@ import { PROVIDER_INFO } from '../../types.js';
 import { printSuccess, printError, printWarning, printInfo, createSpinner } from '../../ui/logo.js';
 import { memoryManager } from '../../memory/manager.js';
 import { resolveProvider, checkApiKey, createProviderInstance, getChatParams } from './helpers.js';
+import { getErrorMessage } from '../../utils/error-handling.js';
 
 export interface AskQuestionOptions {
   model?: string;
@@ -117,11 +118,11 @@ export async function askQuestion(message: string, options: AskQuestionOptions =
         }
         console.log('\n');
         return;
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.log();
-        errors.push(`${modelId}: ${error.message || error}`);
+        errors.push(`${modelId}: ${getErrorMessage(error)}`);
         if (!enableFallback || i === modelList.length - 1) {
-          printError(`请求失败: ${error}`);
+          printError(`请求失败: ${getErrorMessage(error)}`);
           return;
         }
       }
@@ -161,11 +162,11 @@ export async function askQuestion(message: string, options: AskQuestionOptions =
         }
 
         return;
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (spinner) spinner.stop();
-        errors.push(`${modelId}: ${error.message || error}`);
+        errors.push(`${modelId}: ${getErrorMessage(error)}`);
         if (!enableFallback || i === modelList.length - 1) {
-          printError(`请求失败: ${error}`);
+          printError(`请求失败: ${getErrorMessage(error)}`);
           if (errors.length > 1) {
             console.log(chalk.gray('\n尝试过的模型:'));
             errors.forEach((e, idx) => console.log(chalk.gray(`  ${idx + 1}. ${e}`)));

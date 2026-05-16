@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { printHeader, printSection, printSuccess, printError, printInfo } from '../../ui/logo.js';
 import { printKeyValue, printTable } from '../../ui/display.js';
 import { assessRisk, ChangeControlManager, RISK_RULES, backupFile, rollback } from '../../agent/change-control.js';
+import type { ChangeAction } from '../../agent/risk-rules.js';
 
 export const agentRiskCommand = new Command('risk')
   .description('风险评估与变更控制');
@@ -23,7 +24,7 @@ agentRiskCommand
       return;
     }
 
-    const result = assessRisk(action as any, target);
+    const result = assessRisk(action as ChangeAction, target);
 
     const riskIcon = result.risk === 'critical' ? chalk.red('[X]') :
                   result.risk === 'high' ? chalk.red('[!]') :

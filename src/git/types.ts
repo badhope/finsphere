@@ -60,9 +60,12 @@ export interface AutoCommitConfig {
   excludePattern?: RegExp;    // 排除匹配的文件
 }
 
-/** Git 操作结果 */
-export interface GitResult {
+/**
+ * Git 操作结果
+ * @template T 数据类型
+ */
+export interface GitResult<T = unknown> {
   success: boolean;
   message: string;
-  data?: any;
+  data?: T;
 }

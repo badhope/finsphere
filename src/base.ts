@@ -85,6 +85,14 @@ export abstract class BaseProvider {
   getModelInfo(modelId: string): ModelInfo | undefined { return this.providerInfo.models.find(m => m.id === modelId); }
   getConfig(): ProviderConfig { return { ...this.config }; }
 
+  /**
+   * 列出可用模型（实现 ILLMProvider 接口）
+   * @returns 模型ID列表
+   */
+  async listModels(): Promise<string[]> {
+    return this.providerInfo.models.map(m => m.id);
+  }
+
   public calculateCost(usage: TokenUsage, modelId: string): CostInfo {
     return calculateCost(usage, this.getModelInfo(modelId));
   }

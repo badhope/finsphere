@@ -13,6 +13,43 @@ import {
 import type { CodeSymbol } from '../../parser/symbols.js';
 
 // ============================================================================
+// Type Definitions
+// ============================================================================
+
+/**
+ * Tree-sitter AST 节点位置信息
+ */
+export interface TreeSitterPosition {
+  row: number;
+  column: number;
+}
+
+/**
+ * Tree-sitter AST 节点接口
+ * 与 parser/engine.ts 的 ParseTreeNode 保持一致
+ */
+export interface TreeSitterNode {
+  type: string;
+  text: string;
+  startPosition: TreeSitterPosition;
+  endPosition: TreeSitterPosition;
+  childCount: number;
+  children: TreeSitterNode[];
+  previousNamedSibling?: TreeSitterNode | null;
+  parent: TreeSitterNode | null;
+  child(index: number): TreeSitterNode | null;
+  childForFieldName(fieldName: string): TreeSitterNode | null;
+  descendantForPosition(position: TreeSitterPosition): TreeSitterNode;
+}
+
+/**
+ * Tree-sitter 解析树接口
+ */
+export interface TreeSitterTree {
+  rootNode: TreeSitterNode;
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -35,7 +72,7 @@ export function extractLines(
  * Returns the start line of the comment block (1-based), or null.
  */
 export function findLeadingComment(
-  node: any,
+  node: TreeSitterNode,
   source: string
 ): { startLine: number; endLine: number } | null {
   const lines = source.split('\n');
@@ -78,7 +115,7 @@ export function findLeadingComment(
  * Extract leading comments for a chunk (attaches to the chunk content).
  */
 export function extractLeadingComments(
-  node: any,
+  node: TreeSitterNode,
   source: string
 ): { content: string; startLine: number } | null {
   const leadingComment = findLeadingComment(node, source);
@@ -94,7 +131,7 @@ export function extractLeadingComments(
 /**
  * Extract imported symbol names from an import node for dependency tracking.
  */
-export function extractImportedNames(node: any): string[] {
+export function extractImportedNames(node: TreeSitterNode): string[] {
   const names: string[] = [];
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
@@ -129,7 +166,7 @@ export function extractImportedNames(node: any): string[] {
  * Group multiple import nodes into a single import chunk.
  */
 export function groupImportsIntoChunk(
-  importNodes: any[],
+  importNodes: TreeSitterNode[],
   source: string,
   filePath: string
 ): CodeChunk | null {
@@ -163,7 +200,7 @@ export function groupImportsIntoChunk(
  * Try to split a large class chunk at method boundaries.
  */
 export function splitLargeClass(
-  node: any,
+  node: TreeSitterNode,
   source: string,
   filePath: string,
   className: string,
@@ -173,7 +210,7 @@ export function splitLargeClass(
   const chunks: CodeChunk[] = [];
 
   // Collect method nodes
-  const methods: any[] = [];
+  const methods: TreeSitterNode[] = [];
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
     if (child && (
@@ -189,8 +226,8 @@ export function splitLargeClass(
   if (methods.length <= 1) return [];
 
   // Group consecutive methods to fit within token budget
-  let groupStart: any = methods[0];
-  let groupEnd: any = methods[0];
+  let groupStart: TreeSitterNode = methods[0];
+  let groupEnd: TreeSitterNode = methods[0];
 
   for (let i = 1; i < methods.length; i++) {
     const proposedEnd = methods[i];
@@ -254,7 +291,7 @@ export function splitLargeClass(
  * Alias for splitLargeClass for backward compatibility.
  */
 export function splitClassAtMethods(
-  node: any,
+  node: TreeSitterNode,
   source: string,
   filePath: string,
   className: string,
@@ -279,7 +316,7 @@ export function splitClassAtMethods(
  * @returns Array of code chunks
  */
 export function buildChunks(
-  rootNode: any,
+  rootNode: TreeSitterNode,
   source: string,
   filePath: string,
   symbols: CodeSymbol[],
@@ -302,9 +339,9 @@ export function buildChunks(
   }
 
   // Collect import nodes at the top level
-  const importNodes: any[] = [];
+  const importNodes: TreeSitterNode[] = [];
   // Collect top-level declaration nodes
-  const declarationNodes: any[] = [];
+  const declarationNodes: TreeSitterNode[] = [];
   // Track which lines are covered by declarations/imports
   const coveredLines = new Set<number>();
 

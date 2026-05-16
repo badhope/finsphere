@@ -11,13 +11,21 @@ export type SupportedLanguage =
   | 'javascript-jsx'
   | 'python';
 
+/**
+ * Tree-sitter 语言对象
+ */
+export interface TreeSitterLanguage {
+  name: string;
+  [key: string]: unknown;
+}
+
 /** 语言信息 */
 export interface LanguageInfo {
   name: SupportedLanguage;
   displayName: string;
   extensions: string[];
-  /** 语言对象（any 因为不同包导出格式不同） */
-  language: any;
+  /** 语言对象（不同包导出格式不同，使用 unknown 类型） */
+  language: TreeSitterLanguage | unknown;
 }
 
 /** 语言注册表 */

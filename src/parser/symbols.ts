@@ -111,7 +111,7 @@ const NODE_TYPE_MAP: Record<string, SymbolKind> = {
 export function extractSymbols(result: ParseResult): CodeSymbol[] {
   const symbols: CodeSymbol[] = [];
   const { tree, filePath } = result;
-  const rootNode = tree.rootNode as SyntaxNode;
+  const rootNode = tree.rootNode as unknown as SyntaxNode;
 
   walkTree(rootNode, symbols, filePath, undefined);
 

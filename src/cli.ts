@@ -25,6 +25,7 @@ import { handleMenuChoice } from './ui/menu-handler.js';
 import { logger } from './services/logger.js';
 import { generateStartupSuggestions, formatHealthCheckForCLI } from './agent/startup-suggestions.js';
 import { autonomousGoalManager } from './agent/autonomous-goals.js';
+import { getErrorMessage } from './utils/error-handling.js';
 
 // 注册 DI 容器服务（可选，用于未来的依赖注入迁移）
 import { initializeContainer } from './di/index.js';
@@ -211,9 +212,10 @@ if (process.argv.length === 2) {
       } catch {
         // 健康检查失败不影响主流程
       }
-    } catch (error: any) {
-      logger.error({ error: error.message }, 'Configuration initialization failed');
-      printError(`配置初始化失败: ${error.message}`);
+    } catch (error: unknown) {
+      const errMsg = getErrorMessage(error);
+      logger.error({ error: errMsg }, 'Configuration initialization failed');
+      printError(`配置初始化失败: ${errMsg}`);
       printInfo('请检查 .devflow 目录权限');
       process.exit(1);
     }
@@ -230,9 +232,10 @@ if (process.argv.length === 2) {
         }
 
         await handleMenuChoice(choice);
-      } catch (error: any) {
-        logger.error({ error: error?.message || error }, 'Operation failed in main loop');
-        printError(`操作失败: ${error?.message || error}`);
+      } catch (error: unknown) {
+        const errMsg = getErrorMessage(error);
+        logger.error({ error: errMsg }, 'Operation failed in main loop');
+        printError(`操作失败: ${errMsg}`);
         printInfo('返回主菜单...');
       }
     }

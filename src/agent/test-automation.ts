@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import { callLLM } from './llm-caller.js';
+import { getErrorMessage } from '../utils/error-handling.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -83,10 +84,11 @@ export async function runTests(projectDir: string, framework?: string): Promise<
     const duration = Date.now() - startTime;
 
     return parseTestOutput(detected, stdout, stderr, duration);
-  } catch (error: any) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime;
     // 测试失败时 stdout 仍然有结果
-    return parseTestOutput(detected, error.stdout || '', error.stderr || '', duration);
+    const errObj = error as { stdout?: string; stderr?: string };
+    return parseTestOutput(detected, errObj.stdout || '', errObj.stderr || '', duration);
   }
 }
 

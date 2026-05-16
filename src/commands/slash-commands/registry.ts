@@ -6,6 +6,9 @@
 
 import chalk from 'chalk';
 import type { SlashCommand, SlashCommandContext } from './types.js';
+import type { ProviderType } from '../../types.js';
+import type { IProviderFactory, IConfigManager, ILLMProvider } from '../../services/interfaces.js';
+import { getErrorMessage } from '../../utils/error-handling.js';
 
 /** 命令注册表类型 */
 export type CommandRegistry = Map<string, SlashCommand>;
@@ -221,7 +224,7 @@ const saveCommand: SlashCommand = {
         await memoryManager.rememberChat({
           input: lastUser.content,
           output: lastAssistant.content,
-          provider: ctx.providerType as any,
+          provider: ctx.providerType as ProviderType,
           model: ctx.modelId,
         });
         return { handled: true, message: chalk.green('✓ 对话已保存到记忆') };
@@ -277,20 +280,20 @@ const compactCommand: SlashCommand = {
 
       // 直接创建 CompressionService 实例
       // CompressionService 依赖 IProviderFactory，这里通过适配器注入
-      const providerType = ctx.providerType as any;
+      const providerType = ctx.providerType as ProviderType;
       const provider = createProviderInstance(providerType);
 
       // 手动构建压缩所需的 provider factory 适配器
-      const adapterFactory = {
-        getDefaultProvider: () => provider,
-        getProvider: () => provider,
+      const adapterFactory: IProviderFactory = {
+        getDefaultProvider: () => provider as ILLMProvider,
+        getProvider: () => provider as ILLMProvider,
         listAvailableProviders: () => [providerType],
         isProviderAvailable: () => true,
       };
 
       const compressionService = new CompressionService(
-        adapterFactory as any,
-        configManager as any
+        adapterFactory,
+        configManager as IConfigManager
       );
 
       const nonSystemMessages = ctx.messages.filter(m => m.role !== 'system');
@@ -433,10 +436,10 @@ const imageCommand: SlashCommand = {
         handled: true,
         message: chalk.green(`✓ 已附加图片: ${imagePath} (${(imageBuffer.length / 1024).toFixed(1)} KB)`),
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       return {
         handled: true,
-        message: chalk.red(`✗ 图片读取失败: ${err.message}`),
+        message: chalk.red(`✗ 图片读取失败: ${getErrorMessage(err)}`),
       };
     }
   },

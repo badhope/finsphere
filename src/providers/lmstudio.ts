@@ -16,9 +16,7 @@ interface LMStudioListResponse {
 
 export class LMStudioProvider extends OpenAIProvider {
   constructor(config: ProviderConfig) {
-    super({ ...config, baseUrl: PROVIDER_INFO.lmstudio.baseUrl });
-    (this as any).providerType = 'lmstudio';
-    (this as any).providerInfo = PROVIDER_INFO.lmstudio;
+    super('lmstudio', config, PROVIDER_INFO.lmstudio);
   }
 
   protected getBaseUrl(): string {

@@ -4,6 +4,7 @@ import { ragModule } from '../../memory/rag.js';
 import { memoryManager } from '../../memory/manager.js';
 import { configManager } from '../../config/manager.js';
 import { printSuccess, printError, printInfo, createSpinner, printSection } from '../../ui/logo.js';
+import type { ProviderType } from '../../types.js';
 
 export const memoryRagCommand = new Command('rag')
   .description('RAG 向量检索管理')
@@ -13,7 +14,7 @@ export const memoryRagCommand = new Command('rag')
       .option('-p, --provider <provider>', 'AI 平台', 'aliyun')
       .action(async (options: { provider: string }) => {
         await configManager.init();
-        const providerConfig = configManager.getProviderConfig(options.provider as any);
+        const providerConfig = configManager.getProviderConfig(options.provider as ProviderType);
         if (!providerConfig.apiKey) {
           printError(`请先配置 ${options.provider} 的 API Key`);
           return;
@@ -29,7 +30,7 @@ export const memoryRagCommand = new Command('rag')
       .description('将所有记忆索引到向量数据库')
       .action(async () => {
         await configManager.init();
-        const providerConfig = configManager.getProviderConfig('aliyun' as any);
+        const providerConfig = configManager.getProviderConfig('aliyun' as ProviderType);
         if (!providerConfig.apiKey) { printError('请先配置 aliyun API Key'); return; }
         await ragModule.init(providerConfig.apiKey);
 
@@ -58,7 +59,7 @@ export const memoryRagCommand = new Command('rag')
         const topK = parseInt(options.top, 10) || 5;
         // 自动初始化 RAG
         await configManager.init();
-        const providerConfig = configManager.getProviderConfig('aliyun' as any);
+        const providerConfig = configManager.getProviderConfig('aliyun' as ProviderType);
         if (providerConfig.apiKey) {
           await ragModule.init(providerConfig.apiKey);
         }

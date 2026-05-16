@@ -53,7 +53,7 @@ const indexStore = new Map<string, IndexData>();
 /**
  * 提取 JSDoc 或文档注释
  */
-function extractDocstring(node: { previousNamedSibling?: { type: string; text: string }; parent?: { childCount: number; child: (i: number) => { type: string; text: string } } }, source: string): string | undefined {
+function extractDocstring(node: { previousNamedSibling?: { type: string; text: string } | null; parent?: { childCount: number; child: (i: number) => { type: string; text: string } | null } | null }, source: string): string | undefined {
   const prev = node.previousNamedSibling;
   if (prev && (
     prev.type === 'comment' ||
@@ -76,7 +76,7 @@ function extractDocstring(node: { previousNamedSibling?: { type: string; text: s
     let prevUnnamed: { type: string; text: string } | null = null;
     for (let i = 0; i < parent.childCount; i++) {
       const child = parent.child(i);
-      if (child.type === 'comment' || child.type === 'block_comment') {
+      if (child && (child.type === 'comment' || child.type === 'block_comment')) {
         prevUnnamed = child;
       }
     }

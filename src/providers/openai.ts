@@ -1,5 +1,5 @@
 import { BaseProvider } from '../base.js';
-import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message, ImageContent, TextContent } from '../types.js';
+import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message, ImageContent, TextContent, ProviderType } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
 import { CONNECTION_TIMEOUT_MS } from '../constants/index.js';
 
@@ -70,8 +70,12 @@ interface OpenAIMessage {
 }
 
 export class OpenAIProvider extends BaseProvider {
-  constructor(config: ProviderConfig) {
-    super('openai', config, PROVIDER_INFO.openai);
+  constructor(
+    providerType: ProviderType = 'openai',
+    config: ProviderConfig,
+    providerInfo: typeof PROVIDER_INFO[ProviderType] = PROVIDER_INFO.openai
+  ) {
+    super(providerType, config, providerInfo);
   }
 
   async chat(params: ChatParams): Promise<ChatResponse> {
