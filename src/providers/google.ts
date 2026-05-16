@@ -1,6 +1,7 @@
 import { BaseProvider } from '../base.js';
 import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
+import { CONNECTION_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from '../constants/index.js';
 
 interface GoogleResponse {
   candidates: Array<{
@@ -17,6 +18,17 @@ interface GoogleResponse {
     candidatesTokenCount: number;
     totalTokenCount: number;
   };
+}
+
+/**
+ * Google 模型列表响应
+ */
+interface GoogleModelsResponse {
+  models: Array<{
+    name: string;
+    displayName: string;
+    supportedGenerationMethods: string[];
+  }>;
 }
 
 export class GoogleProvider extends BaseProvider {
@@ -189,7 +201,7 @@ export class GoogleProvider extends BaseProvider {
       const apiKey = this.getApiKey();
       const response = await fetch(`${this.getBaseUrl()}/models?key=${apiKey}`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS),
       });
       return response.ok;
     } catch {
@@ -203,12 +215,12 @@ export class GoogleProvider extends BaseProvider {
       if (!apiKey) return [];
       const response = await fetch(`${this.getBaseUrl()}/models?key=${apiKey}`, {
         method: 'GET',
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       if (!response.ok) return [];
-      const data: any = await response.json();
+      const data = await response.json() as GoogleModelsResponse;
       // Google 返回 { models: [{ name: "models/gemini-xxx", ... }] }
-      const models: Array<{ name: string }> = data.models || [];
+      const models = data.models || [];
       return models
         .map(m => m.name.replace(/^models\//, ''))  // 去掉 "models/" 前缀
         .sort();

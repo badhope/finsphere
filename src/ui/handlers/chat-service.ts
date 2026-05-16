@@ -3,13 +3,21 @@ import { configManager } from '../../config/manager.js';
 import { printError, printInfo } from '../logo.js';
 import { createProvider } from '../../providers/index.js';
 import { PROVIDER_INFO, PROVIDER_TYPE_LIST, type ProviderType } from '../../types.js';
+import type { BaseProvider } from '../../base.js';
 
 /**
  * Stream chat with AI provider
+ *
+ * @param provider - AI provider instance
+ * @param messages - Chat messages
+ * @param modelId - Model identifier
+ * @param temperature - Sampling temperature
+ * @param maxTokens - Maximum tokens to generate
+ * @returns Full response content
  */
 export async function streamChat(
-  provider: any,
-  messages: Array<{ role: string; content: string }>,
+  provider: BaseProvider,
+  messages: Array<{ role: 'system' | 'user' | 'assistant' | 'tool'; content: string }>,
   modelId: string,
   temperature: number,
   maxTokens: number,
@@ -33,7 +41,7 @@ export async function streamChat(
         fullContent += chunk.content;
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (fullContent) {
       process.stdout.write(chalk.red('\n\n  ⚠ 流式输出中断'));
     }
@@ -45,9 +53,20 @@ export async function streamChat(
 }
 
 /**
- * Resolve available AI provider
+ * Resolved provider result
  */
-export function resolveProvider(): { providerType: ProviderType; provider: any; modelId: string } | null {
+export interface ResolvedProvider {
+  providerType: ProviderType;
+  provider: BaseProvider;
+  modelId: string;
+}
+
+/**
+ * Resolve available AI provider
+ *
+ * @returns Resolved provider info or null if no provider available
+ */
+export function resolveProvider(): ResolvedProvider | null {
   const defaultProvider = configManager.getDefaultProvider();
   const configuredProviders = PROVIDER_TYPE_LIST.filter(type =>
     !PROVIDER_INFO[type].requiresApiKey || configManager.getApiKey(type)

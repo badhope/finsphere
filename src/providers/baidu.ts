@@ -1,6 +1,7 @@
 import { BaseProvider } from '../base.js';
 import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
+import { CONNECTION_TIMEOUT_MS } from '../constants/index.js';
 
 interface BaiduResponse {
   id: string;

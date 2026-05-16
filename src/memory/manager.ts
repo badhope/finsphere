@@ -7,6 +7,10 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { MemoryInteraction, MemoryRecord, MemoryStats, MemoryInteractionWithMeta } from './memory-types.js';
 import { AsyncLock } from '../utils/async-lock.js';
+import { createLogger } from '../services/logger.js';
+import { CACHE_TTL_MS } from '../constants/index.js';
+
+const logger = createLogger('memory');
 
 // Re-export 类型
 export type { MemoryInteraction, MemoryRecord, MemoryStats };
@@ -25,7 +29,6 @@ export class MemoryManager {
   private consolidator: MemoryConsolidator;
   private recordCache: MemoryInteraction[] | null = null;
   private cacheTimestamp: number = 0;
-  private readonly CACHE_TTL = 5000; // 5秒缓存
   private initLock = new AsyncLock();
   private cacheLock = new AsyncLock();
   private writeLock = new AsyncLock();
@@ -50,7 +53,7 @@ export class MemoryManager {
     try {
       const key = apiKey || processDELETE.ALIYUN_API_KEY || processDELETE.DASHSCOPE_API_KEY;
       if (!key) {
-        console.warn('[记忆] 未配置阿里云 API Key，RAG 功能已禁用');
+        logger.warn('RAG disabled: Aliyun API Key not configured');
         return false;
       }
       await ragModule.init(key);
@@ -58,7 +61,7 @@ export class MemoryManager {
       this.ragEnabled = true;
       return true;
     } catch (error) {
-      console.error('[记忆] RAG 初始化失败:', error);
+      logger.error({ error: error instanceof Error ? error.message : String(error) }, 'RAG initialization failed');
       return false;
     }
   }
@@ -68,7 +71,7 @@ export class MemoryManager {
    */
   setRAGEnabled(enabled: boolean): void {
     if (enabled && !this.ragInitialized) {
-      console.warn('[记忆] RAG 未初始化，请先调用 initRAG()');
+      logger.warn('RAG not initialized, call initRAG() first');
       return;
     }
     this.ragEnabled = enabled;
@@ -116,7 +119,7 @@ export class MemoryManager {
       if (this.ragEnabled && this.ragInitialized) {
         const text = `${params.input} ${params.output || ''}`;
         await ragModule.addDocument(id, text).catch(err => {
-          console.warn('[记忆] RAG 索引失败:', err);
+          logger.warn({ error: err instanceof Error ? err.message : String(err) }, 'RAG indexing failed');
         });
       }
     });
@@ -165,7 +168,7 @@ export class MemoryManager {
           try {
             await this.consolidator.runConsolidationCycle(this.storagePath);
           } catch (err) {
-            console.warn('[记忆] 自动整合失败:', err);
+            logger.warn({ error: err instanceof Error ? err.message : String(err) }, 'Auto consolidation failed');
           }
         })();
       }
@@ -184,7 +187,7 @@ export class MemoryManager {
   private async getCachedRecords(): Promise<MemoryInteraction[]> {
     return this.cacheLock.acquire(async () => {
       const now = Date.now();
-      if (this.recordCache && (now - this.cacheTimestamp) < this.CACHE_TTL) {
+      if (this.recordCache && (now - this.cacheTimestamp) < CACHE_TTL_MS) {
         return this.recordCache;
       }
       this.recordCache = await this.loadAllRecords();
@@ -226,7 +229,7 @@ export class MemoryManager {
           semanticScores.set(result.id, result.score * 10); // 归一化到与关键词分数相近
         }
       } catch (error) {
-        console.warn('[记忆] 语义搜索失败，降级到关键词搜索');
+        logger.warn({ error: error instanceof Error ? error.message : String(error) }, 'Semantic search failed, falling back to keyword search');
       }
     }
 

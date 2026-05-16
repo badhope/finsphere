@@ -3,7 +3,11 @@
 // ============================================================
 
 import EventEmitter3 from 'eventemitter3';
+import { createLogger } from '../services/logger.js';
 import type { PluginHook, HookHandler } from './types.js';
+
+/** Plugin system logger */
+const logger = createLogger('plugins');
 
 /** Options for registering a hook handler */
 export interface HookRegistrationOptions {
@@ -90,9 +94,8 @@ export class EventBus {
         await entry.handler(...args);
       } catch (err) {
         // Prevent one failing handler from blocking others
-        console.error(
-          `[EventBus] Handler error on "${hook}" from plugin "${entry.pluginName}":`,
-          err,
+        logger.error(
+          `Handler error on "${hook}" from plugin "${entry.pluginName}": ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

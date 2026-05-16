@@ -42,6 +42,39 @@ export interface CodeSymbol {
   nestingLevel?: number;
 }
 
+/**
+ * Tree-sitter syntax node position
+ */
+interface SyntaxPosition {
+  row: number;
+  column: number;
+}
+
+/**
+ * Tree-sitter syntax node interface
+ *
+ * Represents a node in the tree-sitter AST.
+ * This interface provides type-safe access to tree-sitter node properties.
+ */
+interface SyntaxNode {
+  /** Node type (e.g., 'function_declaration', 'class_declaration') */
+  type: string;
+  /** Node text content */
+  text: string;
+  /** Start position in source */
+  startPosition: SyntaxPosition;
+  /** End position in source */
+  endPosition: SyntaxPosition;
+  /** Number of child nodes */
+  childCount: number;
+  /** Child nodes array */
+  children: SyntaxNode[];
+  /** Get child by field name */
+  childForFieldName(name: string): SyntaxNode | null;
+  /** Get child by index */
+  child(index: number): SyntaxNode | null;
+}
+
 /** TypeScript/JavaScript 节点类型到符号类型的映射 */
 const NODE_TYPE_MAP: Record<string, SymbolKind> = {
   'function_declaration': 'function',
@@ -71,11 +104,14 @@ const NODE_TYPE_MAP: Record<string, SymbolKind> = {
 
 /**
  * 从语法树中提取所有符号
+ *
+ * @param result - Parse result containing syntax tree
+ * @returns Array of extracted code symbols
  */
 export function extractSymbols(result: ParseResult): CodeSymbol[] {
   const symbols: CodeSymbol[] = [];
   const { tree, filePath } = result;
-  const rootNode = tree.rootNode;
+  const rootNode = tree.rootNode as SyntaxNode;
 
   walkTree(rootNode, symbols, filePath, undefined);
 
@@ -84,9 +120,14 @@ export function extractSymbols(result: ParseResult): CodeSymbol[] {
 
 /**
  * 递归遍历语法树
+ *
+ * @param node - Current syntax node
+ * @param symbols - Accumulated symbols array
+ * @param filePath - Source file path
+ * @param parentName - Parent symbol name
  */
 function walkTree(
-  node: any,
+  node: SyntaxNode,
   symbols: CodeSymbol[],
   filePath: string,
   parentName: string | undefined
@@ -124,8 +165,11 @@ function walkTree(
 
 /**
  * 提取符号名称
+ *
+ * @param node - Syntax node
+ * @returns Symbol name or null
  */
-function extractName(node: any): string | null {
+function extractName(node: SyntaxNode): string | null {
   switch (node.type) {
     case 'function_declaration':
     case 'function_expression':
@@ -149,7 +193,7 @@ function extractName(node: any): string | null {
     case 'variable_declaration':
     case 'lexical_declaration': {
       // 取第一个声明器的名称
-      const declarator = node.childForFieldName('declarators') || node.children.find((c: any) => c.type === 'variable_declarator');
+      const declarator = node.childForFieldName('declarators') || node.children.find((c: SyntaxNode) => c.type === 'variable_declarator');
       if (declarator) {
         const nameNode = declarator.childForFieldName('name');
         return nameNode ? nameNode.text : null;
@@ -160,7 +204,7 @@ function extractName(node: any): string | null {
     case 'import_declaration':
     case 'import_from_statement': {
       // 提取导入的模块路径
-      const sourceNode = node.childForFieldName('source') || node.children.find((c: any) => c.type === 'string');
+      const sourceNode = node.childForFieldName('source') || node.children.find((c: SyntaxNode) => c.type === 'string');
       return sourceNode ? sourceNode.text.replace(/['"]/g, '') : null;
     }
     case 'export_statement': {
@@ -176,8 +220,12 @@ function extractName(node: any): string | null {
 
 /**
  * 提取符号签名
+ *
+ * @param node - Syntax node
+ * @param kind - Symbol kind
+ * @returns Signature string or undefined
  */
-function extractSignature(node: any, kind: SymbolKind): string | undefined {
+function extractSignature(node: SyntaxNode, kind: SymbolKind): string | undefined {
   if (kind === 'function' || kind === 'method') {
     // 提取参数列表
     const paramsNode = node.childForFieldName('parameters') || node.childForFieldName('params');
@@ -197,6 +245,11 @@ function extractSignature(node: any, kind: SymbolKind): string | undefined {
 
 /**
  * 获取文件中指定行范围的符号
+ *
+ * @param symbols - All symbols
+ * @param startLine - Start line (inclusive)
+ * @param endLine - End line (inclusive)
+ * @returns Symbols within the range
  */
 export function getSymbolsInRange(
   symbols: CodeSymbol[],
@@ -208,6 +261,10 @@ export function getSymbolsInRange(
 
 /**
  * 按名称搜索符号
+ *
+ * @param symbols - All symbols
+ * @param name - Search name (case-insensitive)
+ * @returns Matching symbols
  */
 export function findSymbolByName(
   symbols: CodeSymbol[],

@@ -785,7 +785,6 @@ export class AgentExecutor {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       agentLogger.warn({ taskId: this.task.id, error: errorMsg }, 'Failed to save to memory');
-      console.warn(chalk.dim(`[记忆] 保存失败: ${errorMsg}`));
     }
   }
 
@@ -798,7 +797,6 @@ export class AgentExecutor {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       agentLogger.warn({ taskId: this.task.id, query, error: errorMsg }, 'Knowledge graph query failed');
-      console.warn(chalk.dim(`[知识图谱] 查询失败: ${errorMsg}`));
       return [];
     }
   }

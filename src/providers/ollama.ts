@@ -2,6 +2,7 @@ import { BaseProvider } from '../base.js';
 import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
 import { formatBytes } from '../utils/format.js';
+import { CONNECTION_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from '../constants/index.js';
 
 interface OllamaModel {
   name: string;
@@ -46,6 +47,16 @@ interface OllamaChatStreamResponse {
     content: string;
   };
   done: boolean;
+}
+
+/**
+ * Ollama 模型列表响应（用于 listRemoteModels）
+ */
+interface OllamaTagsResponse {
+  models: Array<{
+    name: string;
+    model: string;
+  }>;
 }
 
 export class OllamaProvider extends BaseProvider {
@@ -203,7 +214,7 @@ export class OllamaProvider extends BaseProvider {
     try {
       const response = await fetch(`${this.getBaseUrl()}/api/tags`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS),
       });
       return response.ok;
     } catch {
@@ -215,12 +226,12 @@ export class OllamaProvider extends BaseProvider {
     try {
       const response = await fetch(`${this.getBaseUrl()}/api/tags`, {
         method: 'GET',
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       if (!response.ok) return [];
-      const data: any = await response.json();
+      const data = await response.json() as OllamaTagsResponse;
       // Ollama 返回 { models: [{ name: "llama3:latest", model: "llama3:latest", ... }] }
-      const models: Array<{ name: string; model: string }> = data.models || [];
+      const models = data.models || [];
       return models.map(m => m.model || m.name).sort();
     } catch {
       return [];
@@ -232,7 +243,7 @@ export class OllamaProvider extends BaseProvider {
     try {
       const response = await fetch(`${this.getBaseUrl()}/api/tags`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS),
       });
 
       if (!response.ok) {

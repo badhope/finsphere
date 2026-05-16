@@ -14,17 +14,32 @@ export { PluginLoader } from './plugin-loader.js';
 export type { PluginLoaderOptions } from './plugin-loader.js';
 
 // Re-export lifecycle hooks
-export * from './hooks.js';
+export {
+  emitBeforeRun,
+  emitAfterRun,
+  emitBeforeStep,
+  emitAfterStep,
+  emitBeforeToolExecution,
+  emitAfterToolExecution,
+  emitError,
+} from './hooks.js';
 
 // Re-export plugin registry
 export { pluginRegistry, PluginRegistry } from './registry.js';
-export type { ToolRegistration, CommandRegistration } from './registry.js';
+export type { ToolRegistration, CommandRegistration, CommanderProgram } from './registry.js';
 
 // ============================================================
 // Convenience: Plugin Context Factory
 // ============================================================
 
-import type { PluginManifest, PluginContext, PluginLogger } from './types.js';
+import type {
+  PluginManifest,
+  PluginContext,
+  PluginLogger,
+  ToolDefinition,
+  CommandDefinition,
+  ConfigManager,
+} from './types.js';
 import { pluginRegistry } from './registry.js';
 
 /**
@@ -39,26 +54,26 @@ import { pluginRegistry } from './registry.js';
  */
 export function createPluginContext(
   manifest: PluginManifest,
-  toolRegistry?: Map<string, any>,
-  configManager?: any,
+  toolRegistry?: Map<string, ToolDefinition>,
+  configManager?: ConfigManager,
 ): PluginContext {
   const logger = createPluginLogger(manifest.name);
 
   return {
     manifest,
-    registerTool(definition: any): void {
+    registerTool(definition: ToolDefinition): void {
       pluginRegistry.registerTool(manifest.name, definition);
     },
-    registerCommand(command: any): void {
+    registerCommand(command: CommandDefinition): void {
       pluginRegistry.registerCommand(manifest.name, command);
     },
-    getConfig(): Record<string, any> {
+    getConfig(): Record<string, unknown> {
       return pluginRegistry.getPluginConfig(manifest.name);
     },
-    setConfig(config: Record<string, any>): void {
+    setConfig(config: Record<string, unknown>): void {
       pluginRegistry.setPluginConfig(manifest.name, config);
     },
-    configManager,
+    configManager: configManager as ConfigManager,
     logger,
     toolRegistry: toolRegistry ?? new Map(),
   };
@@ -71,16 +86,16 @@ function createPluginLogger(pluginName: string): PluginLogger {
   const prefix = `[plugin:${pluginName}]`;
 
   return {
-    info(message: string, ...args: any[]): void {
+    info(message: string, ...args: unknown[]): void {
       console.log(prefix, message, ...args);
     },
-    warn(message: string, ...args: any[]): void {
+    warn(message: string, ...args: unknown[]): void {
       console.warn(prefix, message, ...args);
     },
-    error(message: string, ...args: any[]): void {
+    error(message: string, ...args: unknown[]): void {
       console.error(prefix, message, ...args);
     },
-    debug(message: string, ...args: any[]): void {
+    debug(message: string, ...args: unknown[]): void {
       if (processDELETE.DEVFLOW_DEBUG === 'true' || processDELETE.DEBUG === 'true') {
         console.debug(prefix, message, ...args);
       }

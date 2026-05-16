@@ -1,8 +1,21 @@
+import { getErrorMessage } from '../../utils/error-handling.js';
+
+/**
+ * Formatted API error result
+ */
+export interface FormattedApiError {
+  message: string;
+  hint: string;
+}
+
 /**
  * Format API error messages with user-friendly hints
+ *
+ * @param error - Unknown error value
+ * @returns Formatted error with message and hint
  */
-export function formatApiError(error: any): { message: string; hint: string } {
-  const errMsg = error?.message || error?.toString() || '未知错误';
+export function formatApiError(error: unknown): FormattedApiError {
+  const errMsg = getErrorMessage(error);
 
   if (errMsg.includes('401') || errMsg.includes('Unauthorized') || errMsg.includes('invalid key') || errMsg.includes('Incorrect API key')) {
     return { message: 'API Key 无效或未配置', hint: '请运行: devflow config set-key <平台> <apiKey>' };

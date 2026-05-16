@@ -3,6 +3,7 @@
 // ============================================================
 
 import CircuitBreakerLib from 'opossum';
+import { DEFAULT_TIMEOUT_MS } from '../constants/index.js';
 
 // ------------------------------------------------------------------
 // Public types (backward-compatible)
@@ -82,7 +83,7 @@ export class CircuitBreaker {
   constructor(options: Partial<CircuitBreakerOptions> = {}) {
     this.options = {
       failureThreshold: options.failureThreshold ?? 5,
-      resetTimeout: options.resetTimeout ?? 60000,
+      resetTimeout: options.resetTimeout ?? DEFAULT_TIMEOUT_MS,
       halfOpenMaxCalls: options.halfOpenMaxCalls ?? 3,
     };
 

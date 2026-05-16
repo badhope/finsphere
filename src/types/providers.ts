@@ -1,5 +1,71 @@
 import type { ProviderType, ModelInfo } from './index.js';
 
+// ============================================================================
+// 共享 Provider 响应类型
+// ============================================================================
+
+/**
+ * 模型列表响应的基础接口
+ */
+export interface ModelsListResponse {
+  models: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
+/**
+ * API 使用量信息
+ */
+export interface ApiUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+/**
+ * API 响应基础接口
+ */
+export interface ApiResponseBase {
+  model: string;
+  usage?: ApiUsage;
+}
+
+/**
+ * OpenAI 兼容的模型列表响应
+ */
+export interface OpenAICompatibleModelsResponse {
+  data: Array<{
+    id: string;
+    object: string;
+    created: number;
+    owned_by: string;
+  }>;
+}
+
+/**
+ * 消息内容部分 - 文本
+ */
+export interface TextPart {
+  type: 'text';
+  text: string;
+}
+
+/**
+ * 消息内容部分 - 图片 URL
+ */
+export interface ImageUrlPart {
+  type: 'image_url';
+  image_url: {
+    url: string;
+  };
+}
+
+/**
+ * 消息内容部分联合类型
+ */
+export type MessagePart = TextPart | ImageUrlPart;
+
 export const PROVIDER_INFO: Record<ProviderType, {
   name: string;
   displayName: string;

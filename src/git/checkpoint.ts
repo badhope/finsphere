@@ -3,6 +3,7 @@ import path from 'path';
 import type { GitCheckpoint, GitResult } from './types.js';
 import { GitManager } from './manager.js';
 import { BACKUP_DIR } from '../utils/paths.js';
+import { gitLogger } from '../services/logger.js';
 
 /** 检查点存储目录 */
 const CHECKPOINT_DIR = path.join(BACKUP_DIR, 'checkpoints');
@@ -184,7 +185,7 @@ export class CheckpointManager {
       const data = JSON.stringify(Array.from(this.checkpoints.values()), null, 2);
       await fs.writeFile(CHECKPOINT_FILE, data, 'utf-8');
     } catch (error) {
-      console.error('Failed to save checkpoints:', error);
+      gitLogger.error({ error: error instanceof Error ? error.message : String(error) }, 'Failed to save checkpoints');
     }
   }
 }

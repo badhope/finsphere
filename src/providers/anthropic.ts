@@ -1,6 +1,7 @@
 import { BaseProvider } from '../base.js';
 import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message, ImageContent, TextContent } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
+import { CONNECTION_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from '../constants/index.js';
 
 interface AnthropicResponse {
   id: string;
@@ -33,6 +34,51 @@ interface AnthropicStreamEvent {
     input_tokens: number;
     output_tokens: number;
   };
+}
+
+/**
+ * Anthropic 模型列表响应
+ */
+interface AnthropicModelsResponse {
+  data: Array<{
+    id: string;
+    type: string;
+    display_name: string;
+    created_at: string;
+  }>;
+}
+
+/**
+ * Anthropic 文本内容块
+ */
+interface AnthropicTextBlock {
+  type: 'text';
+  text: string;
+}
+
+/**
+ * Anthropic 图片内容块
+ */
+interface AnthropicImageBlock {
+  type: 'image';
+  source: {
+    type: 'base64';
+    media_type: string;
+    data: string;
+  };
+}
+
+/**
+ * Anthropic 消息内容（文本或图片）
+ */
+type AnthropicMessageContent = string | Array<AnthropicTextBlock | AnthropicImageBlock>;
+
+/**
+ * Anthropic 消息格式
+ */
+interface AnthropicMessage {
+  role: 'user' | 'assistant';
+  content: AnthropicMessageContent;
 }
 
 export class AnthropicProvider extends BaseProvider {
@@ -192,7 +238,7 @@ export class AnthropicProvider extends BaseProvider {
           ...this.buildHeaders(),
           'anthropic-version': '2023-06-01',
         },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS),
       });
       return response.ok;
     } catch {
@@ -208,20 +254,20 @@ export class AnthropicProvider extends BaseProvider {
           ...this.buildHeaders(),
           'anthropic-version': '2023-06-01',
         },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
       if (!response.ok) return [];
-      const data: any = await response.json();
+      const data = await response.json() as AnthropicModelsResponse;
       // Anthropic 返回 { data: [{ id: "claude-xxx", ... }] }
-      const models: Array<{ id: string }> = data.data || [];
+      const models = data.data || [];
       return models.map(m => m.id).sort();
     } catch {
       return [];
     }
   }
 
-  private convertMessages(messages: Message[]): { system?: string; messages: Array<{ role: string; content: any }> } {
-    const result: Array<{ role: string; content: any }> = [];
+  private convertMessages(messages: Message[]): { system?: string; messages: AnthropicMessage[] } {
+    const result: AnthropicMessage[] = [];
     let systemMessage: string | undefined;
 
     for (const msg of messages) {
@@ -231,9 +277,9 @@ export class AnthropicProvider extends BaseProvider {
         // 处理多模态内容
         const hasImage = msg.content.some(c => typeof c === 'object' && c.type === 'image_url');
         if (hasImage) {
-          const content = msg.content.map(c => {
+          const content: Array<AnthropicTextBlock | AnthropicImageBlock> = msg.content.map(c => {
             if (typeof c === 'object' && c.type === 'text') {
-              return { type: 'text', text: (c as TextContent).text };
+              return { type: 'text' as const, text: (c as TextContent).text };
             } else if (typeof c === 'object' && c.type === 'image_url') {
               const url = (c as ImageContent).image_url.url;
               // Anthropic 需要 base64 格式
@@ -241,18 +287,18 @@ export class AnthropicProvider extends BaseProvider {
                 const matches = url.match(/^data:(.+);base64,(.+)$/);
                 if (matches) {
                   return {
-                    type: 'image',
+                    type: 'image' as const,
                     source: {
-                      type: 'base64',
+                      type: 'base64' as const,
                       media_type: matches[1],
                       data: matches[2]
                     }
                   };
                 }
               }
-              return { type: 'text', text: '[图片]' };
+              return { type: 'text' as const, text: '[图片]' };
             }
-            return c;
+            return { type: 'text' as const, text: '' };
           });
           result.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content });
         } else {

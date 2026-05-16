@@ -31,6 +31,16 @@ export interface ErrorRecovery {
 }
 
 /**
+ * History entry for task execution
+ */
+export interface HistoryEntry {
+  skillName: string;
+  timestamp?: Date;
+  status?: 'success' | 'failed' | 'pending';
+  result?: unknown;
+}
+
+/**
  * 错误记录接口
  */
 export interface ErrorRecord {
@@ -42,8 +52,8 @@ export interface ErrorRecord {
     description: string;
     complexity?: string;
     currentSkill?: string;
-    history: any[];
-    results: Record<string, any>;
+    history: HistoryEntry[];
+    results: Record<string, unknown>;
   };
   stack?: string;
 }
@@ -66,6 +76,6 @@ export interface TaskContext {
   description: string;
   complexity?: string;
   currentSkill?: string;
-  history: any[];
-  results: Record<string, any>;
+  history: HistoryEntry[];
+  results: Record<string, unknown>;
 }

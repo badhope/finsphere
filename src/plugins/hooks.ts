@@ -7,38 +7,20 @@
  * These provide structured data to hook handlers.
  */
 
-/** Context for beforeRun / afterRun hooks */
-export interface RunContext {
-  input: string;
-  intent?: any;
-  plan?: any;
-  steps?: any[];
-  result?: any;
-  error?: Error;
-}
+import type {
+  RunContext,
+  StepContext,
+  ToolExecutionHookContext,
+  ErrorContext,
+} from './types.js';
 
-/** Context for beforeStep / afterStep hooks */
-export interface StepContext {
-  step: any;
-  index: number;
-  result?: any;
-  error?: Error;
-}
-
-/** Context for beforeToolExecution / afterToolExecution hooks */
-export interface ToolExecutionContext {
-  toolName: string;
-  args: Record<string, any>;
-  result?: any;
-  error?: Error;
-  duration?: number;
-}
-
-/** Context for onError hooks */
-export interface ErrorContext {
-  error: Error;
-  context?: string;
-}
+// Re-export hook context types for backward compatibility
+export type {
+  RunContext,
+  StepContext,
+  ToolExecutionHookContext,
+  ErrorContext,
+};
 
 // ============================================================
 // Hook emitter helpers
@@ -82,7 +64,9 @@ export async function emitAfterStep(ctx: StepContext): Promise<void> {
  * Emit the `beforeToolExecution` hook.
  * Call before executing any tool.
  */
-export async function emitBeforeToolExecution(ctx: ToolExecutionContext): Promise<void> {
+export async function emitBeforeToolExecution(
+  ctx: ToolExecutionHookContext,
+): Promise<void> {
   await eventBus.emit('beforeToolExecution', ctx);
 }
 
@@ -90,7 +74,9 @@ export async function emitBeforeToolExecution(ctx: ToolExecutionContext): Promis
  * Emit the `afterToolExecution` hook.
  * Call after a tool execution completes.
  */
-export async function emitAfterToolExecution(ctx: ToolExecutionContext): Promise<void> {
+export async function emitAfterToolExecution(
+  ctx: ToolExecutionHookContext,
+): Promise<void> {
   await eventBus.emit('afterToolExecution', ctx);
 }
 

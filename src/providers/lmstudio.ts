@@ -1,6 +1,7 @@
 import { OpenAIProvider } from './openai.js';
 import type { ProviderConfig } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
+import { CONNECTION_TIMEOUT_MS } from '../constants/index.js';
 
 interface LMStudioModel {
   id: string;
@@ -35,7 +36,7 @@ export class LMStudioProvider extends OpenAIProvider {
     try {
       const response = await fetch(`${this.getBaseUrl()}/models`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS),
       });
       return response.ok;
     } catch {
@@ -48,7 +49,7 @@ export class LMStudioProvider extends OpenAIProvider {
     try {
       const response = await fetch(`${this.getBaseUrl()}/models`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS),
       });
 
       if (!response.ok) {

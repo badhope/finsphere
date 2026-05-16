@@ -10,16 +10,28 @@
  * tool registry and Commander program at startup.
  */
 
+import type {
+  ToolDefinition,
+  CommandDefinition,
+} from './types.js';
+
 /** A tool registration entry with its source plugin */
 export interface ToolRegistration {
   pluginName: string;
-  definition: any;
+  definition: ToolDefinition;
 }
 
 /** A command registration entry with its source plugin */
 export interface CommandRegistration {
   pluginName: string;
-  command: any;
+  command: CommandDefinition;
+}
+
+/**
+ * Commander program interface for type safety.
+ */
+export interface CommanderProgram {
+  addCommand(command: CommandDefinition): void;
 }
 
 export class PluginRegistry {
@@ -30,12 +42,12 @@ export class PluginRegistry {
   private pendingCommands: Map<string, CommandRegistration> = new Map();
 
   /** Plugin-specific configuration keyed by plugin name */
-  private pluginConfigs: Map<string, Record<string, any>> = new Map();
+  private pluginConfigs: Map<string, Record<string, unknown>> = new Map();
 
   /**
    * Register a tool from a plugin.
    */
-  registerTool(pluginName: string, definition: any): void {
+  registerTool(pluginName: string, definition: ToolDefinition): void {
     const toolName = definition?.name;
     if (!toolName) {
       throw new Error(`Plugin "${pluginName}" tried to register a tool without a name`);
@@ -46,7 +58,7 @@ export class PluginRegistry {
   /**
    * Register a CLI command from a plugin.
    */
-  registerCommand(pluginName: string, command: any): void {
+  registerCommand(pluginName: string, command: CommandDefinition): void {
     // Commander Command: name() is a function; plain object: name is a string
     const cmdName = typeof command?.name === 'function' ? command.name() : (command?.name ?? command?._name);
     if (!cmdName) {
@@ -58,14 +70,14 @@ export class PluginRegistry {
   /**
    * Get the configuration for a specific plugin.
    */
-  getPluginConfig(pluginName: string): Record<string, any> {
+  getPluginConfig(pluginName: string): Record<string, unknown> {
     return this.pluginConfigs.get(pluginName) ?? {};
   }
 
   /**
    * Set (merge) configuration for a specific plugin.
    */
-  setPluginConfig(pluginName: string, config: Record<string, any>): void {
+  setPluginConfig(pluginName: string, config: Record<string, unknown>): void {
     const existing = this.pluginConfigs.get(pluginName) ?? {};
     this.pluginConfigs.set(pluginName, { ...existing, ...config });
   }
@@ -74,7 +86,7 @@ export class PluginRegistry {
    * Integrate all pending tool registrations into the main tool registry.
    * Call this once at application startup after all plugins are activated.
    */
-  integrateTools(toolRegistry: Map<string, any>): void {
+  integrateTools(toolRegistry: Map<string, ToolDefinition>): void {
     for (const [name, { definition }] of this.pendingTools) {
       if (toolRegistry.has(name)) {
         console.warn(
@@ -89,7 +101,7 @@ export class PluginRegistry {
    * Integrate all pending command registrations into the Commander program.
    * Call this once at application startup after all plugins are activated.
    */
-  integrateCommands(program: any): void {
+  integrateCommands(program: CommanderProgram): void {
     for (const [, { command }] of this.pendingCommands) {
       program.addCommand(command);
     }

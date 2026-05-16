@@ -9,6 +9,10 @@
  */
 
 import { toolRegistry } from '../tools/registry.js';
+import { RETRY_DELAYS, MAX_RETRIES } from '../constants/index.js';
+import { createLogger } from '../services/logger.js';
+
+const logger = createLogger('error-handler');
 
 // 从子模块导入类型
 import type {
@@ -17,6 +21,7 @@ import type {
   ErrorRecord,
   SafeErrorResponse,
   TaskContext,
+  HistoryEntry,
 } from './error-types.js';
 
 // Re-export 所有类型
@@ -26,12 +31,19 @@ export type {
   ErrorRecord,
   SafeErrorResponse,
   TaskContext,
+  HistoryEntry,
 };
+
+/**
+ * Tool information from registry
+ */
+interface ToolInfo {
+  name: string;
+  description?: string;
+}
 
 export class ErrorHandler {
   private errorLog: ErrorRecord[] = [];
-  private maxRetries = 3;
-  private retryDelays = [1000, 2000, 4000];
   private showDetailedErrors = false;
 
   setShowDetailedErrors(show: boolean): void {
@@ -106,11 +118,11 @@ export class ErrorHandler {
   private async handleTimeout(error: Error, context: TaskContext): Promise<ErrorRecovery> {
     const retryCount = (context.results['__retryCount__'] as number) || 0;
 
-    if (retryCount < this.maxRetries) {
+    if (retryCount < MAX_RETRIES) {
       context.results['__retryCount__'] = retryCount + 1;
-      const delay = this.retryDelays[retryCount] || 4000;
+      const delay = RETRY_DELAYS[retryCount] ?? 4000;
 
-      console.log(`[ErrorHandler] 超时重试 ${retryCount + 1}/${this.maxRetries}，延迟 ${delay}ms`);
+      logger.info(`Timeout retry ${retryCount + 1}/${MAX_RETRIES}, delay ${delay}ms`);
 
       return {
         action: 'retry',
@@ -158,11 +170,11 @@ export class ErrorHandler {
     const keywords = description.toLowerCase().split(/\s+/);
 
     return tools
-      .filter((tool: any) => {
+      .filter((tool: ToolInfo) => {
         const toolLower = tool.name.toLowerCase();
         return keywords.some(kw => toolLower.includes(kw));
       })
-      .map((tool: any) => tool.name)
+      .map((tool: ToolInfo) => tool.name)
       .slice(0, 3);
   }
 
@@ -191,11 +203,11 @@ export class ErrorHandler {
   private handleExecutionError(error: Error, context: TaskContext): ErrorRecovery {
     const retryCount = (context.results['__retryCount__'] as number) || 0;
 
-    if (retryCount < this.maxRetries) {
+    if (retryCount < MAX_RETRIES) {
       context.results['__retryCount__'] = retryCount + 1;
-      const delay = this.retryDelays[retryCount] || 4000;
+      const delay = RETRY_DELAYS[retryCount] ?? 4000;
 
-      console.log(`[ErrorHandler] 执行错误重试 ${retryCount + 1}/${this.maxRetries}`);
+      logger.info(`Execution error retry ${retryCount + 1}/${MAX_RETRIES}`);
 
       return {
         action: 'retry',
@@ -244,7 +256,7 @@ export class ErrorHandler {
     };
 
     this.errorLog.push(record);
-    console.error(`[ErrorHandler] [${type}] ${error.message}`);
+    logger.error({ errorType: type, message: error.message }, error.message);
   }
 
   async applyRecovery(recovery: ErrorRecovery, context: TaskContext): Promise<boolean> {
@@ -256,17 +268,17 @@ export class ErrorHandler {
         return true;
 
       case 'fallback':
-        console.log(`[ErrorHandler] 切换到备用工具: ${recovery.fallbackTool}`);
+        logger.info(`Switching to fallback tool: ${recovery.fallbackTool}`);
         return true;
 
       case 'switch_tool':
-        console.log(`[ErrorHandler] 切换工具: ${recovery.switchToTool}`);
+        logger.info(`Switching tool: ${recovery.switchToTool}`);
         return true;
 
       case 'rollback':
-        console.log(`[ErrorHandler] 回滚到: ${recovery.stepId}`);
+        logger.info(`Rolling back to: ${recovery.stepId}`);
         if (recovery.stepId) {
-          const stepIndex = context.history.findIndex((h: any) => h.skillName === recovery.stepId);
+          const stepIndex = context.history.findIndex((h: HistoryEntry) => h.skillName === recovery.stepId);
           if (stepIndex >= 0) {
             context.history = context.history.slice(0, stepIndex);
           }
@@ -274,15 +286,15 @@ export class ErrorHandler {
         return true;
 
       case 'skip':
-        console.log(`[ErrorHandler] 跳过步骤`);
+        logger.info('Skipping step');
         return true;
 
       case 'request_input':
-        console.log(`[ErrorHandler] 需要用户输入: ${recovery.message}`);
+        logger.info(`User input required: ${recovery.message}`);
         return false;
 
       case 'fail':
-        console.error(`[ErrorHandler] 任务失败: ${recovery.message}`);
+        logger.error({ message: recovery.message }, `Task failed: ${recovery.message}`);
         return false;
     }
   }

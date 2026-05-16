@@ -1,6 +1,7 @@
 import { BaseProvider } from '../base.js';
 import type { ChatParams, ChatResponse, StreamChunk, ProviderConfig, Message, ImageContent, TextContent } from '../types.js';
 import { PROVIDER_INFO } from '../types.js';
+import { CONNECTION_TIMEOUT_MS } from '../constants/index.js';
 
 interface OpenAIResponse {
   id: string;
@@ -35,6 +36,37 @@ interface OpenAIStreamResponse {
     };
     finish_reason: string | null;
   }>;
+}
+
+/**
+ * OpenAI 文本内容部分
+ */
+interface OpenAITextPart {
+  type: 'text';
+  text: string;
+}
+
+/**
+ * OpenAI 图片内容部分
+ */
+interface OpenAIImagePart {
+  type: 'image_url';
+  image_url: {
+    url: string;
+  };
+}
+
+/**
+ * OpenAI 消息内容（字符串或多部分内容）
+ */
+type OpenAIMessageContent = string | Array<OpenAITextPart | OpenAIImagePart>;
+
+/**
+ * OpenAI 消息格式
+ */
+interface OpenAIMessage {
+  role: string;
+  content: OpenAIMessageContent;
 }
 
 export class OpenAIProvider extends BaseProvider {
@@ -177,7 +209,7 @@ export class OpenAIProvider extends BaseProvider {
       const response = await fetch(`${this.getBaseUrl()}/models`, {
         method: 'GET',
         headers: this.buildHeaders(),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(CONNECTION_TIMEOUT_MS),
       });
       return response.ok;
     } catch {
@@ -185,22 +217,23 @@ export class OpenAIProvider extends BaseProvider {
     }
   }
 
-  private convertMessages(messages: Message[]): Array<{role: string; content: any}> {
+  private convertMessages(messages: Message[]): OpenAIMessage[] {
     return messages.map(msg => {
       // 处理多模态内容
       if (Array.isArray(msg.content)) {
         const hasImage = msg.content.some(c => typeof c === 'object' && c.type === 'image_url');
         if (hasImage) {
+          const content: Array<OpenAITextPart | OpenAIImagePart> = msg.content.map(c => {
+            if (typeof c === 'object' && c.type === 'text') {
+              return { type: 'text' as const, text: (c as TextContent).text };
+            } else if (typeof c === 'object' && c.type === 'image_url') {
+              return { type: 'image_url' as const, image_url: (c as ImageContent).image_url };
+            }
+            return { type: 'text' as const, text: '' };
+          });
           return {
             role: msg.role,
-            content: msg.content.map(c => {
-              if (typeof c === 'object' && c.type === 'text') {
-                return { type: 'text', text: (c as TextContent).text };
-              } else if (typeof c === 'object' && c.type === 'image_url') {
-                return { type: 'image_url', image_url: (c as ImageContent).image_url };
-              }
-              return c;
-            })
+            content,
           };
         }
         // 纯文本数组，合并为单个字符串

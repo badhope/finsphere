@@ -8,6 +8,7 @@ import type { ManagerProviderConfig, SandboxLevel } from './config-types.js';
 import { SANDBOX_PERMISSIONS, DEFAULT_CONFIG } from './defaults.js';
 import { validateConfigWithLogging } from './validation.js';
 import type { Config } from './schemas.js';
+import { DEFAULT_TIMEOUT_MS } from '../constants/index.js';
 
 // Re-export 类型和常量
 export type { ManagerProviderConfig, SandboxLevel };
@@ -119,7 +120,7 @@ export class ConfigManager {
   }
 
   async setProviderConfig(provider: ProviderType, config: Partial<ManagerProviderConfig>): Promise<void> {
-    const existing = this.config.providers[provider] || { timeout: 60000, maxRetries: 2 };
+    const existing = this.config.providers[provider] || { timeout: DEFAULT_TIMEOUT_MS, maxRetries: 2 };
     this.config.providers[provider] = {
       ...existing,
       ...config,

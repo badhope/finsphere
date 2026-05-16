@@ -25,6 +25,9 @@ import {
   API_TIMEOUT,
 } from './rag-types.js';
 import { AsyncLock } from '../utils/async-lock.js';
+import { createLogger } from '../services/logger.js';
+
+const logger = createLogger('rag');
 
 // Re-export 类型
 export type { VectorDocument, SearchResult, RAGStats, EmbeddingApiResponse };
@@ -137,21 +140,21 @@ export class RAGModule {
       });
 
       if (!response.ok) {
-        console.error(`[RAG] Embedding API 请求失败: ${response.status} ${response.statusText}`);
+        logger.error({ status: response.status, statusText: response.statusText }, 'Embedding API request failed');
         return null;
       }
 
       const data = await response.json() as EmbeddingApiResponse;
 
       if (!data.data || data.data.length === 0) {
-        console.error('[RAG] Embedding API 返回空数据');
+        logger.error('Embedding API returned empty data');
         return null;
       }
 
       return data.data[0].embedding;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[RAG] Embedding API 调用异常: ${message}`);
+      logger.error({ error: message }, 'Embedding API call exception');
       return null;
     }
   }
@@ -186,7 +189,7 @@ export class RAGModule {
         });
 
         if (!response.ok) {
-          console.error(`[RAG] 批量 Embedding API 请求失败: ${response.status} ${response.statusText}`);
+          logger.error({ status: response.status, statusText: response.statusText }, 'Batch Embedding API request failed');
           continue;
         }
 
@@ -199,7 +202,7 @@ export class RAGModule {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[RAG] 批量 Embedding API 调用异常: ${message}`);
+        logger.error({ error: message }, 'Batch Embedding API call exception');
       }
     }
 
@@ -367,7 +370,7 @@ export class RAGModule {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[RAG] MiniSearch 搜索异常: ${message}`);
+      logger.error({ error: message }, 'MiniSearch search exception');
       return [];
     }
   }
@@ -495,7 +498,7 @@ export class RAGModule {
         await fs.rename(tmpPath, this.storagePath);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`[RAG] 保存向量数据失败: ${message}`);
+        logger.error({ error: message }, 'Failed to save vector data');
       }
     });
   }
