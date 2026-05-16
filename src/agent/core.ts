@@ -10,8 +10,10 @@
  * 保持向后兼容性，所有原有导出保持不变。
  */
 
-import { toolRegistry } from '../tools/registry.js';
-import { memoryManager } from '../memory/manager.js';
+import { container } from '../di/container.js';
+import { TOKENS } from '../di/tokens.js';
+import type { ToolRegistry } from '../tools/registry.js';
+import type { MemoryManager } from '../memory/manager.js';
 import { KnowledgeGraph } from '../memory/knowledgeGraph.js';
 import { reasonWithSelfCorrection } from './reasoner.js';
 import { DecisionReflector } from './decision-reflector.js';
@@ -771,6 +773,7 @@ export class AgentExecutor {
    */
   private async saveToMemory(summary: string): Promise<void> {
     try {
+      const memoryManager = container.resolve<MemoryManager>(TOKENS.MemoryManager);
       await memoryManager.rememberChat({
         input: this.task.userInput,
         output: summary,

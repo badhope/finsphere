@@ -164,8 +164,5 @@ export {
   generateSummary,
 } from './agent-utils.js';
 
-// ==================== Agent Service ====================
-export { AgentService } from '../services/agent-service.js';
-
 // ==================== Version ====================
 export const AGENT_MODULE_VERSION = '2.1.0';

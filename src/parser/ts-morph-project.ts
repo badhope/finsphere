@@ -8,6 +8,7 @@
 import { Project, type ProjectOptions } from 'ts-morph';
 import * as path from 'path';
 import * as fs from 'fs';
+import { access } from 'fs/promises';
 
 /** Cached project instance */
 let cachedProject: Project | null = null;
@@ -19,12 +20,47 @@ const defaultOptions: ProjectOptions = {
 };
 
 /**
- * Find the nearest tsconfig.json file starting from the given directory.
+ * Check if a file exists asynchronously.
+ *
+ * @param filePath - Path to check
+ * @returns Promise that resolves to true if file exists
+ */
+async function fileExistsAsync(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Find the nearest tsconfig.json file starting from the given directory (async version).
  *
  * @param startDir - Directory to start searching from
  * @returns Path to tsconfig.json or undefined if not found
  */
-function findTsConfig(startDir: string): string | undefined {
+async function findTsConfigAsync(startDir: string): Promise<string | undefined> {
+  let currentDir = startDir;
+
+  while (currentDir !== path.dirname(currentDir)) {
+    const tsConfigPath = path.join(currentDir, 'tsconfig.json');
+    if (await fileExistsAsync(tsConfigPath)) {
+      return tsConfigPath;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+
+  return undefined;
+}
+
+/**
+ * Find the nearest tsconfig.json file starting from the given directory (sync version).
+ *
+ * @param startDir - Directory to start searching from
+ * @returns Path to tsconfig.json or undefined if not found
+ */
+function findTsConfigSync(startDir: string): string | undefined {
   let currentDir = startDir;
 
   while (currentDir !== path.dirname(currentDir)) {
@@ -52,7 +88,45 @@ export function getProject(): Project {
   }
 
   // Try to find and use tsconfig.json
-  const tsConfigPath = findTsConfig(process.cwd());
+  const tsConfigPath = findTsConfigSync(process.cwd());
+
+  if (tsConfigPath) {
+    cachedProject = new Project({
+      ...defaultOptions,
+      tsConfigFilePath: tsConfigPath,
+    });
+  } else {
+    // Create an in-memory project
+    cachedProject = new Project({
+      ...defaultOptions,
+      compilerOptions: {
+        target: 2, // ES2015
+        module: 1, // CommonJS
+        esModuleInterop: true,
+        strict: true,
+        skipLibCheck: true,
+      },
+    });
+  }
+
+  return cachedProject;
+}
+
+/**
+ * Get or create a cached ts-morph Project instance (async version).
+ *
+ * If no project exists, creates one using the nearest tsconfig.json
+ * or an in-memory project if no tsconfig is found.
+ *
+ * @returns Promise resolving to the cached Project instance
+ */
+export async function getProjectAsync(): Promise<Project> {
+  if (cachedProject) {
+    return cachedProject;
+  }
+
+  // Try to find and use tsconfig.json
+  const tsConfigPath = await findTsConfigAsync(process.cwd());
 
   if (tsConfigPath) {
     cachedProject = new Project({

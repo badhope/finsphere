@@ -3,10 +3,10 @@ import { container, Lifecycle } from 'tsyringe';
 import { TOKENS } from './tokens.js';
 
 // 导入核心服务类
-import { ConfigManager } from '../config/manager.js';
-import { MemoryManager } from '../memory/manager.js';
+import { ConfigManager, configManager } from '../config/manager.js';
+import { MemoryManager, memoryManager } from '../memory/manager.js';
 import { GitManager } from '../git/manager.js';
-import { ToolRegistry } from '../tools/registry.js';
+import { ToolRegistry, toolRegistry } from '../tools/registry.js';
 import { PluginLoader } from '../plugins/plugin-loader.js';
 import { HistoryManager } from '../history/manager.js';
 
@@ -29,17 +29,17 @@ import { EmotionalStateManager } from '../agent/emotional-state.js';
  * 所有核心服务都以单例模式注册
  */
 export function registerCoreServices(): void {
-  // ConfigManager - 单例
-  container.register(TOKENS.ConfigManager, { useClass: ConfigManager }, { lifecycle: Lifecycle.Singleton });
+  // ConfigManager - 使用已存在的单例
+  container.register(TOKENS.ConfigManager, { useValue: configManager });
 
-  // MemoryManager - 单例
-  container.register(TOKENS.MemoryManager, { useClass: MemoryManager }, { lifecycle: Lifecycle.Singleton });
+  // MemoryManager - 使用已存在的单例
+  container.register(TOKENS.MemoryManager, { useValue: memoryManager });
 
   // GitManager - 单例
   container.register(TOKENS.GitManager, { useClass: GitManager }, { lifecycle: Lifecycle.Singleton });
 
-  // ToolRegistry - 单例
-  container.register(TOKENS.ToolRegistry, { useClass: ToolRegistry }, { lifecycle: Lifecycle.Singleton });
+  // ToolRegistry - 使用已存在的单例
+  container.register(TOKENS.ToolRegistry, { useValue: toolRegistry });
 
   // PluginLoader - 单例
   container.register(TOKENS.PluginLoader, { useClass: PluginLoader }, { lifecycle: Lifecycle.Singleton });

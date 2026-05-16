@@ -40,6 +40,9 @@ export const TOKENS = {
   // 人格与情绪
   PersonalityManager: Symbol('PersonalityManager'),
   EmotionalStateManager: Symbol('EmotionalStateManager'),
+
+  // 知识图谱
+  KnowledgeGraph: Symbol('KnowledgeGraph'),
 } as const;
 
 /**

@@ -21,6 +21,9 @@ import { globMatch } from '../utils/glob.js';
 import type { CodeIndex, IndexEntry, SearchOptions, IndexData } from './indexer/types.js';
 import { INDEXABLE_KINDS } from './indexer/types.js';
 
+// 导出缓存功能
+export { CodeIndexCache, codeIndexCache, getCachedCodeIndex, invalidateCodeIndexCache } from './code-indexer-cache.js';
+
 // ============================================================
 // MiniSearch 文档类型
 // ============================================================
