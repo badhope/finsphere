@@ -102,8 +102,17 @@ export class GistSyncProvider implements SyncProvider {
         (res) => {
           let data = '';
           res.on('data', c => data += c);
-          res.on('end', () => res.statusCode && res.statusCode < 300 ? resolve(data ? JSON.parse(data) : {}) : 
-            reject(new Error(`Gist API error: ${res.statusCode}`)));
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode < 300) {
+              try {
+                resolve(data ? JSON.parse(data) : {});
+              } catch (e) {
+                reject(new Error(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`));
+              }
+            } else {
+              reject(new Error(`Gist API error: ${res.statusCode}`));
+            }
+          });
         });
       req.on('error', reject);
       if (body) req.write(JSON.stringify(body));
@@ -136,8 +145,17 @@ export class CustomSyncProvider implements SyncProvider {
         (res) => {
           let data = '';
           res.on('data', c => data += c);
-          res.on('end', () => res.statusCode && res.statusCode < 300 ? resolve(data ? JSON.parse(data) : {}) : 
-            reject(new Error(`Server error: ${res.statusCode}`)));
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode < 300) {
+              try {
+                resolve(data ? JSON.parse(data) : {});
+              } catch (e) {
+                reject(new Error(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`));
+              }
+            } else {
+              reject(new Error(`Server error: ${res.statusCode}`));
+            }
+          });
         });
       req.on('error', reject);
       if (body) req.write(JSON.stringify(body));

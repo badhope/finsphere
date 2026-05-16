@@ -134,21 +134,30 @@ export class MemoryManager {
     await this.init();
     try {
       const files = await fs.readdir(this.storagePath);
+      const jsonFiles = files.filter(f => f.endsWith('.json'));
+
+      const CONCURRENCY = 50;
       const records: MemoryInteraction[] = [];
 
-      for (const file of files) {
-        if (!file.endsWith('.json')) continue;
-        try {
-          const data = await fs.readFile(path.join(this.storagePath, file), 'utf-8');
-          const record = JSON.parse(data);
-          // 验证记录有效性
-          if (record.id && record.timestamp && (record.input || record.output)) {
-            records.push(record);
-          } else {
-            // 删除无效记录文件
-            await fs.unlink(path.join(this.storagePath, file)).catch(() => {});
-          }
-        } catch { /* skip */ }
+      for (let i = 0; i < jsonFiles.length; i += CONCURRENCY) {
+        const batch = jsonFiles.slice(i, i + CONCURRENCY);
+        const batchResults = await Promise.all(
+          batch.map(async (file) => {
+            try {
+              const data = await fs.readFile(path.join(this.storagePath, file), 'utf-8');
+              const record = JSON.parse(data);
+              // 验证记录有效性
+              if (record.id && record.timestamp && (record.input || record.output)) {
+                return record;
+              } else {
+                // 删除无效记录文件
+                await fs.unlink(path.join(this.storagePath, file)).catch(() => {});
+                return null;
+              }
+            } catch { return null; }
+          })
+        );
+        records.push(...batchResults.filter(Boolean) as MemoryInteraction[]);
       }
 
       // 应用遗忘曲线衰减重要性

@@ -153,8 +153,16 @@ export class GoogleProvider extends BaseProvider {
     const decoder = new TextDecoder();
     let buffer = '';
 
+    const MAX_ITERATIONS = 10000;
+    const startTime = Date.now();
+    const MAX_TOTAL_TIME = 300000; // 5 minutes
+    let iterations = 0;
+
     try {
       while (true) {
+        if (++iterations > MAX_ITERATIONS) throw new Error('Stream limit exceeded');
+        if (Date.now() - startTime > MAX_TOTAL_TIME) throw new Error('Stream timeout');
+
         const { done, value } = await reader.read();
         if (done) break;
 

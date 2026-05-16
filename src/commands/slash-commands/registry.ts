@@ -417,6 +417,10 @@ const imageCommand: SlashCommand = {
       const fs = await import('fs/promises');
       const path = await import('path');
       const fullPath = path.resolve(imagePath);
+      const cwd = process.cwd();
+      if (!fullPath.startsWith(cwd)) {
+        throw new Error('Image path must be within project directory');
+      }
       const ext = path.extname(fullPath).slice(1).toLowerCase();
       const mediaType = ext === 'jpg' ? 'jpeg' : ext === 'svg' ? 'svg+xml' : ext;
       const imageBuffer = await fs.readFile(fullPath);
