@@ -66,14 +66,27 @@ export class SyncManager {
       try {
         const localData = await this.gatherLocalData();
         const remoteData = await this.provider.download();
-        if (!remoteData) { await this.provider.upload(localData); return this.successResult('upload', timestamp); }
+        if (!remoteData) {
+          await this.provider.upload(localData);
+          return this.successResult('upload', timestamp);
+        }
         const conflict = this.detectConflict(localData, remoteData);
-        if (conflict) return { success: false, action: 'conflict', timestamp, error: 'Sync conflict detected', changes: conflict };
+        if (conflict) {
+          return { success: false, action: 'conflict', timestamp, error: 'Sync conflict detected', changes: conflict };
+        }
         const localTime = new Date(localData.timestamp).getTime();
         const remoteTime = new Date(remoteData.timestamp).getTime();
-        if (localTime > remoteTime) { await this.provider.upload(localData); return this.successResult('upload', timestamp); }
-        else { await this.applyRemoteData(remoteData); return this.successResult('download', timestamp); }
-      } catch (error) { return this.errorResult(error instanceof Error ? error.message : 'Unknown error'); }
+        if (localTime > remoteTime) {
+          await this.provider.upload(localData);
+          return this.successResult('upload', timestamp);
+        } else {
+          await this.applyRemoteData(remoteData);
+          return this.successResult('download', timestamp);
+        }
+      } catch (error) {
+        logger.debug({ error }, 'Sync operation failed');
+        return this.errorResult(error instanceof Error ? error.message : 'Unknown error');
+      }
       finally { this.syncing = false; }
     });
   }
@@ -81,8 +94,13 @@ export class SyncManager {
   async upload(): Promise<SyncResult> {
     if (this.syncing) return this.errorResult('Sync already in progress');
     this.syncing = true;
-    try { await this.provider.upload(await this.gatherLocalData()); return this.successResult('upload', new Date().toISOString()); }
-    catch (error) { return this.errorResult(error instanceof Error ? error.message : 'Unknown error'); }
+    try {
+      await this.provider.upload(await this.gatherLocalData());
+      return this.successResult('upload', new Date().toISOString());
+    } catch (error) {
+      logger.debug({ error }, 'Upload operation failed');
+      return this.errorResult(error instanceof Error ? error.message : 'Unknown error');
+    }
     finally { this.syncing = false; }
   }
 
@@ -94,7 +112,10 @@ export class SyncManager {
       if (!data) return this.errorResult('No remote data available');
       await this.applyRemoteData(data);
       return this.successResult('download', new Date().toISOString());
-    } catch (error) { return this.errorResult(error instanceof Error ? error.message : 'Unknown error'); }
+    } catch (error) {
+      logger.debug({ error }, 'Download operation failed');
+      return this.errorResult(error instanceof Error ? error.message : 'Unknown error');
+    }
     finally { this.syncing = false; }
   }
 
@@ -116,7 +137,10 @@ export class SyncManager {
       await this.provider.upload(resolved);
       if (strategy !== 'local') await this.applyRemoteData(resolved);
       return this.successResult('upload', new Date().toISOString());
-    } catch (error) { return this.errorResult(error instanceof Error ? error.message : 'Unknown error'); }
+    } catch (error) {
+      logger.debug({ error }, 'Conflict resolution failed');
+      return this.errorResult(error instanceof Error ? error.message : 'Unknown error');
+    }
   }
 
   getDeviceInfo(): DeviceInfo { return { id: this.deviceId, name: os.hostname(), lastSeenAt: new Date().toISOString(), platform: process.platform, version: SYNC_SCHEMA_VERSION }; }
@@ -137,7 +161,13 @@ export class SyncManager {
     await configManager.init();
     const config = configManager.getAllConfig();
     let memory: SyncData['memory'];
-    try { await memoryManager.init(); memory = { conversations: await memoryManager.loadAllRecords(), knowledge: [] }; } catch { memory = undefined; }
+    try {
+      await memoryManager.init();
+      memory = { conversations: await memoryManager.loadAllRecords(), knowledge: [] };
+    } catch (error) {
+      logger.debug({ error }, 'Failed to load memory data for sync');
+      memory = undefined;
+    }
     return { version: SYNC_SCHEMA_VERSION, deviceId: this.deviceId, timestamp: new Date().toISOString(), config: stripSecrets(JSON.parse(JSON.stringify(config))), memory };
   }
 

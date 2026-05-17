@@ -38,13 +38,14 @@ export function createProvider(type: ProviderType, config: ProviderConfig): Base
   }
 }
 
-export * from './openai.js';
-export * from './anthropic.js';
-export * from './google.js';
-export * from './deepseek.js';
-export * from './siliconflow.js';
-export * from './aliyun.js';
-export * from './zhipu.js';
-export * from './baidu.js';
-export * from './ollama.js';
-export * from './lmstudio.js';
+// 显式命名导出（避免 barrel export 问题）
+export { OpenAIProvider } from './openai.js';
+export { AnthropicProvider } from './anthropic.js';
+export { GoogleProvider } from './google.js';
+export { DeepSeekProvider } from './deepseek.js';
+export { SiliconFlowProvider } from './siliconflow.js';
+export { AliyunProvider } from './aliyun.js';
+export { ZhipuProvider } from './zhipu.js';
+export { BaiduProvider } from './baidu.js';
+export { OllamaProvider } from './ollama.js';
+export { LMStudioProvider } from './lmstudio.js';

@@ -33,6 +33,7 @@ export type {
 // ============================================================
 
 export { TaskCoordinator } from './task-coordinator.js';
+export { AgentServiceFactory, agentServiceFactory } from './factory.js';
 
 // ============================================================
 // 版本

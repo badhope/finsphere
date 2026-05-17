@@ -20,6 +20,10 @@ import { CompressionService } from '../services/compression-service.js';
 import { PersonalityManager } from '../agent/personality.js';
 import { EmotionalStateManager } from '../agent/emotional-state.js';
 
+// 导入 Agent 核心组件
+import { ContextManager } from '../agent/context-manager.js';
+import { AgentExecutor } from '../agent/core.js';
+
 // ============================================================
 // 依赖注入容器配置
 // ============================================================
@@ -73,12 +77,31 @@ export function registerServices(): void {
 }
 
 /**
+ * 注册 Agent 核心组件到 DI 容器
+ * Agent 组件以单例模式注册
+ */
+export function registerAgentServices(): void {
+  // ContextManager - 单例（默认 8000 tokens）
+  // 使用 useValue 注册预创建的实例
+  const contextManagerInstance = new ContextManager(8000);
+  container.register(TOKENS.ContextManager, { useValue: contextManagerInstance });
+
+  // AgentCore (AgentExecutor) - 每次创建新实例（因为需要传入 userInput）
+  // 注意：AgentExecutor 需要构造参数，这里注册为类提供者
+  container.register(TOKENS.AgentCore, { useClass: AgentExecutor });
+
+  // TaskPlanner - 使用函数形式，无需注册（planTask 是纯函数）
+  // StepExecutor - 使用函数形式，无需注册（executeStep 是纯函数）
+}
+
+/**
  * 初始化所有依赖注入注册
  * 在应用启动时调用
  */
 export function initializeContainer(): void {
   registerCoreServices();
   registerServices();
+  registerAgentServices();
 }
 
 /**
@@ -128,6 +151,11 @@ export function getPersonalityManager(): PersonalityManager {
 
 export function getEmotionalStateManager(): EmotionalStateManager {
   return container.resolve<EmotionalStateManager>(TOKENS.EmotionalStateManager);
+}
+
+// Agent 组件访问函数
+export function getContextManager(): ContextManager {
+  return container.resolve<ContextManager>(TOKENS.ContextManager);
 }
 
 // 导出容器实例（用于高级用例）
