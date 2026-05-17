@@ -10,7 +10,6 @@ import { agentLogger } from '../../services/logger.js';
 import { reasonStep } from '../reasoner.js';
 import { parseToolArgsFromAI } from '../agent-utils.js';
 import type { TaskStep, ToolResult, StepExecutionContext } from './types.js';
-import type { DecisionReflector } from '../decision-reflector.js';
 import chalk from 'chalk';
 
 /**
@@ -23,10 +22,6 @@ export interface ToolExecutionOptions {
   userInput: string;
   /** 任务意图 */
   intent?: string;
-  /** 决策反射器 */
-  decisionReflector: DecisionReflector;
-  /** 当前决策ID（用于更新） */
-  currentDecisionId?: string;
   /** 输出回调 */
   onOutput?: (text: string) => void;
   /** 获取上下文的函数 */
@@ -50,7 +45,7 @@ export async function executeToolStep(
   context: Record<string, unknown>,
   options: ToolExecutionOptions
 ): Promise<ToolResult> {
-  const { taskId, userInput, intent, decisionReflector, currentDecisionId, onOutput, getContext } = options;
+  const { taskId, userInput, intent, onOutput, getContext } = options;
 
   if (!step.tool) {
     return {
@@ -85,33 +80,8 @@ export async function executeToolStep(
   }
 
   try {
-    // 记录决策
-    const availableToolsList = [...toolRegistry.toolsMap.keys()];
-    const reasoning = `步骤 "${step.description}" 需要使用工具 "${step.tool}" 来完成`;
-
-    const newDecisionId = await decisionReflector.recordDecision(
-      taskId,
-      step.description,
-      { taskDescription: userInput, stepIndex },
-      availableToolsList.map(t => ({
-        id: t,
-        description: `工具: ${t}`,
-        pros: [],
-        cons: [],
-        risk: t === step.tool ? 0 : 0.5,
-        benefits: t === step.tool ? 1 : 0.5,
-      })),
-      step.tool,
-      reasoning,
-      0.8
-    );
-
-    // 更新当前决策ID
-    if (newDecisionId) {
-      options.currentDecisionId = newDecisionId;
-    }
-
-    agentLogger.debug({ taskId, decisionId: newDecisionId }, 'Decision recorded');
+    // 简化：移除复杂的决策记录，仅保留必要的日志
+    agentLogger.debug({ taskId, step: stepIndex, tool: step.tool }, 'Executing tool step');
 
     // 如果没有参数，使用AI推理参数
     if (!step.args || Object.keys(step.args).length === 0) {
@@ -135,22 +105,6 @@ export async function executeToolStep(
     const result = await executeToolWithArgs(step.tool, step.args);
     const duration = Date.now() - startTime;
 
-    // 记录决策结果
-    if (newDecisionId) {
-      await decisionReflector.recordOutcome(newDecisionId, {
-        success: result.success,
-        actualResult: result.output || result.error || '',
-        expectedResult: step.description,
-        gapAnalysis: result.success ? '' : `执行失败: ${result.error}`,
-        lessonsLearned: result.success ? [] : [`工具 ${step.tool} 执行失败: ${result.error}`],
-      });
-
-      agentLogger.debug(
-        { taskId, decisionId: newDecisionId, success: result.success },
-        'Decision outcome recorded'
-      );
-    }
-
     if (result.success) {
       onOutput?.(chalk.green(`  ✓ 完成: ${step.description}`));
       agentLogger.info({ taskId, step: stepIndex, tool: step.tool }, 'Tool step completed');
@@ -161,21 +115,6 @@ export async function executeToolStep(
     return { ...result, duration };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-
-    // 记录决策失败
-    if (options.currentDecisionId) {
-      try {
-        await decisionReflector.recordOutcome(options.currentDecisionId, {
-          success: false,
-          actualResult: errorMessage,
-          expectedResult: step.description,
-          gapAnalysis: `步骤执行失败: ${errorMessage}`,
-          lessonsLearned: [`工具 ${step.tool} 执行失败: ${errorMessage}`],
-        });
-      } catch {
-        // 决策记录失败不影响主流程
-      }
-    }
 
     agentLogger.error({ taskId, step: stepIndex, error: errorMessage }, 'Step execution failed');
 

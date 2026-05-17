@@ -22,7 +22,7 @@ export function detectShellContext(output: string): TrustIssue[] {
     if (pattern.test(output)) {
       issues.push({
         type: 'dangerous',
-        level: TrustLevel.HIGH,
+        level: TrustLevel.RequireConfirmation,
         description: desc,
         suggestion: ISSUE_TYPE_SUGGESTION['dangerous'],
       });
@@ -51,7 +51,7 @@ export function detectDatabaseContext(output: string): TrustIssue[] {
       if (!issues.some(i => i.description === desc)) {
         issues.push({
           type: 'destructive',
-          level: TrustLevel.MEDIUM,
+          level: TrustLevel.RequireConfirmation,
           description: desc,
           suggestion: '建议确认 SQL 语句正确，并在测试环境验证',
         });
@@ -81,7 +81,7 @@ export function detectFileContext(output: string): TrustIssue[] {
     if (pattern.test(output)) {
       issues.push({
         type: 'dangerous',
-        level: TrustLevel.HIGH,
+        level: TrustLevel.RequireConfirmation,
         description: desc,
         suggestion: '建议确认文件路径正确，避免误操作系统关键文件',
       });
@@ -108,7 +108,7 @@ export function detectNetworkContext(output: string): TrustIssue[] {
     if (pattern.test(output)) {
       issues.push({
         type: 'sensitive',
-        level: TrustLevel.HIGH,
+        level: TrustLevel.RequireConfirmation,
         description: desc,
         suggestion: ISSUE_TYPE_SUGGESTION['sensitive'],
       });

@@ -80,7 +80,7 @@ export interface ConfirmationOptions {
 // ==================== Trust Score Calculator ====================
 
 /**
- * 计算信任评分
+ * 计算信任评分 - 简化版
  *
  * 基于检测到的问题计算综合信任评分 (0-100)。
  * 评分越高表示越可信。
@@ -93,49 +93,21 @@ export function calculateTrustScore(issues: TrustIssue[]): number {
     return 100;
   }
 
-  // 基础分数
-  let score = 100;
+  // 简化：仅需确认的问题扣50分，其他不扣分
+  const requiresConfirmation = issues.some(
+    issue => issue.level === TrustLevel.RequireConfirmation
+  );
 
-  // 根据问题级别扣分
-  const penalties: Record<TrustLevel, number> = {
-    [TrustLevel.SAFE]: 0,
-    [TrustLevel.LOW]: 5,
-    [TrustLevel.MEDIUM]: 15,
-    [TrustLevel.HIGH]: 30,
-    [TrustLevel.CRITICAL]: 50,
-  };
-
-  // 计算总扣分
-  let totalPenalty = 0;
-  for (const issue of issues) {
-    totalPenalty += penalties[issue.level];
-  }
-
-  // 应用衰减系数（问题越多，每个问题的权重越高）
-  const decayFactor = 1 + Math.log10(1 + issues.length * 0.5);
-  const adjustedPenalty = totalPenalty * decayFactor;
-
-  // 计算最终分数
-  score = Math.max(0, Math.round(100 - adjustedPenalty));
-
-  return score;
+  return requiresConfirmation ? 50 : 100;
 }
 
 /**
- * 获取评分等级描述
+ * 获取评分等级描述 - 简化版
  */
 export function getScoreGrade(score: number): { grade: string; color: (text: string) => string } {
-  if (score >= 90) {
-    return { grade: 'A', color: chalk.green };
-  } else if (score >= 75) {
-    return { grade: 'B', color: chalk.hex('#90EE90') };
-  } else if (score >= 60) {
-    return { grade: 'C', color: chalk.yellow };
-  } else if (score >= 40) {
-    return { grade: 'D', color: chalk.hex('#FFA500') };
-  } else {
-    return { grade: 'F', color: chalk.red };
-  }
+  return score >= 100
+    ? { grade: '安全', color: chalk.green }
+    : { grade: '需确认', color: chalk.yellow };
 }
 
 // ==================== Core Functions ====================
@@ -161,7 +133,7 @@ export function generateTrustReport(issues: TrustIssue[]): TrustReport {
   // 如果没有问题，返回安全报告
   if (issues.length === 0) {
     return {
-      level: TrustLevel.SAFE,
+      level: TrustLevel.AutoExecute,
       summary: '未检测到信任问题，输出内容安全。',
       details: [],
       requiresConfirmation: false,
@@ -174,12 +146,9 @@ export function generateTrustReport(issues: TrustIssue[]): TrustReport {
     };
   }
 
-  // 确定最高风险级别
-  const maxLevel = issues.reduce(
-    (max, issue) => TRUST_LEVEL_WEIGHT[issue.level] > TRUST_LEVEL_WEIGHT[max]
-      ? issue.level
-      : max,
-    issues[0].level
+  // 简化：判断是否需要确认
+  const requiresConfirmation = issues.some(
+    issue => issue.level === TrustLevel.RequireConfirmation
   );
 
   // 统计问题
@@ -190,7 +159,9 @@ export function generateTrustReport(issues: TrustIssue[]): TrustReport {
     .map(([type, count]) => `${ISSUE_TYPE_LABEL[type as TrustIssue['type']]}${count}项`)
     .join('、');
 
-  const summary = `检测到 ${issues.length} 个信任问题（${typeSummary}），最高风险级别: ${TRUST_LEVEL_LABEL[maxLevel]}`;
+  const summary = requiresConfirmation
+    ? `检测到 ${issues.length} 个信任问题（${typeSummary}），需要用户确认`
+    : `检测到 ${issues.length} 个低风险问题（${typeSummary}），可自动执行`;
 
   // 生成详细问题列表
   const details = issues.map((issue, index) => {
@@ -205,10 +176,10 @@ export function generateTrustReport(issues: TrustIssue[]): TrustReport {
   const score = calculateTrustScore(issues);
 
   return {
-    level: maxLevel,
+    level: requiresConfirmation ? TrustLevel.RequireConfirmation : TrustLevel.AutoExecute,
     summary,
     details,
-    requiresConfirmation: shouldRequireConfirmation(issues),
+    requiresConfirmation,
     score,
     statistics,
   };
@@ -334,29 +305,15 @@ export function formatTrustOutput(output: string, issues: TrustIssue[]): string 
 }
 
 /**
- * 判断是否需要用户确认
+ * 判断是否需要用户确认 - 简化版
  *
- * 当检测到 MEDIUM 及以上级别的问题时，返回 true，表示需要用户确认。
- * SAFE 和 LOW 级别的问题不需要确认。
+ * 当检测到需要确认级别的问题时，返回 true。
  *
  * @param issues - 检测到的信任问题列表
  * @returns 是否需要用户确认
- *
- * @example
- * ```typescript
- * if (shouldRequireConfirmation(issues)) {
- *   const confirmed = await askUserConfirmation(report);
- *   if (!confirmed) {
- *     console.log('用户取消了操作');
- *     return;
- *   }
- * }
- * ```
  */
 export function shouldRequireConfirmation(issues: TrustIssue[]): boolean {
-  return issues.some(
-    issue => TRUST_LEVEL_WEIGHT[issue.level] >= TRUST_LEVEL_WEIGHT[TrustLevel.MEDIUM]
-  );
+  return issues.some(issue => issue.level === TrustLevel.RequireConfirmation);
 }
 
 /**
@@ -453,9 +410,10 @@ export async function askUserConfirmation(
 }
 
 /**
- * 高风险操作确认 - 专门用于高风险操作
+ * 高风险操作确认 - 简化版
  *
- * 对于 CRITICAL 级别的问题，需要用户明确输入确认文本。
+ * 对于需要确认的操作，使用标准确认流程。
+ * 已移除 CRITICAL 级别的特殊处理。
  *
  * @param report - 信任报告对象
  * @param confirmText - 需要输入的确认文本
@@ -465,51 +423,8 @@ export async function askHighRiskConfirmation(
   report: TrustReport,
   confirmText: string = 'CONFIRM'
 ): Promise<boolean> {
-  // 非交互模式下默认拒绝
-  if (!process.stdin.isTTY) {
-    console.log(chalk.red('[非交互模式] 检测到高风险操作，默认拒绝。'));
-    return false;
-  }
-
-  // 显示警告
-  console.log('');
-  console.log(chalk.red.bold('═══════════════════════════════════════'));
-  console.log(chalk.red.bold('  ⚠️  高风险操作警告  ⚠️'));
-  console.log(chalk.red.bold('═══════════════════════════════════════'));
-  console.log('');
-  console.log(chalk.red('  检测到以下高风险问题：'));
-  console.log('');
-
-  // 只显示高风险和危险级别的问题
-  const highRiskIssues = report.details.filter(d =>
-    d.includes('[危险]') || d.includes('[高风险]')
-  );
-  for (const detail of highRiskIssues) {
-    console.log('  ' + chalk.red(detail));
-  }
-
-  console.log('');
-  console.log(chalk.yellow(`  请输入 "${confirmText}" 以确认执行此高风险操作：`));
-  console.log('');
-
-  try {
-    const { input } = await inquirer.prompt([{
-      type: 'input',
-      name: 'input',
-      message: '确认输入',
-    }]);
-
-    if (input === confirmText) {
-      console.log(chalk.green('  用户已确认高风险操作，继续执行。'));
-      return true;
-    } else {
-      console.log(chalk.yellow('  输入不匹配，操作已取消。'));
-      return false;
-    }
-  } catch {
-    console.log(chalk.yellow('\n  用户中断，操作已取消。'));
-    return false;
-  }
+  // 简化：直接使用标准确认流程
+  return askUserConfirmation(report, { customMessage: `请输入 "${confirmText}" 以确认执行此操作：` });
 }
 
 // ==================== Convenience Functions ====================
@@ -544,13 +459,7 @@ export async function performTrustCheck(
     return { issues, report, confirmed: options?.skipConfirmation ? true : null };
   }
 
-  // 对于高风险操作，使用高风险确认
-  if (report.level === TrustLevel.CRITICAL) {
-    const confirmed = await askHighRiskConfirmation(report);
-    return { issues, report, confirmed };
-  }
-
-  // 普通确认
+  // 需要用户确认
   const confirmed = await askUserConfirmation(report, options);
   return { issues, report, confirmed };
 }

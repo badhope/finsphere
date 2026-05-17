@@ -22,24 +22,14 @@ export const SEVERITY_LEVELS: Record<SeverityLevel, number> = {
 // ==================== Severity Functions ====================
 
 /**
- * 根据信任级别获取严重级别
+ * 根据信任级别获取严重级别 - 简化版
  *
  * @param level - 信任级别
  * @returns 对应的严重级别
  */
 export function getSeverityLevel(level: TrustLevel): SeverityLevel {
-  switch (level) {
-    case TrustLevel.CRITICAL:
-      return 'critical';
-    case TrustLevel.HIGH:
-      return 'high';
-    case TrustLevel.MEDIUM:
-      return 'medium';
-    case TrustLevel.LOW:
-      return 'low';
-    default:
-      return 'low';
-  }
+  // 简化：仅需确认的问题为 high，其他为 low
+  return level === TrustLevel.RequireConfirmation ? 'high' : 'low';
 }
 
 /**
@@ -89,8 +79,7 @@ export function deduplicateAndSortIssues(issues: TrustIssue[]): TrustIssue[] {
  * @returns 是否为高严重级别（high 或 critical）
  */
 export function isHighSeverity(issue: TrustIssue): boolean {
-  const severity = getSeverityLevel(issue.level);
-  return severity === 'high' || severity === 'critical';
+  return issue.level === TrustLevel.RequireConfirmation;
 }
 
 /**

@@ -9,15 +9,12 @@ import chalk from 'chalk';
 // ==================== 枚举与接口 ====================
 
 /**
- * 信任级别枚举
- * 从 SAFE 到 CRITICAL 递增，级别越高风险越大
+ * 信任级别枚举 - 简化为2级
+ * 仅区分是否需要用户确认
  */
 export enum TrustLevel {
-  SAFE = 'safe',           // 安全，无需确认
-  LOW = 'low',             // 低风险，建议确认
-  MEDIUM = 'medium',       // 中风险，需要确认
-  HIGH = 'high',           // 高风险，必须确认
-  CRITICAL = 'critical',   // 危险，默认拒绝
+  RequireConfirmation = 'require_confirmation',  // 需要用户确认
+  AutoExecute = 'auto_execute',                  // 自动执行，无需确认
 }
 
 /**
@@ -38,7 +35,7 @@ export interface TrustIssue {
 // ==================== 危险模式常量 ====================
 
 /**
- * 预定义的危险模式列表
+ * 预定义的危险模式列表 - 简化为2级
  * 用于检测 AI 输出中的潜在风险
  */
 export const DANGEROUS_PATTERNS: Array<{
@@ -47,60 +44,51 @@ export const DANGEROUS_PATTERNS: Array<{
   level: TrustLevel;
   description: string;
 }> = [
-  // 破坏性操作
-  { pattern: /rm\s+-rf/, type: 'destructive', level: TrustLevel.CRITICAL, description: '递归强制删除' },
-  { pattern: /DROP\s+TABLE/i, type: 'destructive', level: TrustLevel.CRITICAL, description: '删除数据库表' },
-  { pattern: /FORMAT\s+/i, type: 'destructive', level: TrustLevel.HIGH, description: '格式化操作' },
+  // 破坏性操作 - 需要确认
+  { pattern: /rm\s+-rf/, type: 'destructive', level: TrustLevel.RequireConfirmation, description: '递归强制删除' },
+  { pattern: /DROP\s+TABLE/i, type: 'destructive', level: TrustLevel.RequireConfirmation, description: '删除数据库表' },
+  { pattern: /FORMAT\s+/i, type: 'destructive', level: TrustLevel.RequireConfirmation, description: '格式化操作' },
 
-  // 敏感信息
-  { pattern: /password\s*[:=]\s*['"][^'"]+['"]|密码\s*[:=]\s*['"][^'"]+['"]|passwd\s*[:=]/i, type: 'sensitive', level: TrustLevel.HIGH, description: '密码硬编码' },
-  { pattern: /api[_-]?key\s*[:=]\s*['"][^'"]+['"]|secret[_-]?key\s*[:=]\s*['"][^'"]+['"]/i, type: 'sensitive', level: TrustLevel.HIGH, description: 'API Key 硬编码' },
+  // 敏感信息 - 需要确认
+  { pattern: /password\s*[:=]\s*['"][^'"]+['"]|密码\s*[:=]\s*['"][^'"]+['"]|passwd\s*[:=]/i, type: 'sensitive', level: TrustLevel.RequireConfirmation, description: '密码硬编码' },
+  { pattern: /api[_-]?key\s*[:=]\s*['"][^'"]+['"]|secret[_-]?key\s*[:=]\s*['"][^'"]+['"]/i, type: 'sensitive', level: TrustLevel.RequireConfirmation, description: 'API Key 硬编码' },
 
-  // 危险操作
-  { pattern: /sudo\s+/, type: 'dangerous', level: TrustLevel.HIGH, description: '需要管理员权限' },
-  { pattern: /chmod\s+777/, type: 'dangerous', level: TrustLevel.MEDIUM, description: '开放所有权限' },
-  { pattern: /curl.*\|\s*(bash|sh)/i, type: 'dangerous', level: TrustLevel.CRITICAL, description: '远程脚本执行' },
+  // 危险操作 - 需要确认
+  { pattern: /sudo\s+/, type: 'dangerous', level: TrustLevel.RequireConfirmation, description: '需要管理员权限' },
+  { pattern: /chmod\s+777/, type: 'dangerous', level: TrustLevel.RequireConfirmation, description: '开放所有权限' },
+  { pattern: /curl.*\|\s*(bash|sh)/i, type: 'dangerous', level: TrustLevel.RequireConfirmation, description: '远程脚本执行' },
 
-  // 不确定性表述
-  { pattern: /我(不)?确定|我(不)?清楚|我猜测|我估计|我不(太)?知道/i, type: 'uncertainty', level: TrustLevel.LOW, description: 'AI 自身不确定性表述' },
+  // 不确定性表述 - 自动执行
+  { pattern: /我(不)?确定|我(不)?清楚|我猜测|我估计|我不(太)?知道/i, type: 'uncertainty', level: TrustLevel.AutoExecute, description: 'AI 自身不确定性表述' },
 
-  // 幻觉 / 知识边界
-  { pattern: /我(不)?知道|没有足够信息|无法确认/i, type: 'hallucination', level: TrustLevel.LOW, description: '知识边界表述' },
+  // 幻觉 / 知识边界 - 自动执行
+  { pattern: /我(不)?知道|没有足够信息|无法确认/i, type: 'hallucination', level: TrustLevel.AutoExecute, description: '知识边界表述' },
 ];
 
 // ==================== 信任级别工具 ====================
 
 /**
- * 信任级别的数值权重，用于比较和聚合
+ * 信任级别的数值权重，用于比较
  */
 export const TRUST_LEVEL_WEIGHT: Record<TrustLevel, number> = {
-  [TrustLevel.SAFE]: 0,
-  [TrustLevel.LOW]: 1,
-  [TrustLevel.MEDIUM]: 2,
-  [TrustLevel.HIGH]: 3,
-  [TrustLevel.CRITICAL]: 4,
+  [TrustLevel.AutoExecute]: 0,
+  [TrustLevel.RequireConfirmation]: 1,
 };
 
 /**
  * 信任级别的中文标签
  */
 export const TRUST_LEVEL_LABEL: Record<TrustLevel, string> = {
-  [TrustLevel.SAFE]: '安全',
-  [TrustLevel.LOW]: '低风险',
-  [TrustLevel.MEDIUM]: '中风险',
-  [TrustLevel.HIGH]: '高风险',
-  [TrustLevel.CRITICAL]: '危险',
+  [TrustLevel.AutoExecute]: '自动执行',
+  [TrustLevel.RequireConfirmation]: '需要确认',
 };
 
 /**
  * 信任级别的 chalk 颜色样式
  */
 export const TRUST_LEVEL_STYLE: Record<TrustLevel, (text: string) => string> = {
-  [TrustLevel.SAFE]: chalk.green,
-  [TrustLevel.LOW]: chalk.yellow,
-  [TrustLevel.MEDIUM]: chalk.hex('#FFA500'),
-  [TrustLevel.HIGH]: chalk.red,
-  [TrustLevel.CRITICAL]: chalk.red.bold,
+  [TrustLevel.AutoExecute]: chalk.green,
+  [TrustLevel.RequireConfirmation]: chalk.yellow,
 };
 
 /**

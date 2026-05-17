@@ -17,7 +17,7 @@ import type { MemoryManager } from '../memory/manager.js';
 import { KnowledgeGraph } from '../memory/knowledgeGraph.js';
 import { reasonWithSelfCorrection } from './reasoner.js';
 import { DecisionReflector } from './decision-reflector.js';
-import { detectIssues, generateTrustReport, askUserConfirmation } from './trust.js';
+import { detectIssues, generateTrustReport, askUserConfirmation, TrustLevel } from './trust.js';
 import { ContextManager } from './context-manager.js';
 import { ContextBuilder, type KnowledgeEntry } from './context-builder.js';
 import { ChangeControlManager } from './change-control.js';
@@ -89,7 +89,6 @@ export class AgentExecutor {
   private rootDir: string;
   private builtContext: string = '';
   private decisionReflector: DecisionReflector;
-  private currentDecisionId?: string;
   private experienceStore: ExperienceStore;
   private personalityManager: PersonalityManager;
   private emotionalState: EmotionalStateManager;
@@ -184,22 +183,29 @@ export class AgentExecutor {
    * 初始化：加载配置和经验
    */
   private async initialize(): Promise<void> {
-    // 加载人格配置
+    // 情绪衰减（同步）
+    this.emotionalState.decay();
+
+    // 并行加载非关键系统
+    const loaders = [
+      this.loadPersonality(),
+      this.decisionReflector.load(),
+      this.loadExperience(),
+    ];
+
+    await Promise.allSettled(loaders);
+  }
+
+  private async loadPersonality(): Promise<void> {
     try {
       await this.personalityManager.load();
       this.personalityManager.incrementInteractions();
-    } catch (error) {
-      agentLogger.debug({ error: error instanceof Error ? error.message : String(error) },
-        'Personality loading failed (non-critical)');
+    } catch {
+      // non-critical
     }
+  }
 
-    // 情绪衰减
-    this.emotionalState.decay();
-
-    // 加载决策历史
-    await this.decisionReflector.load();
-
-    // 加载历史经验
+  private async loadExperience(): Promise<void> {
     try {
       await this.experienceStore.load();
       this.behaviorGuidelines = await this.experienceStore.generateBehaviorGuidelines();
@@ -209,11 +215,8 @@ export class AgentExecutor {
           'Loaded experience-based behavior guidelines'
         );
       }
-    } catch (error) {
-      agentLogger.debug(
-        { taskId: this.task.id, error: error instanceof Error ? error.message : String(error) },
-        'Experience loading failed (non-critical)'
-      );
+    } catch {
+      this.behaviorGuidelines = '';
     }
   }
 
@@ -312,59 +315,13 @@ export class AgentExecutor {
       this.onStepChange?.(step);
 
       try {
-        let result: ToolResult;
-
-        if (step.tool) {
-          // 执行工具步骤
-          result = await executeToolStep(step, i, context, {
-            taskId: this.task.id,
-            userInput: this.task.userInput,
-            intent: this.task.intent ?? 'general',
-            decisionReflector: this.decisionReflector,
-            currentDecisionId: this.currentDecisionId,
-            onOutput: this.output.bind(this),
-            getContext: () => this.getContextWithBuiltContext(),
-          });
-
-          // 更新当前决策ID
-          if (result.success) {
-            step.result = result.output;
-            await this.contextManager.addToolResult(step.tool, step.result ?? '', true);
-
-            // 追踪文件变更
-            if (step.tool === 'write_file' && step.args?.path) {
-              this.changedFiles.push(String(step.args.path));
-            }
-          } else {
-            throw new Error(result.error || '工具执行失败');
-          }
-        } else if (step.description.includes('反思')) {
-          // 反思步骤跳过（后面统一处理）
-          step.result = '(反思步骤将在最后统一处理)';
-          step.status = 'done';
-          this.onStepChange?.(step);
-          continue;
-        } else {
-          // 推理步骤
-          result = await executeReasoningStep(step, i, {
-            taskId: this.task.id,
-            userInput: this.task.userInput,
-            intent: this.task.intent,
-            decisionReflector: this.decisionReflector,
-            onOutput: this.output.bind(this),
-            getContext: () => this.getContextWithBuiltContext(),
-          });
-
-          if (result.success) {
-            step.result = result.output;
-          } else {
-            throw new Error(result.error || '推理失败');
-          }
+        const result = await this.executeStep(step, i, context);
+        if (!result.success) {
+          throw new Error(result.error || '步骤执行失败');
         }
 
-        // 信任检查
+        await this.handleStepSuccess(step, result);
         await this.performTrustCheck(step);
-
         step.status = 'done';
       } catch (error) {
         const success = await this.handleStepError(step, error, i);
@@ -375,6 +332,54 @@ export class AgentExecutor {
     }
 
     return true;
+  }
+
+  /**
+   * 执行单个步骤
+   */
+  private async executeStep(
+    step: TaskStep,
+    stepIndex: number,
+    context: Record<string, unknown>
+  ): Promise<ToolResult> {
+    // 反思步骤跳过
+    if (step.description.includes('反思')) {
+      return { success: true, output: '(反思步骤将在最后统一处理)' };
+    }
+
+    const commonOptions = {
+      taskId: this.task.id,
+      userInput: this.task.userInput,
+      onOutput: this.output.bind(this),
+      getContext: () => this.getContextWithBuiltContext(),
+    };
+
+    if (step.tool) {
+      return executeToolStep(step, stepIndex, context, {
+        ...commonOptions,
+        intent: this.task.intent ?? 'general',
+      });
+    }
+
+    return executeReasoningStep(step, stepIndex, {
+      ...commonOptions,
+      intent: this.task.intent,
+    });
+  }
+
+  /**
+   * 处理步骤成功
+   */
+  private async handleStepSuccess(step: TaskStep, result: ToolResult): Promise<void> {
+    step.result = result.output;
+
+    if (step.tool) {
+      await this.contextManager.addToolResult(step.tool, step.result ?? '', true);
+
+      if (step.tool === 'write_file' && step.args?.path) {
+        this.changedFiles.push(String(step.args.path));
+      }
+    }
   }
 
   /**
@@ -401,9 +406,9 @@ export class AgentExecutor {
         }
         this.output(chalk.green(`  ✓ 用户确认通过`));
       } else {
-        const lowIssues = issues.filter(issue => issue.level === 'low');
-        if (lowIssues.length > 0) {
-          this.output(chalk.dim(`  ℹ 信任提示: ${lowIssues.map(issue => issue.description).join(', ')}`));
+        const autoExecuteIssues = issues.filter(issue => issue.level === TrustLevel.AutoExecute);
+        if (autoExecuteIssues.length > 0) {
+          this.output(chalk.dim(`  ℹ 信任提示: ${autoExecuteIssues.map(issue => issue.description).join(', ')}`));
         }
       }
     }
@@ -510,7 +515,7 @@ export class AgentExecutor {
       }
 
       // 学习循环
-      await this.learnFromExperience(taskReflection.overallRating);
+      await this.learnFromExperience(taskReflection);
     } catch (error) {
       agentLogger.warn(
         { taskId: this.task.id, error: error instanceof Error ? error.message : String(error) },
@@ -522,7 +527,12 @@ export class AgentExecutor {
   /**
    * 从经验中学习
    */
-  private async learnFromExperience(overallRating: number): Promise<void> {
+  private async learnFromExperience(taskReflection: {
+    improvements: Array<{ recommendation: string }>;
+    failures: string[];
+    successes: string[];
+    overallRating: number;
+  }): Promise<void> {
     try {
       const improvementReport = await this.decisionReflector.generateImprovementReport();
       if (improvementReport) {
@@ -540,12 +550,8 @@ export class AgentExecutor {
         reasoning: d.rationale,
       }));
 
-      const taskReflection = await this.decisionReflector.reflectOnTask(
-        this.task.id,
-        this.task.userInput,
-        ''
-      );
-
+      // 使用 performTaskReflection 中已获取的 taskReflection
+      // 避免重复调用 reflectOnTask
       const improvements = taskReflection.improvements.map(i => i.recommendation);
       const patterns: string[] = [];
       if (taskReflection.failures.length > 0) {
@@ -560,7 +566,7 @@ export class AgentExecutor {
       const errorCount = this.task.steps.filter(s => s.status === 'error').length;
 
       let emotionalTone: Experience['emotionalTone'] = 'neutral';
-      if (allSuccess && overallRating >= 0.8) emotionalTone = 'excited';
+      if (allSuccess && taskReflection.overallRating >= 0.8) emotionalTone = 'excited';
       else if (allSuccess) emotionalTone = 'confident';
       else if (errorCount > 0) emotionalTone = 'frustrated';
       else if (hasFailures) emotionalTone = 'cautious';

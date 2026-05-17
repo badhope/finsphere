@@ -82,7 +82,6 @@ export class AgentServiceFactory implements IAgentServiceFactory {
           intent: context.intent,
           onOutput: context.onOutput,
           getContext: async () => [],
-          decisionReflector: reflector,
         });
       },
       executeReasoningStep: async (step: TaskStep, context): Promise<ToolResult> => {
@@ -93,7 +92,6 @@ export class AgentServiceFactory implements IAgentServiceFactory {
           intent: context.intent,
           onOutput: context.onOutput,
           getContext: async () => [],
-          decisionReflector: reflector,
         });
       },
       requiresConfirmation: (step: TaskStep): boolean => {
