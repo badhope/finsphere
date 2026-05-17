@@ -1,4 +1,6 @@
-import { Graph, alg } from 'graphlib';
+import graphlib from 'graphlib';
+import type { Graph as GraphType } from 'graphlib';
+const { Graph, alg } = graphlib;
 
 /**
  * 图节点属性类型
@@ -47,7 +49,7 @@ interface DijkstraInfo {
  * 基于 graphlib 提供清晰的图操作 API
  */
 export class GraphWrapper {
-  private graph: Graph;
+  private graph: GraphType;
 
   /**
    * 创建图实例
@@ -395,7 +397,7 @@ export class GraphWrapper {
   /**
    * 获取底层 graphlib 实例（高级用法）
    */
-  getUnderlyingGraph(): Graph {
+  getUnderlyingGraph(): GraphType {
     return this.graph;
   }
 

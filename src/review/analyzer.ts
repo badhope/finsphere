@@ -65,7 +65,7 @@ export class CodeAnalyzer {
     limitedIssues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
     // 计算代码指标
-    const metrics = calculateMetrics(content, filePath);
+    const metrics = await calculateMetrics(content, filePath);
 
     return {
       filePath,

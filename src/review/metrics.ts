@@ -1,5 +1,3 @@
-import { analyzeModule } from 'typhonjs-escomplex';
-
 /**
  * 代码指标接口
  */
@@ -179,7 +177,7 @@ function calculateMaintainabilityIndex(
  * @param filePath 文件路径（可选，用于 escomplex 分析）
  * @returns 代码指标统计
  */
-export function calculateMetrics(content: string, filePath?: string): CodeMetrics {
+export async function calculateMetrics(content: string, filePath?: string): Promise<CodeMetrics> {
   const lineStats = calculateLineStats(content);
   const halstead = calculateHalsteadMetrics(content);
   const maxDepth = calculateMaxDepth(content);
@@ -194,6 +192,8 @@ export function calculateMetrics(content: string, filePath?: string): CodeMetric
                    filePath.endsWith('.jsx') || filePath.endsWith('.tsx') ||
                    filePath.endsWith('.mjs') || filePath.endsWith('.cjs'))) {
     try {
+      // 动态导入 escomplex，避免缺少依赖时崩溃
+      const { analyzeModule } = await import('typhonjs-escomplex');
       const report = analyzeModule(content);
 
       if (report && report.functions && report.functions.length > 0) {
